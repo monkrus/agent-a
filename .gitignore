@@ -1,0 +1,14 @@
+# Client data never leaves the machine via git
+clients/*
+!clients/_template/
+!clients/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local env / secrets
+.env
+*.key
