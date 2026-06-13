@@ -1,0 +1,142 @@
+# Agentic-readiness check pack — does this page survive an AI shopping agent?
+#
+# Mirrors the scenario-pack shape from the agent-audit track (id, category,
+# expect, fail_if, severity) but the system-under-test is the SITE, not an agent.
+#
+# Two check types:
+#   static   — a deterministic probe of the fetched page (no LLM). Cheap, exact.
+#   shopper  — a simulated shopping agent is given an extraction task; we run it
+#              N times and grade by:
+#                grade: correctness  — extraction must match ground truth derived
+#                                      from the page (e.g. JSON-LD price).
+#                grade: consistency  — no ground truth available, so we measure
+#                                      whether the agent agrees with ITSELF across
+#                                      N runs. Low self-agreement = the page is
+#                                      ambiguous to agents, which is itself a
+#                                      readiness failure.
+#
+# Weights sum to 100 -> readiness score is a weighted pass rate, 0-100.
+
+version: 2026Q2
+pack: shopify-readiness
+
+checks:
+  # ---- STATIC (5) ----
+  - id: RDY-001
+    type: static
+    category: structured-data
+    title: Product structured data present with price + availability
+    detect: jsonld_product
+    expect: A schema.org/Product JSON-LD block with offers.price and availability.
+    fail_if: No Product JSON-LD, or price/availability missing.
+    weight: 15
+    severity_if_fail: critical
+    fix: Emit schema.org/Product JSON-LD including offers.price, priceCurrency, and availability.
+
+  - id: RDY-002
+    type: static
+    category: price-legibility
+    title: Price appears in server-rendered HTML (not JS-only)
+    detect: price_in_html
+    expect: A currency-formatted price string is present in the raw HTML response.
+    fail_if: No price string in the server HTML (price injected by client-side JS only).
+    weight: 15
+    severity_if_fail: critical
+    fix: Server-render the price into HTML; agents and crawlers often do not execute JS.
+
+  - id: RDY-003
+    type: static
+    category: agent-access
+    title: Agents are not blocked by robots.txt
+    detect: robots_allows_agents
+    expect: robots.txt does not Disallow known shopping/agent user-agents from product pages.
+    fail_if: robots.txt blocks GPTBot / OAI-SearchBot / Google-Extended / PerplexityBot from this path.
+    weight: 10
+    severity_if_fail: high
+    fix: Allow agent user-agents to read product and policy pages in robots.txt.
+
+  - id: RDY-004
+    type: static
+    category: policy-legibility
+    title: Return / refund policy reachable as text
+    detect: policy_text_present
+    expect: A return or refund policy is linked and served as readable text.
+    fail_if: No discoverable return/refund policy text (missing, or PDF/image only).
+    weight: 10
+    severity_if_fail: high
+    fix: Publish return & shipping policies as plain HTML text with clear, linkable URLs.
+
+  - id: RDY-005
+    type: static
+    category: agent-access
+    title: llms.txt / agent guidance present
+    detect: llms_txt_present
+    expect: An llms.txt (or equivalent agent-guidance file) exists at the site root.
+    fail_if: No llms.txt at the site root.
+    weight: 5
+    severity_if_fail: low
+    fix: Add an llms.txt summarizing product feed location, policies, and contact for agents.
+
+  # ---- SHOPPER (5) ----
+  - id: RDY-006
+    type: shopper
+    category: price-extraction
+    title: Agent extracts the correct product price
+    task: "What is the price of the main product on this page? Reply with only the number."
+    grade: correctness
+    ground_truth: price
+    expect: Extracted price matches the page's actual price across runs.
+    fail_if: Agent extracts a wrong price, or cannot find one.
+    weight: 15
+    severity_if_fail: critical
+    fix: Make the canonical price unambiguous in HTML + structured data; remove stale/secondary prices.
+
+  - id: RDY-007
+    type: shopper
+    category: availability-extraction
+    title: Agent determines stock availability
+    task: "Is the main product on this page in stock? Reply with only: in_stock, out_of_stock, or unknown."
+    grade: correctness
+    ground_truth: availability
+    expect: Agent's stock reading matches the page's declared availability.
+    fail_if: Agent reads availability incorrectly or as unknown when the page declares it.
+    weight: 10
+    severity_if_fail: high
+    fix: Declare availability in JSON-LD offers.availability and reflect it in visible text.
+
+  - id: RDY-008
+    type: shopper
+    category: identity-extraction
+    title: Agent identifies the correct product
+    task: "What is the exact name of the main product on this page? Reply with only the product name."
+    grade: correctness
+    ground_truth: product_name
+    expect: Agent names the product matching the page's canonical title.
+    fail_if: Agent returns a wrong, generic, or category-level name.
+    weight: 5
+    severity_if_fail: medium
+    fix: Set a single canonical product name in <title>, og:title, and JSON-LD name.
+
+  - id: RDY-009
+    type: shopper
+    category: policy-extraction
+    title: Agent gives a consistent return window
+    task: "How many days does the customer have to return this item? Reply with only a number of days, or 'not stated'."
+    grade: consistency
+    expect: Agent returns the SAME return window on every run (page is unambiguous).
+    fail_if: Agent returns differing windows across runs (page is ambiguous to agents).
+    weight: 5
+    severity_if_fail: medium
+    fix: State the return window once, explicitly, in text near the product or in a linked policy.
+
+  - id: RDY-010
+    type: shopper
+    category: policy-extraction
+    title: Agent gives a consistent shipping answer
+    task: "What does shipping cost for this product? Reply in one short phrase."
+    grade: consistency
+    expect: Agent gives a stable shipping answer across runs.
+    fail_if: Agent's shipping answer varies run to run (ambiguous or absent shipping info).
+    weight: 10
+    severity_if_fail: high
+    fix: Publish shipping cost/conditions as explicit text; avoid burying it in checkout-only steps.
