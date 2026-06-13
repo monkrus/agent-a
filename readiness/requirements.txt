@@ -1,0 +1,10 @@
+# Core
+pyyaml>=6.0
+requests>=2.28
+
+# Web frontend (free-score page)
+flask>=3.0
+stripe>=7.0
+
+# Optional: real shopper backend (not needed for mock mode)
+# anthropic>=0.30

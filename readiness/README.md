@@ -30,27 +30,51 @@ checks/shopify-v1.yaml   The check pack (static + shopper). Versioned like scena
 fetch.py                 Adapter: URL or local .html -> normalized page dict.
 shopper.py               Simulated shopping agent. SHOPPER=mock|anthropic.
 scorers.py               Static probes + shopper grading (correctness | consistency).
-scan.py                  Runner: fetch once -> run checks -> weighted score 0-100.
-report_template.md       Free-score block + paid full report.
+scan.py                  CLI runner: fetch once -> run checks -> weighted score 0-100.
+app.py                   Flask web app: URL in -> free score -> paid full report (Stripe).
+templates/               Jinja2 templates for the web frontend.
+static/style.css         Minimal dark-theme stylesheet.
+report_template.md       Report skeleton (free-score block + paid full report).
 sample_page.html         Offline fixture (deliberately agent-hostile).
+requirements.txt         Python dependencies.
+.scans/                  Per-scan result JSON (gitignored, like clients/).
 ```
 
 ## Run it
 
-Smoke test (offline, no creds — proves the pipeline):
+### CLI (single scan, offline smoke test)
 ```bash
 cd readiness
 SHOPPER=mock python scan.py --checks checks/shopify-v1.yaml \
     --target sample_page.html --n 10 --out /tmp/scan1
 ```
 
-Against a real page:
+### CLI against a real page
 ```bash
 export SHOPPER=anthropic
 export ANTHROPIC_API_KEY=sk-...
 python scan.py --checks checks/shopify-v1.yaml \
     --target https://store.example/products/the-thing --n 10 --out /tmp/scan1
 ```
+
+### Web app (the product surface)
+```bash
+pip install -r requirements.txt
+SHOPPER=mock python app.py                    # demo mode, no creds needed
+# then open http://localhost:5000
+```
+
+For production with Stripe:
+```bash
+export SHOPPER=anthropic
+export ANTHROPIC_API_KEY=sk-...
+export STRIPE_SECRET_KEY=sk_live_...
+export STRIPE_PRICE_ID=price_...              # one-time $49 price object
+export FLASK_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
+python app.py
+```
+
+Without `STRIPE_SECRET_KEY`, the "Unlock" button auto-unlocks the report (demo mode).
 
 ## Check types
 - **static** — deterministic probe of the page (JSON-LD, price-in-HTML,

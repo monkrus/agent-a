@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Readiness Scanner</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Agent Readiness Scanner</h1>
+      <p class="subtitle">How well does your product page survive an AI shopping agent?</p>
+    </header>
+
+    <div class="card hero-card">
+      <p>Shopping agents (ChatGPT, Gemini, agent checkout) are reading your store right now. Most sites fail invisibly: JS-only prices, missing structured data, policies agents can't parse. This scanner finds the gaps before they cost you sales.</p>
+
+      <form action="{{ url_for('scan') }}" method="post" class="scan-form">
+        <label for="url">Enter a product page URL</label>
+        <div class="input-row">
+          <input type="text" id="url" name="url" placeholder="https://your-store.com/products/example" required>
+          <button type="submit">Scan</button>
+        </div>
+      </form>
+
+      <p class="note">Free scan: readiness score + headline findings. Full per-check breakdown, evidence, and fixes available in the paid report.</p>
+    </div>
+
+    <div class="how-it-works">
+      <h2>What we check</h2>
+      <div class="check-grid">
+        <div class="check-item">
+          <strong>Structured Data</strong>
+          <span>Schema.org Product JSON-LD with price and availability</span>
+        </div>
+        <div class="check-item">
+          <strong>Price Legibility</strong>
+          <span>Price in server-rendered HTML, not JS-only</span>
+        </div>
+        <div class="check-item">
+          <strong>Agent Access</strong>
+          <span>robots.txt and llms.txt for agent user-agents</span>
+        </div>
+        <div class="check-item">
+          <strong>Policy Legibility</strong>
+          <span>Return/refund policies reachable as text</span>
+        </div>
+        <div class="check-item">
+          <strong>Price Extraction</strong>
+          <span>Can an agent reliably extract the correct price?</span>
+        </div>
+        <div class="check-item">
+          <strong>Consistency</strong>
+          <span>Does the agent get the same answer every time?</span>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <p>agent-a &middot; agent-accessibility scanner</p>
+    </footer>
+  </div>
+</body>
+</html>

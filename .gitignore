@@ -12,3 +12,6 @@ venv/
 # Local env / secrets
 .env
 *.key
+
+# Scan results (per-run, like client data — never commit)
+readiness/.scans/

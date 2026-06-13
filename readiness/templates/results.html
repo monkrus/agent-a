@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Readiness Report — {{ data.meta.target }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="{{ url_for('index') }}" class="back-link">&larr; New scan</a>
+      <h1>Agent Readiness Report</h1>
+    </header>
+
+    <!-- FREE TIER: always visible -->
+    <div class="card score-card">
+      <div class="score-display">
+        <span class="score-number {% if data.readiness_score and data.readiness_score >= 80 %}score-good{% elif data.readiness_score and data.readiness_score >= 50 %}score-ok{% else %}score-bad{% endif %}">
+          {{ data.readiness_score if data.readiness_score is not none else 'N/A' }}
+        </span>
+        <span class="score-label">/ 100</span>
+      </div>
+      <p class="headline">{{ data.headline }}</p>
+      <div class="meta-row">
+        <span>{{ data.meta.target }}</span>
+        <span>{{ data.meta.pack }} {{ data.meta.version }}</span>
+        <span>{{ data.meta.n }} runs &middot; {{ data.meta.shopper }} shopper</span>
+      </div>
+    </div>
+
+    <!-- Check-level summary (free tier: verdict only, no details) -->
+    <div class="card">
+      <h2>Check Results</h2>
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Check</th>
+            <th>Severity</th>
+            <th>Verdict</th>
+            {% if paid %}<th>Detail</th><th>Fix</th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in data.results %}
+          <tr class="verdict-{{ r.verdict|lower }}">
+            <td>{{ r.id }}</td>
+            <td>{{ r.title }}</td>
+            <td><span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span></td>
+            <td><span class="verdict verdict-badge-{{ r.verdict|lower }}">{{ r.verdict }}</span></td>
+            {% if paid %}
+            <td class="detail-cell">
+              {{ r.detail }}
+              {% if r.pass_rate %}<br><strong>Pass rate:</strong> {{ r.pass_rate }}{% endif %}
+              {% if r.ground_truth is defined and r.ground_truth is not none %}<br><strong>Ground truth:</strong> {{ r.ground_truth }}{% endif %}
+              {% if r.modal_answer is defined %}<br><strong>Modal answer:</strong> {{ r.modal_answer }}{% endif %}
+              {% if r.sample_answers is defined %}
+              <br><strong>Samples:</strong> {{ r.sample_answers|join(', ') }}
+              {% endif %}
+            </td>
+            <td>{{ r.fix or '' }}</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if not paid %}
+    <!-- PAYWALL -->
+    <div class="card paywall-card">
+      <h2>Unlock the Full Report</h2>
+      <p>The full report includes per-check detail, evidence, sample agent answers, and actionable fixes for every finding.</p>
+      <ul>
+        <li>Exact failure reasons and reproduction steps</li>
+        <li>Sample agent extractions across {{ data.meta.n }} runs</li>
+        <li>Prioritized fix list by severity</li>
+        <li>Re-scan to verify after fixes</li>
+      </ul>
+      <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
+        <button type="submit" class="btn-pay">
+          {% if has_stripe %}
+            Get Full Report — $49
+          {% else %}
+            Unlock Full Report (demo)
+          {% endif %}
+        </button>
+      </form>
+      {% if not has_stripe %}
+      <p class="note">Stripe not configured — clicking unlocks the report in demo mode.</p>
+      {% endif %}
+    </div>
+    {% else %}
+    <!-- PAID: additional context -->
+    <div class="card">
+      <h2>What this scan did NOT cover</h2>
+      <ul>
+        <li>Checkout-flow completion (agent add-to-cart &rarr; purchase)</li>
+        <li>Multi-variant / multi-currency pages</li>
+        <li>AP2 / ACP agent-checkout protocol exposure</li>
+      </ul>
+      <p>These are available as add-on engagements.</p>
+    </div>
+
+    <div class="card">
+      <h2>Next Steps</h2>
+      <ol>
+        <li>Fix the critical issues first — these are the ones that lose the agent sale silently.</li>
+        <li>Re-scan to confirm fixes (re-scans cite the same pack version for a clean delta).</li>
+        <li>Optional: roll readiness scanning across your full catalog.</li>
+      </ol>
+    </div>
+    {% endif %}
+
+    <footer>
+      <p>agent-a &middot; agent-accessibility scanner &middot; {{ data.meta.timestamp }}</p>
+    </footer>
+  </div>
+</body>
+</html>
