@@ -24,59 +24,241 @@
       <p class="headline">{{ data.headline }}</p>
       <div class="meta-row">
         <span>{{ data.meta.target }}</span>
-        <span>{{ data.meta.pack }} {{ data.meta.version }}</span>
-        <span>{{ data.meta.n }} runs &middot; {{ data.meta.shopper }} shopper</span>
+        <span>{{ data.meta.n }} AI agent visits simulated</span>
       </div>
     </div>
 
-    <!-- Check-level summary (free tier: verdict only, no details) -->
+    <!-- AGENT INTELLIGENCE — plain language -->
+    {% if data.intel %}
+    <div class="card intel-card">
+      <h2>Who's visiting your store right now</h2>
+      <p class="intel-subtitle">We detected these AI systems actively interacting with your website.</p>
+
+      {% if data.intel.platform %}
+      <div class="intel-row">
+        <span class="intel-label">Your platform</span>
+        <span class="intel-value">{{ data.intel.platform.name }}</span>
+      </div>
+      {% endif %}
+
+      {% if data.intel.chat_agents %}
+      <div class="intel-section">
+        <h3>Your AI agents</h3>
+        <p class="intel-explain">These are AI-powered tools already running on your site, handling customer interactions.</p>
+        {% for agent in data.intel.chat_agents %}
+        <div class="intel-card-inner">
+          <strong>{{ agent.name }}</strong> &mdash; {{ agent.desc }}
+          <p class="intel-impact">
+            {% if agent.type == 'AI agent' %}
+              This is an AI agent that automatically handles customer questions. It reads your site to answer queries about products, shipping, and returns.
+            {% elif agent.type == 'support agent' %}
+              This handles your customer service. It needs clear product and policy information on your pages to give accurate answers.
+            {% elif agent.type == 'chatbot' %}
+              A chatbot on your site that interacts with visitors. Its accuracy depends on how clearly your product info is presented.
+            {% else %}
+              Active on your site, interacting with customers on your behalf.
+            {% endif %}
+          </p>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if data.intel.agent_commerce %}
+      <div class="intel-section">
+        <h3>Agent shopping capabilities</h3>
+        <p class="intel-explain">These protocols let AI shopping assistants (like ChatGPT, Gemini, or Perplexity) browse and buy from your store on behalf of customers.</p>
+        {% for proto in data.intel.agent_commerce %}
+        <div class="intel-card-inner">
+          <strong>{{ proto.name }}</strong> &mdash;
+          {% if proto.protocol == 'UCP' %}
+            AI agents can search your catalog, add to cart, and check out automatically. This is the newest standard for agent-driven commerce.
+          {% elif proto.protocol == 'Shop Pay' %}
+            Shopify's built-in agent checkout is active. Agents can complete purchases through Shop Pay without scraping your site.
+          {% elif proto.protocol == 'Shop Skill' %}
+            Your store recommends that AI assistants use Shopify's Shop Skill for purchases &mdash; the most reliable way for agents to buy.
+          {% else %}
+            {{ proto.detail }}
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if data.intel.agent_access %}
+      <div class="intel-section">
+        <h3>Which AI agents can access your pages</h3>
+        <p class="intel-explain">Your robots.txt file controls which AI systems can read your product pages. Here's who you're allowing and blocking.</p>
+        <div class="agent-list">
+          {% for agent in data.intel.agent_access %}
+          <div class="agent-chip agent-{{ agent.status }}">
+            <span class="agent-name">{{ agent.name }}</span>
+            <span class="agent-status">
+              {% if agent.status == 'blocked' %}blocked{% elif agent.status == 'allowed' %}allowed{% else %}limited{% endif %}
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+        {% if data.intel.agent_access | selectattr('status', 'equalto', 'blocked') | list %}
+        <p class="intel-impact">Blocked agents cannot read your product pages. Customers using those AI assistants to shop will not find your products.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if data.intel.llms_txt and data.intel.llms_txt.present %}
+      <div class="intel-section">
+        <h3>Agent instructions file (llms.txt)</h3>
+        <p class="intel-explain">Your site has an llms.txt file &mdash; a set of instructions that tells AI agents how to interact with your store. This is like a welcome mat for AI shoppers.</p>
+        {% if data.intel.llms_txt.features %}
+        <p class="intel-detail"><strong>What agents can do:</strong> {{ data.intel.llms_txt.features | join(' &bull; ') }}</p>
+        {% endif %}
+      </div>
+      {% elif not data.intel.llms_txt or not data.intel.llms_txt.present %}
+      <div class="intel-section">
+        <h3>Agent instructions file (llms.txt)</h3>
+        <p class="intel-explain">Your site does not have an llms.txt file. This means AI agents have no guidance on how to interact with your store &mdash; they're guessing.</p>
+      </div>
+      {% endif %}
+
+      {% if data.intel.structured_data and not data.intel.structured_data.present %}
+      <div class="intel-section">
+        <h3>Machine-readable product data</h3>
+        <p class="intel-explain">No structured product data found on this page. AI agents rely on this to accurately read your prices, availability, and product details. Without it, agents guess &mdash; and often guess wrong.</p>
+      </div>
+      {% elif data.intel.structured_data and data.intel.structured_data.present %}
+      <div class="intel-section">
+        <h3>Machine-readable product data</h3>
+        <p class="intel-explain">Found {{ data.intel.structured_data.count }} structured data block(s): {{ data.intel.structured_data.types | join(', ') }}. AI agents use this to accurately read your product information.</p>
+      </div>
+      {% endif %}
+
+      {% if data.intel.meta_directives and data.intel.meta_directives.noindex %}
+      <div class="intel-warning">
+        This page tells AI agents and search engines to ignore it entirely. No AI shopping assistant will recommend this product to customers.
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- CHECK RESULTS -->
     <div class="card">
       <h2>Check Results</h2>
-      <table class="results-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Check</th>
-            <th>Severity</th>
-            <th>Verdict</th>
-            {% if paid %}<th>Detail</th><th>Fix</th>{% endif %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in data.results %}
-          <tr class="verdict-{{ r.verdict|lower }}">
-            <td>{{ r.id }}</td>
-            <td>{{ r.title }}</td>
-            <td><span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span></td>
-            <td><span class="verdict verdict-badge-{{ r.verdict|lower }}">{{ r.verdict }}</span></td>
-            {% if paid %}
-            <td class="detail-cell">
-              {{ r.detail }}
-              {% if r.pass_rate %}<br><strong>Pass rate:</strong> {{ r.pass_rate }}{% endif %}
-              {% if r.ground_truth is defined and r.ground_truth is not none %}<br><strong>Ground truth:</strong> {{ r.ground_truth }}{% endif %}
-              {% if r.modal_answer is defined %}<br><strong>Modal answer:</strong> {{ r.modal_answer }}{% endif %}
-              {% if r.sample_answers is defined %}
-              <br><strong>Samples:</strong> {{ r.sample_answers|join(', ') }}
+      {% if not paid %}
+      <p class="intel-subtitle">Each check was run {{ data.meta.n }} times to test consistency. Unlock the full report to see details, evidence, and copy-paste fixes.</p>
+      {% else %}
+      <p class="intel-subtitle">Each check was run {{ data.meta.n }} times. Failing checks include evidence, what it costs you, and a ready-to-use fix.</p>
+      {% endif %}
+
+      {% for r in data.results %}
+      <div class="check-block check-{{ r.verdict|lower }}">
+        <div class="check-header">
+          <span class="check-id">{{ r.id }}</span>
+          <span class="check-title">{{ r.title }}</span>
+          <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
+          <span class="verdict verdict-badge-{{ r.verdict|lower }}">{{ r.verdict }}</span>
+        </div>
+
+        {% if paid %}
+        <div class="check-detail">
+          <!-- What happened -->
+          <div class="check-row">
+            <span class="check-label">Result</span>
+            <span>{{ r.detail }}</span>
+          </div>
+
+          <!-- What it costs you — plain language impact -->
+          {% if r.verdict == 'FAIL' %}
+          <div class="check-row check-impact">
+            <span class="check-label">What you're losing</span>
+            <span>
+              {% if 'structured data' in r.title|lower %}
+                AI shopping agents (ChatGPT, Gemini, Perplexity) cannot read your product info reliably. They'll skip your product or show wrong details to customers who are ready to buy.
+              {% elif 'price' in r.title|lower and 'html' in r.title|lower %}
+                Your price only appears after JavaScript runs. Most AI agents don't run JavaScript &mdash; they see no price and move on to a competitor.
+              {% elif 'price' in r.title|lower and 'extract' in r.title|lower %}
+                AI agents are getting the wrong price or no price at all. Customers using AI assistants to compare prices will never see yours.
+              {% elif 'robots' in r.title|lower %}
+                You're blocking AI agents from reading your pages. Customers who ask ChatGPT or Gemini to find products like yours will never see your store.
+              {% elif 'policy' in r.title|lower and 'return' in r.title|lower %}
+                AI agents can't find your return policy. When a customer asks "what's the return policy?", the agent says "unknown" &mdash; that kills purchase confidence.
+              {% elif 'shipping' in r.title|lower %}
+                AI agents give inconsistent shipping answers. A customer asking "how much is shipping?" gets a different answer each time &mdash; that's a lost sale.
+              {% elif 'product' in r.title|lower and 'identif' in r.title|lower %}
+                AI agents can't even identify what product this page sells. They'll describe it wrong or skip it entirely.
+              {% elif 'return window' in r.title|lower %}
+                Your return window is ambiguous to AI agents &mdash; they give different answers each time a customer asks. Inconsistent info erodes trust.
+              {% elif 'llms' in r.title|lower %}
+                Without an llms.txt file, AI agents have no instructions for your store. They default to guessing, which means worse results for your products.
+              {% else %}
+                This issue makes your store less readable to AI shopping agents, potentially costing you sales from AI-assisted shoppers.
               {% endif %}
-            </td>
-            <td>{{ r.fix or '' }}</td>
-            {% endif %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+            </span>
+          </div>
+          {% elif r.verdict == 'UNKNOWN' %}
+          <div class="check-row check-impact">
+            <span class="check-label">Why this matters</span>
+            <span>We couldn't verify this because your page doesn't expose the data clearly enough. That's itself a problem &mdash; if our scanner can't find it, neither can a shopping agent.</span>
+          </div>
+          {% endif %}
+
+          <!-- Evidence -->
+          {% if r.pass_rate %}
+          <div class="check-row">
+            <span class="check-label">Pass rate</span>
+            <span>{{ r.pass_rate }} (agent got it right {{ r.pass_rate }} times)</span>
+          </div>
+          {% endif %}
+          {% if r.ground_truth is defined and r.ground_truth is not none %}
+          <div class="check-row">
+            <span class="check-label">Correct answer</span>
+            <span>{{ r.ground_truth }}</span>
+          </div>
+          {% endif %}
+          {% if r.modal_answer is defined %}
+          <div class="check-row">
+            <span class="check-label">Most common agent answer</span>
+            <span>"{{ r.modal_answer }}"</span>
+          </div>
+          {% endif %}
+          {% if r.sample_answers is defined %}
+          <div class="check-row">
+            <span class="check-label">Sample agent responses</span>
+            <span class="sample-list">{% for a in r.sample_answers %}<code>{{ a }}</code>{% if not loop.last %} {% endif %}{% endfor %}</span>
+          </div>
+          {% endif %}
+
+          <!-- Fix recipe -->
+          {% if r.verdict == 'FAIL' and r.fix_recipe is defined and r.fix_recipe %}
+          <div class="fix-block">
+            <div class="fix-header">
+              <span class="fix-label">How to fix this</span>
+              <button class="btn-copy" onclick="copyFix(this)" data-code="{{ r.fix_recipe | e }}">Copy fix</button>
+            </div>
+            <p class="fix-instruction">{{ r.fix or '' }}</p>
+            <pre class="fix-code"><code>{{ r.fix_recipe | e }}</code></pre>
+          </div>
+          {% elif r.verdict == 'FAIL' and r.fix %}
+          <div class="fix-block">
+            <span class="fix-label">How to fix this</span>
+            <p class="fix-instruction">{{ r.fix }}</p>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
     </div>
 
     {% if not paid %}
     <!-- PAYWALL -->
     <div class="card paywall-card">
       <h2>Unlock the Full Report</h2>
-      <p>The full report includes per-check detail, evidence, sample agent answers, and actionable fixes for every finding.</p>
+      <p>See exactly what AI agents see on your page, what's going wrong, and get copy-paste fixes for every issue.</p>
       <ul>
-        <li>Exact failure reasons and reproduction steps</li>
-        <li>Sample agent extractions across {{ data.meta.n }} runs</li>
-        <li>Prioritized fix list by severity</li>
-        <li>Re-scan to verify after fixes</li>
+        <li>Plain-language explanation of each failure and what it costs you</li>
+        <li>Evidence: sample AI agent responses across {{ data.meta.n }} visits</li>
+        <li>Copy-paste code fixes for your platform</li>
+        <li>Re-scan to verify your fixes worked</li>
       </ul>
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
         <button type="submit" class="btn-pay">
@@ -92,24 +274,19 @@
       {% endif %}
     </div>
     {% else %}
-    <!-- PAID: additional context -->
+    <!-- PAID: next steps -->
     <div class="card">
-      <h2>What this scan did NOT cover</h2>
-      <ul>
-        <li>Checkout-flow completion (agent add-to-cart &rarr; purchase)</li>
-        <li>Multi-variant / multi-currency pages</li>
-        <li>AP2 / ACP agent-checkout protocol exposure</li>
-      </ul>
-      <p>These are available as add-on engagements.</p>
+      <h2>What to do next</h2>
+      <ol>
+        <li><strong>Fix the critical issues first</strong> &mdash; these are the ones that silently lose you sales from AI shoppers right now.</li>
+        <li><strong>Re-scan after fixing</strong> &mdash; we'll show you the before/after comparison to confirm the fixes worked.</li>
+        <li><strong>Consider a full catalog scan</strong> &mdash; this report covers one page. Most stores have issues across many products.</li>
+      </ol>
     </div>
 
     <div class="card">
-      <h2>Next Steps</h2>
-      <ol>
-        <li>Fix the critical issues first — these are the ones that lose the agent sale silently.</li>
-        <li>Re-scan to confirm fixes (re-scans cite the same pack version for a clean delta).</li>
-        <li>Optional: roll readiness scanning across your full catalog.</li>
-      </ol>
+      <h2>Want to go deeper?</h2>
+      <p>This scan checks whether AI agents can <strong>read</strong> your product page. The next step is testing whether they can <strong>buy</strong> — a simulated agent walks through your full checkout flow to find where it breaks. Available as an add-on engagement.</p>
     </div>
     {% endif %}
 
@@ -117,5 +294,15 @@
       <p>agent-a &middot; agent-accessibility scanner &middot; {{ data.meta.timestamp }}</p>
     </footer>
   </div>
+
+  <script>
+  function copyFix(btn) {
+    var code = btn.getAttribute('data-code');
+    navigator.clipboard.writeText(code).then(function() {
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy fix'; }, 2000);
+    });
+  }
+  </script>
 </body>
 </html>

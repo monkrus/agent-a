@@ -39,6 +39,8 @@ from flask import (Flask, abort, redirect, render_template, request,
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod   # noqa: E402
+import fixes as fixesmod   # noqa: E402
+import intel as intelmod   # noqa: E402
 import scorers             # noqa: E402
 import yaml                # noqa: E402
 from shopper import ask    # noqa: E402
@@ -79,6 +81,12 @@ def _run_scan(target_url, n=None):
 
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 
+    # Generate fix recipes for failing checks
+    for r in results:
+        recipe = fixesmod.generate_fix(r, page)
+        if recipe:
+            r["fix_recipe"] = recipe
+
     num = den = 0.0
     for r in results:
         pf = r.get("pass_fraction")
@@ -104,6 +112,7 @@ def _run_scan(target_url, n=None):
         "readiness_score": readiness_score,
         "headline": _headline(results),
         "results": results,
+        "intel": intelmod.analyze(page, page.get("llms_txt_content")),
     }
     (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload, indent=2))
     return scan_id

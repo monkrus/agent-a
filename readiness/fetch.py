@@ -116,7 +116,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page = _parse_html(r.text, target)
         page["status"] = r.status_code
         origin = f"{urlparse(target).scheme}://{urlparse(target).netloc}"
-        page["llms_txt"] = _probe_ok(urljoin(origin, "/llms.txt"), timeout)
+        llms_txt = _get_text(urljoin(origin, "/llms.txt"), timeout)
+        page["llms_txt"] = llms_txt is not None
+        page["llms_txt_content"] = llms_txt
         page["robots"] = _get_text(urljoin(origin, "/robots.txt"), timeout)
     else:
         with open(target, "r", encoding="utf-8") as f:
@@ -124,6 +126,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page = _parse_html(html, target)
         page["status"] = 200
         page["llms_txt"] = None   # unknowable from a single local file
+        page["llms_txt_content"] = None
         page["robots"] = None
     return page
 
