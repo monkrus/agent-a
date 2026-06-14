@@ -31,6 +31,9 @@ import pathlib
 import secrets
 import sys
 
+from dotenv import load_dotenv
+load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
+
 from flask import (Flask, abort, redirect, render_template, request,
                    session, url_for)
 
@@ -56,6 +59,7 @@ def _load_checks():
 
 
 def _run_scan(target_url, n=None):
+    from concurrent.futures import ThreadPoolExecutor
     n = n or int(os.environ.get("SCAN_N", "5"))
     pack, version, checks = _load_checks()
     page = fetchmod.fetch(target_url)
@@ -68,7 +72,8 @@ def _run_scan(target_url, n=None):
             r = scorers.run_static(c, page)
             results.append({**base, **r})
         else:
-            answers = [ask(page, c["task"]) for _ in range(n)]
+            with ThreadPoolExecutor(max_workers=n) as pool:
+                answers = list(pool.map(lambda _: ask(page, c["task"]), range(n)))
             g = scorers.grade_shopper(c, page, answers)
             results.append({**base, **g, "sample_answers": answers[:3]})
 
@@ -136,11 +141,16 @@ def index():
 @app.route("/scan", methods=["POST"])
 def scan():
     url = request.form.get("url", "").strip()
+    # Strip leading bullets, dashes, whitespace from copy-paste
+    url = url.lstrip("-*•· \t")
     if not url:
         return redirect(url_for("index"))
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
-    scan_id = _run_scan(url)
+    try:
+        scan_id = _run_scan(url)
+    except Exception as e:
+        return render_template("index.html", error=f"Could not scan that URL: {e}")
     return redirect(url_for("results", scan_id=scan_id))
 
 

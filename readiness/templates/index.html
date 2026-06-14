@@ -16,13 +16,30 @@
     <div class="card hero-card">
       <p>Shopping agents (ChatGPT, Gemini, agent checkout) are reading your store right now. Most sites fail invisibly: JS-only prices, missing structured data, policies agents can't parse. This scanner finds the gaps before they cost you sales.</p>
 
-      <form action="{{ url_for('scan') }}" method="post" class="scan-form">
+      {% if error %}
+      <p class="error-msg">{{ error }}</p>
+      {% endif %}
+
+      <form action="{{ url_for('scan') }}" method="post" class="scan-form" id="scan-form">
         <label for="url">Enter a product page URL</label>
         <div class="input-row">
           <input type="text" id="url" name="url" placeholder="https://your-store.com/products/example" required>
-          <button type="submit">Scan</button>
+          <button type="submit" id="scan-btn">Scan</button>
         </div>
       </form>
+
+      <div id="loading" style="display:none; text-align:center; padding:1.5rem 0;">
+        <div class="spinner"></div>
+        <p style="color:#8b8b96; margin-top:0.75rem;">Scanning page with AI agent (this takes 15-30 seconds)...</p>
+      </div>
+
+      <script>
+        document.getElementById('scan-form').addEventListener('submit', function() {
+          document.getElementById('scan-btn').disabled = true;
+          document.getElementById('scan-btn').textContent = 'Scanning...';
+          document.getElementById('loading').style.display = 'block';
+        });
+      </script>
 
       <p class="note">Free scan: readiness score + headline findings. Full per-check breakdown, evidence, and fixes available in the paid report.</p>
     </div>
