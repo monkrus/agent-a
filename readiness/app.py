@@ -156,6 +156,16 @@ def scan():
         return redirect(url_for("index"))
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
+    # Check if this looks like a product page
+    from urllib.parse import urlparse
+    path = urlparse(url).path.rstrip("/")
+    if not path or path.count("/") < 2:
+        return render_template("index.html", error=(
+            "That looks like a homepage or collection page. "
+            "Please paste a specific product page URL instead — "
+            "on your store, click on any product and copy the URL from your browser. "
+            "It usually looks like: your-store.com/products/product-name"
+        ))
     try:
         scan_id = _run_scan(url)
     except Exception as e:

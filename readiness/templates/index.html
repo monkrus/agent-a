@@ -22,8 +22,9 @@
 
       <form action="{{ url_for('scan') }}" method="post" class="scan-form" id="scan-form">
         <label for="url">Enter a product page URL</label>
+        <p class="input-hint">Paste a link to a specific product page, not your homepage. On Shopify stores, go to any product and copy the URL — it looks like <code>your-store.com/products/product-name</code></p>
         <div class="input-row">
-          <input type="text" id="url" name="url" placeholder="https://your-store.com/products/example" required>
+          <input type="text" id="url" name="url" placeholder="https://your-store.com/products/product-name" required>
           <button type="submit" id="scan-btn">Scan</button>
         </div>
       </form>
