@@ -40,17 +40,23 @@ def load_checks(path):
 
 
 def scan(checks, page, n):
-    results = []
-    for c in checks:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _run_check(c):
         base = {k: c.get(k) for k in
                 ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
         if c.get("type") == "static":
             r = scorers.run_static(c, page)
-            results.append({**base, **r})
+            return {**base, **r}
         else:
-            answers = [ask(page, c["task"]) for _ in range(n)]
+            answers = list(pool.map(lambda _: ask(page, c["task"]), range(n)))
             g = scorers.grade_shopper(c, page, answers)
-            results.append({**base, **g, "sample_answers": answers[:5]})
+            return {**base, **g, "sample_answers": answers[:5]}
+
+    shopper_checks = [c for c in checks if c.get("type") != "static"]
+    max_workers = n * max(len(shopper_checks), 1)
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        results = list(pool.map(_run_check, checks))
     return results
 
 

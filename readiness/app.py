@@ -66,18 +66,21 @@ def _run_scan(target_url, n=None):
     pack, version, checks = _load_checks()
     page = fetchmod.fetch(target_url)
 
-    results = []
-    for c in checks:
+    def _run_check(c):
         base = {k: c.get(k) for k in
                 ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
         if c.get("type") == "static":
             r = scorers.run_static(c, page)
-            results.append({**base, **r})
+            return {**base, **r}
         else:
-            with ThreadPoolExecutor(max_workers=n) as pool:
-                answers = list(pool.map(lambda _: ask(page, c["task"]), range(n)))
+            answers = list(pool.map(lambda _: ask(page, c["task"]), range(n)))
             g = scorers.grade_shopper(c, page, answers)
-            results.append({**base, **g, "sample_answers": answers[:3]})
+            return {**base, **g, "sample_answers": answers[:3]}
+
+    shopper_checks = [c for c in checks if c.get("type") != "static"]
+    max_workers = n * max(len(shopper_checks), 1)
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        results = list(pool.map(_run_check, checks))
 
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 
