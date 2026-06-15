@@ -17,11 +17,11 @@
 #
 # Weights sum to 100 -> readiness score is a weighted pass rate, 0-100.
 
-version: 2026Q2
+version: 2026Q2.1
 pack: shopify-readiness
 
 checks:
-  # ---- STATIC (5) ----
+  # ---- STATIC (10) ----
   - id: RDY-001
     type: static
     category: structured-data
@@ -29,7 +29,7 @@ checks:
     detect: jsonld_product
     expect: A schema.org/Product JSON-LD block with offers.price and availability.
     fail_if: No Product JSON-LD, or price/availability missing.
-    weight: 15
+    weight: 10
     severity_if_fail: critical
     fix: Emit schema.org/Product JSON-LD including offers.price, priceCurrency, and availability.
 
@@ -40,7 +40,7 @@ checks:
     detect: price_in_html
     expect: A currency-formatted price string is present in the raw HTML response.
     fail_if: No price string in the server HTML (price injected by client-side JS only).
-    weight: 15
+    weight: 10
     severity_if_fail: critical
     fix: Server-render the price into HTML; agents and crawlers often do not execute JS.
 
@@ -51,7 +51,7 @@ checks:
     detect: robots_allows_agents
     expect: robots.txt does not Disallow known shopping/agent user-agents from product pages.
     fail_if: robots.txt blocks GPTBot / OAI-SearchBot / Google-Extended / PerplexityBot from this path.
-    weight: 10
+    weight: 7
     severity_if_fail: high
     fix: Allow agent user-agents to read product and policy pages in robots.txt.
 
@@ -62,7 +62,7 @@ checks:
     detect: policy_text_present
     expect: A return or refund policy is linked and served as readable text.
     fail_if: No discoverable return/refund policy text (missing, or PDF/image only).
-    weight: 10
+    weight: 5
     severity_if_fail: high
     fix: Publish return & shipping policies as plain HTML text with clear, linkable URLs.
 
@@ -73,9 +73,64 @@ checks:
     detect: llms_txt_present
     expect: An llms.txt (or equivalent agent-guidance file) exists at the site root.
     fail_if: No llms.txt at the site root.
-    weight: 5
+    weight: 3
     severity_if_fail: low
     fix: Add an llms.txt summarizing product feed location, policies, and contact for agents.
+
+  - id: RDY-011
+    type: static
+    category: agent-access
+    title: llms.txt content is complete and well-structured
+    detect: llms_txt_quality
+    expect: llms.txt contains product paths, policy links, sitemap reference, and valid URLs.
+    fail_if: llms.txt is missing key sections (products, policies, sitemap) or has no absolute URLs.
+    weight: 5
+    severity_if_fail: medium
+    fix: Add product catalog paths, policy links, and sitemap URL to llms.txt.
+
+  - id: RDY-012
+    type: static
+    category: structured-data
+    title: JSON-LD Product markup is complete and well-formed
+    detect: jsonld_quality
+    expect: JSON-LD includes name, image, brand, description, price, currency, and schema.org availability URL.
+    fail_if: JSON-LD is missing fields that agents need for accurate product comparison.
+    weight: 8
+    severity_if_fail: high
+    fix: Add missing fields to JSON-LD Product markup (name, image, brand, description, priceCurrency, availability URL).
+
+  - id: RDY-013
+    type: static
+    category: rendering
+    title: Page content is accessible without JavaScript
+    detect: js_render_ratio
+    expect: Sufficient product content is in server-rendered HTML (not behind JS).
+    fail_if: Page is heavily JS-rendered with minimal server-side text — agents see almost nothing.
+    weight: 7
+    severity_if_fail: high
+    fix: Server-side render key product content (title, price, description, availability) so agents don't need a browser.
+
+  - id: RDY-014
+    type: static
+    category: agent-interaction
+    title: Add-to-Cart is a semantic, identifiable action
+    detect: cart_semantic
+    expect: A form or button with cart/purchase semantics exists in server HTML.
+    fail_if: No identifiable Add-to-Cart action in the DOM — agents cannot initiate a purchase.
+    weight: 8
+    severity_if_fail: high
+    fix: Use a semantic form with action and a button with clear name/aria-label for Add to Cart.
+
+  - id: RDY-015
+    type: static
+    category: agent-interaction
+    title: Variant selectors (size/color) use semantic HTML
+    detect: variant_selectors
+    expect: Size and color options use select, radio inputs, or labeled fieldsets.
+    fail_if: Variant selection requires interacting with opaque JS widgets that agents can't parse.
+    weight: 5
+    severity_if_fail: medium
+    fix: Use select elements or radio inputs with labels for size/color — agents need predictable DOM to choose variants.
 
   # ---- SHOPPER (5) ----
   - id: RDY-006
@@ -87,7 +142,7 @@ checks:
     ground_truth: price
     expect: Extracted price matches the page's actual price across runs.
     fail_if: Agent extracts a wrong price, or cannot find one.
-    weight: 15
+    weight: 10
     severity_if_fail: critical
     fix: Make the canonical price unambiguous in HTML + structured data; remove stale/secondary prices.
 
@@ -100,7 +155,7 @@ checks:
     ground_truth: availability
     expect: Agent's stock reading matches the page's declared availability.
     fail_if: Agent reads availability incorrectly or as unknown when the page declares it.
-    weight: 10
+    weight: 7
     severity_if_fail: high
     fix: Declare availability in JSON-LD offers.availability and reflect it in visible text.
 
@@ -137,6 +192,6 @@ checks:
     grade: consistency
     expect: Agent gives a stable shipping answer across runs.
     fail_if: Agent's shipping answer varies run to run (ambiguous or absent shipping info).
-    weight: 10
+    weight: 5
     severity_if_fail: high
     fix: Publish shipping cost/conditions as explicit text; avoid burying it in checkout-only steps.

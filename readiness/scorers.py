@@ -81,12 +81,173 @@ def static_llms_txt_present(page):
     return ("PASS", "llms.txt present.") if v else ("FAIL", "No llms.txt at site root.")
 
 
+def static_llms_txt_quality(page):
+    content = page.get("llms_txt_content")
+    if not content:
+        if page.get("llms_txt") is None:
+            return "UNKNOWN", "llms.txt not probed (local file mode)."
+        return "FAIL", "No llms.txt found — nothing to validate."
+
+    issues = []
+    cl = content.lower()
+
+    # Check for key sections a good llms.txt should have
+    has_products = any(k in cl for k in ("/products", "/collections", "catalog", "product search"))
+    has_policies = any(k in cl for k in ("/policies", "refund", "return", "shipping"))
+    has_sitemap = "sitemap" in cl
+
+    if not has_products:
+        issues.append("no product/catalog paths")
+    if not has_policies:
+        issues.append("no policy links")
+    if not has_sitemap:
+        issues.append("no sitemap reference")
+
+    # Check for broken-looking URLs (relative paths without a domain)
+    import re as _re
+    urls = _re.findall(r'https?://[^\s<>"\']+', content)
+    if not urls:
+        issues.append("no absolute URLs found")
+
+    if not issues:
+        return "PASS", "llms.txt has product paths, policy links, and sitemap."
+    return "FAIL", f"llms.txt incomplete: {'; '.join(issues)}."
+
+
+def static_jsonld_quality(page):
+    obj, off = _jsonld_offers(page)
+    if not obj:
+        return "FAIL", "No schema.org/Product JSON-LD to validate."
+
+    issues = []
+    if not obj.get("name"):
+        issues.append("missing product name")
+    if not obj.get("image"):
+        issues.append("missing product image")
+    brand = obj.get("brand")
+    if not brand or (isinstance(brand, dict) and not brand.get("name")):
+        issues.append("missing brand")
+    if not obj.get("description"):
+        issues.append("missing description")
+
+    if off:
+        price = off.get("price")
+        currency = off.get("priceCurrency")
+        avail = off.get("availability", "")
+        if price is None:
+            issues.append("missing price")
+        if not currency:
+            issues.append("missing priceCurrency")
+        if not avail:
+            issues.append("missing availability")
+        elif "schema.org" not in str(avail).lower():
+            issues.append(f"availability not a schema.org URL: {avail}")
+    else:
+        issues.append("no offers block")
+
+    if not issues:
+        return "PASS", "JSON-LD Product is complete: name, image, brand, price, currency, availability."
+    return "FAIL", f"JSON-LD Product incomplete: {'; '.join(issues)}."
+
+
+def static_js_render_ratio(page):
+    html = page.get("html", "") or ""
+    text = page.get("text", "") or ""
+    import re as _re
+
+    # Total HTML length
+    html_len = len(html)
+    if html_len < 100:
+        return "UNKNOWN", "Page too small to evaluate rendering ratio."
+
+    # Script content size
+    scripts = _re.findall(r"<script[^>]*>.*?</script>", html, _re.I | _re.S)
+    script_len = sum(len(s) for s in scripts)
+
+    # Visible text vs total page
+    text_len = len(text)
+    script_ratio = round(script_len / html_len * 100, 1) if html_len else 0
+    text_ratio = round(text_len / html_len * 100, 1) if html_len else 0
+
+    detail = f"Script: {script_ratio}% of page, visible text: {text_ratio}% of page."
+
+    # Heavy JS with very little text = bad for agents
+    if script_ratio > 60 and text_ratio < 10:
+        return "FAIL", f"Page is heavily JS-rendered — agents see very little content. {detail}"
+    if script_ratio > 50 and text_ratio < 15:
+        return "FAIL", f"High JS dependency — limited content without a browser. {detail}"
+    return "PASS", f"Acceptable text-to-script ratio for agents. {detail}"
+
+
+def static_cart_semantic(page):
+    html = page.get("html", "") or ""
+    import re as _re
+    hl = html.lower()
+
+    # Look for forms with cart-related actions
+    has_cart_form = bool(_re.search(
+        r'<form[^>]*(action=["\'][^"\']*cart[^"\']*["\']|id=["\'][^"\']*cart[^"\']*["\'])', hl))
+
+    # Look for buttons with add-to-cart semantics
+    has_cart_button = bool(_re.search(
+        r'<(button|input)[^>]*(add.to.cart|addtocart|add-to-cart|data-action=["\']add)', hl))
+
+    # Look for name/data-testid/aria-label on submit-like elements
+    has_semantic_btn = bool(_re.search(
+        r'<(button|input)[^>]*(name=["\']|data-testid=["\']|aria-label=["\'])[^>]*(submit|cart|buy|purchase)', hl))
+
+    if has_cart_form and (has_cart_button or has_semantic_btn):
+        return "PASS", "Add-to-Cart form with semantic button found — agents can interact."
+    if has_cart_form or has_cart_button:
+        return "PASS", "Add-to-Cart element found (form or button with cart semantics)."
+    if has_semantic_btn:
+        return "PASS", "Buy/cart button with semantic attributes found."
+
+    # Check if there's any form at all on the page
+    has_any_form = "<form" in hl
+    if has_any_form:
+        return "FAIL", "Forms found but none with cart/purchase semantics — agents can't identify the buy action."
+    return "FAIL", "No Add-to-Cart form or button found in server HTML — agents cannot purchase."
+
+
+def static_variant_selectors(page):
+    html = page.get("html", "") or ""
+    import re as _re
+    hl = html.lower()
+
+    # Look for semantic variant selectors
+    has_select = bool(_re.search(
+        r'<select[^>]*(name=["\'][^"\']*(?:size|color|variant|option)[^"\']*["\'])', hl))
+    has_radio = bool(_re.search(
+        r'<input[^>]*type=["\']radio["\'][^>]*(name=["\'][^"\']*(?:size|color|variant|option))', hl))
+    has_labeled = bool(_re.search(
+        r'<(label|fieldset|legend)[^>]*>[^<]*(size|color|variant|option)', hl))
+
+    semantic_count = sum([has_select, has_radio, has_labeled])
+
+    if semantic_count >= 2:
+        return "PASS", "Variant selectors use semantic HTML (select/radio with labels) — agents can choose options."
+    if semantic_count == 1:
+        return "PASS", "Basic variant selector found in semantic HTML."
+
+    # Check if there are variant-related elements at all (just not semantic)
+    has_variant_js = bool(_re.search(r'(variant|swatch|option-selector|size-selector)', hl))
+    if has_variant_js:
+        return "FAIL", "Variant UI detected but uses non-semantic JS widgets — agents can't select sizes/colors."
+    return "UNKNOWN", "No variant selectors detected (may be a single-variant product)."
+
+
 STATIC = {
     "jsonld_product": static_jsonld_product,
     "price_in_html": static_price_in_html,
     "robots_allows_agents": static_robots_allows_agents,
     "policy_text_present": static_policy_text_present,
     "llms_txt_present": static_llms_txt_present,
+    "llms_txt_quality": static_llms_txt_quality,
+    "jsonld_quality": static_jsonld_quality,
+    "js_render_ratio": static_js_render_ratio,
+    "cart_semantic": static_cart_semantic,
+    "variant_selectors": static_variant_selectors,
 }
 
 

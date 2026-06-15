@@ -227,6 +227,134 @@ def _fix_shipping(check, page):
 <!-- AI agents treat "calculated at checkout" as unknown. -->'''
 
 
+def _fix_llms_txt_quality(check, page):
+    url = page.get("url", "https://your-store.com")
+    base = url.split("/products")[0] if "/products" in url else url.rstrip("/")
+    return (
+        '# Improve your llms.txt with these key sections:\n\n'
+        '# llms.txt — Your Store Name\n\n'
+        '## Products\n'
+        '- Browse all products: ' + base + '/collections/all\n'
+        '- Product JSON API: ' + base + '/products/{handle}.json\n'
+        '- Search products: ' + base + '/search?q={query}&type=product\n\n'
+        '## Policies\n'
+        '- Return policy: ' + base + '/policies/refund-policy\n'
+        '- Shipping policy: ' + base + '/policies/shipping-policy\n'
+        '- Privacy policy: ' + base + '/policies/privacy-policy\n\n'
+        '## Sitemap\n'
+        '- Sitemap: ' + base + '/sitemap.xml\n\n'
+        '<!-- Ensure all URLs are absolute (https://...) and not broken. -->\n'
+        '<!-- AI agents use these paths to navigate your store programmatically. -->'
+    )
+
+
+def _fix_jsonld_quality(check, page):
+    return '''<!-- Ensure your JSON-LD Product includes ALL of these fields: -->
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "{{ product.title }}",
+  "image": "{{ product.featured_image | image_url }}",
+  "description": "{{ product.description | strip_html | truncate: 200 }}",
+  "brand": {
+    "@type": "Brand",
+    "name": "{{ product.vendor }}"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": "{{ product.price | money_without_currency }}",
+    "priceCurrency": "{{ cart.currency.iso_code }}",
+    "availability": "{% if product.available %}https://schema.org/InStock{% else %}https://schema.org/OutOfStock{% endif %}",
+    "url": "{{ shop.url }}{{ product.url }}"
+  }
+}
+</script>
+
+<!-- Common mistakes: -->
+<!-- - availability must be a full schema.org URL, not just "InStock" -->
+<!-- - priceCurrency must be a 3-letter ISO code (USD, GBP, EUR) -->
+<!-- - brand must be a Brand object with a name, not just a string -->'''
+
+
+def _fix_js_render_ratio(check, page):
+    return '''<!-- Your page relies heavily on JavaScript to render content. -->
+<!-- Most AI agents don't run JS — they see your raw HTML only. -->
+
+<!-- Fix: Server-side render (SSR) these critical elements: -->
+
+<!-- 1. Product title — must be in a visible <h1> in raw HTML -->
+<h1 class="product-title">{{ product.title }}</h1>
+
+<!-- 2. Price — must be in raw HTML, not injected by JS -->
+<div class="product-price">{{ product.price | money }}</div>
+
+<!-- 3. Description — at least the first paragraph in raw HTML -->
+<div class="product-description">
+  {{ product.description }}
+</div>
+
+<!-- 4. Availability — visible text in raw HTML -->
+<span class="stock-status">
+  {% if product.available %}In Stock{% else %}Out of Stock{% endif %}
+</span>
+
+<!-- Shopify Liquid templates render server-side by default. -->
+<!-- If you use a JS framework (React/Vue/headless), ensure SSR is enabled. -->'''
+
+
+def _fix_cart_semantic(check, page):
+    return '''<!-- Make your Add-to-Cart button identifiable to AI agents: -->
+
+<!-- Use a semantic <form> with a clear action: -->
+<form method="post" action="/cart/add" id="product-form">
+  <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+  <input type="hidden" name="quantity" value="1">
+
+  <button type="submit"
+          name="add"
+          aria-label="Add to Cart"
+          data-testid="add-to-cart">
+    Add to Cart
+  </button>
+</form>
+
+<!-- Key requirements for agent accessibility: -->
+<!-- - form action="/cart/add" (standard Shopify endpoint) -->
+<!-- - button type="submit" (not a div or span) -->
+<!-- - aria-label or name attribute on the button -->
+<!-- - data-testid for automated agent interaction -->'''
+
+
+def _fix_variant_selectors(check, page):
+    return '''<!-- Use semantic HTML for variant selectors so agents can choose options: -->
+
+<!-- SIZE — use a <select> or radio inputs with labels: -->
+<fieldset class="variant-selector">
+  <legend>Size</legend>
+  {% for option in product.options_with_values[0].values %}
+    <label>
+      <input type="radio" name="Size" value="{{ option }}">
+      {{ option }}
+    </label>
+  {% endfor %}
+</fieldset>
+
+<!-- COLOR — same pattern: -->
+<fieldset class="variant-selector">
+  <legend>Color</legend>
+  <select name="Color" id="color-selector">
+    {% for option in product.options_with_values[1].values %}
+      <option value="{{ option }}">{{ option }}</option>
+    {% endfor %}
+  </select>
+</fieldset>
+
+<!-- Avoid: custom JS-only swatches with no underlying input elements -->
+<!-- Agents need name= attributes and standard form elements to select variants -->'''
+
+
 GENERATORS = {
     "RDY-001": _fix_jsonld,
     "RDY-002": _fix_price_html,
@@ -238,4 +366,9 @@ GENERATORS = {
     "RDY-008": _fix_product_name,
     "RDY-009": _fix_return_window,
     "RDY-010": _fix_shipping,
+    "RDY-011": _fix_llms_txt_quality,
+    "RDY-012": _fix_jsonld_quality,
+    "RDY-013": _fix_js_render_ratio,
+    "RDY-014": _fix_cart_semantic,
+    "RDY-015": _fix_variant_selectors,
 }
