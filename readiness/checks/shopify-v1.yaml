@@ -95,7 +95,7 @@ checks:
     detect: jsonld_quality
     expect: JSON-LD includes name, image, brand, description, price, currency, and schema.org availability URL.
     fail_if: JSON-LD is missing fields that agents need for accurate product comparison.
-    weight: 8
+    weight: 6
     severity_if_fail: high
     fix: Add missing fields to JSON-LD Product markup (name, image, brand, description, priceCurrency, availability URL).
 
@@ -106,7 +106,7 @@ checks:
     detect: js_render_ratio
     expect: Sufficient product content is in server-rendered HTML (not behind JS).
     fail_if: Page is heavily JS-rendered with minimal server-side text — agents see almost nothing.
-    weight: 7
+    weight: 6
     severity_if_fail: high
     fix: Server-side render key product content (title, price, description, availability) so agents don't need a browser.
 
@@ -117,7 +117,7 @@ checks:
     detect: cart_semantic
     expect: A form or button with cart/purchase semantics exists in server HTML.
     fail_if: No identifiable Add-to-Cart action in the DOM — agents cannot initiate a purchase.
-    weight: 8
+    weight: 6
     severity_if_fail: high
     fix: Use a semantic form with action and a button with clear name/aria-label for Add to Cart.
 
@@ -131,6 +131,17 @@ checks:
     weight: 5
     severity_if_fail: medium
     fix: Use select elements or radio inputs with labels for size/color — agents need predictable DOM to choose variants.
+
+  - id: RDY-016
+    type: static
+    category: security
+    title: No hidden prompt injection in page content
+    detect: prompt_injection
+    expect: Page contains no hidden text designed to hijack AI agent behavior.
+    fail_if: Hidden elements, HTML comments, or invisible text contain agent-override instructions.
+    weight: 5
+    severity_if_fail: critical
+    fix: Remove hidden text that contains agent-manipulating instructions from reviews, comments, or invisible elements.
 
   # ---- SHOPPER (5) ----
   - id: RDY-006

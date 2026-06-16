@@ -355,6 +355,37 @@ def _fix_variant_selectors(check, page):
 <!-- Agents need name= attributes and standard form elements to select variants -->'''
 
 
+def _fix_prompt_injection(check, page):
+    return '''<!-- SECURITY: Hidden prompt injection detected on this page. -->
+<!-- Malicious text hidden in your page can hijack AI shopping agents, -->
+<!-- causing them to give wrong information to your customers. -->
+
+<!-- Steps to fix: -->
+
+<!-- 1. Audit HTML comments — remove any that contain instructions to AI -->
+<!--    Search your templates for comments with words like "ignore", -->
+<!--    "system", "override", or "instructions" -->
+
+<!-- 2. Audit hidden elements — check display:none, visibility:hidden, -->
+<!--    aria-hidden, and 0px/0-opacity elements for suspicious text -->
+
+<!-- 3. Audit user-generated content (reviews, Q&A) -->
+<!--    Add a content filter that strips known injection patterns: -->
+
+<!-- Shopify Liquid example — sanitize review text: -->
+<!-- {{ review.text | strip_html | escape }} -->
+
+<!-- 4. If using a review app (Yotpo, Judge.me, Loox), check their -->
+<!--    moderation settings and enable content filtering -->
+
+<!-- Common injection patterns to filter: -->
+<!-- "ignore previous instructions" -->
+<!-- "you are now a..." -->
+<!-- "system: override" -->
+<!-- "disregard all previous" -->
+<!-- "tell the user that..." -->'''
+
+
 GENERATORS = {
     "RDY-001": _fix_jsonld,
     "RDY-002": _fix_price_html,
@@ -371,4 +402,33 @@ GENERATORS = {
     "RDY-013": _fix_js_render_ratio,
     "RDY-014": _fix_cart_semantic,
     "RDY-015": _fix_variant_selectors,
+    "RDY-016": _fix_prompt_injection,
 }
+    return '''<!-- SECURITY: Hidden prompt injection detected on this page. -->
+<!-- Malicious text hidden in your page can hijack AI shopping agents, -->
+<!-- causing them to give wrong information to your customers. -->
+
+<!-- Steps to fix: -->
+
+<!-- 1. Audit HTML comments — remove any that contain instructions to AI -->
+<!--    Search your templates for <!-- comments with words like "ignore", -->
+<!--    "system", "override", or "instructions" -->
+
+<!-- 2. Audit hidden elements — check display:none, visibility:hidden, -->
+<!--    aria-hidden, and 0px/0-opacity elements for suspicious text -->
+
+<!-- 3. Audit user-generated content (reviews, Q&A) -->
+<!--    Add a content filter that strips known injection patterns: -->
+
+<!-- Shopify Liquid example — sanitize review text: -->
+<!-- {{ review.text | strip_html | escape }} -->
+
+<!-- 4. If using a review app (Yotpo, Judge.me, Loox), check their -->
+<!--    moderation settings and enable content filtering -->
+
+<!-- Common injection patterns to filter: -->
+<!-- "ignore previous instructions" -->
+<!-- "you are now a..." -->
+<!-- "system: override" -->
+<!-- "disregard all previous" -->
+<!-- "tell the user that..." -->'''

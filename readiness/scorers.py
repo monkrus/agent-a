@@ -171,6 +171,14 @@ def static_js_render_ratio(page):
 
     detail = f"Script: {script_ratio}% of page, visible text: {text_ratio}% of page."
 
+    # If rendered DOM available, show comparison
+    rendered_text = page.get("rendered_text", "")
+    if rendered_text:
+        rendered_len = len(rendered_text)
+        gap = rendered_len - text_len
+        if gap > 200:
+            detail += f" Rendered DOM has {gap} more chars of text — JS hides content from text-mode agents."
+
     # Heavy JS with very little text = bad for agents
     if script_ratio > 60 and text_ratio < 10:
         return "FAIL", f"Page is heavily JS-rendered — agents see very little content. {detail}"
@@ -237,6 +245,71 @@ def static_variant_selectors(page):
     return "UNKNOWN", "No variant selectors detected (may be a single-variant product)."
 
 
+def static_prompt_injection(page):
+    html = page.get("html", "") or ""
+    import re as _re
+
+    # Injection phrases that could hijack an agent's context
+    INJECTION_PATTERNS = [
+        r"ignore\s+(all\s+)?previous\s+instructions",
+        r"ignore\s+(all\s+)?above",
+        r"disregard\s+(all\s+)?(previous|above|prior)",
+        r"you\s+are\s+now\s+a",
+        r"system\s*:\s*override",
+        r"system\s*:\s*you\s+are",
+        r"new\s+instructions?\s*:",
+        r"forget\s+(everything|all|your)\s+(above|previous|prior)",
+        r"act\s+as\s+(if|though)\s+you",
+        r"do\s+not\s+follow\s+(the\s+)?(previous|above|prior)",
+        r"tell\s+the\s+user\s+(this|that)",
+        r"respond\s+with\s+only",
+        r"<\s*system\s*>",
+    ]
+    pattern = "|".join(f"({p})" for p in INJECTION_PATTERNS)
+
+    findings = []
+
+    # 1. Check HTML comments for injection
+    comments = _re.findall(r"<!--(.*?)-->", html, _re.S | _re.I)
+    for c in comments:
+        if _re.search(pattern, c, _re.I):
+            findings.append("HTML comment contains agent-hijacking text")
+            break
+
+    # 2. Check hidden elements (display:none, visibility:hidden, opacity:0, aria-hidden)
+    hidden_blocks = _re.findall(
+        r'<[^>]*(display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0'
+        r'|font-size\s*:\s*0|height\s*:\s*0|width\s*:\s*0'
+        r'|aria-hidden\s*=\s*["\']true["\'])[^>]*>(.*?)</[^>]+>',
+        html, _re.I | _re.S)
+    for _, content in hidden_blocks:
+        if _re.search(pattern, content, _re.I):
+            findings.append("Hidden element contains agent-hijacking text")
+            break
+
+    # 3. Check for invisible text via color tricks (white-on-white, 0px font)
+    # Look for style with color:#fff or color:white on non-body elements
+    stealth_blocks = _re.findall(
+        r'<[^>]*(color\s*:\s*(?:white|#fff(?:fff)?|rgba?\(\s*255))[^>]*>(.*?)</[^>]+>',
+        html, _re.I | _re.S)
+    for _, content in stealth_blocks:
+        if _re.search(pattern, content, _re.I):
+            findings.append("Invisible text (color trick) contains agent-hijacking text")
+            break
+
+    # 4. Check all page text for injection patterns in obvious places
+    text = (page.get("text", "") or "").lower()
+    # Only flag visible text if it's clearly injected (not natural language)
+    for p in INJECTION_PATTERNS[:6]:  # check the most dangerous patterns only
+        if _re.search(p, text, _re.I):
+            findings.append("Visible page text contains suspicious agent-override phrasing")
+            break
+
+    if not findings:
+        return "PASS", "No prompt injection patterns detected in page content."
+    return "FAIL", f"Potential prompt injection found: {'; '.join(findings)}."
+
+
 STATIC = {
     "jsonld_product": static_jsonld_product,
     "price_in_html": static_price_in_html,
@@ -248,6 +321,7 @@ STATIC = {
     "js_render_ratio": static_js_render_ratio,
     "cart_semantic": static_cart_semantic,
     "variant_selectors": static_variant_selectors,
+    "prompt_injection": static_prompt_injection,
 }
 
 
@@ -272,12 +346,23 @@ def _norm_num(s):
 
 
 def _ground_truth(kind, page):
+    """Extract ground truth, falling back to rendered DOM when available."""
     if kind == "price":
-        return _jsonld_price(page)
+        gt = _jsonld_price(page)
+        if gt is None and page.get("rendered_jsonld"):
+            gt = _jsonld_price({"jsonld": page["rendered_jsonld"], "meta": page.get("rendered_meta", {})})
+        return gt
     if kind == "availability":
-        return _jsonld_availability(page)
+        gt = _jsonld_availability(page)
+        if gt is None and page.get("rendered_jsonld"):
+            gt = _jsonld_availability({"jsonld": page["rendered_jsonld"]})
+        return gt
     if kind == "product_name":
-        return page.get("title") or None
+        title = page.get("title") or None
+        # If raw title looks broken, try rendered title
+        if (not title or "not found" in title.lower()) and page.get("rendered_title"):
+            title = page["rendered_title"]
+        return title
     return None
 
 

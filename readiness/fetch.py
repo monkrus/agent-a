@@ -107,8 +107,32 @@ def _parse_html(html: str, url: str = "") -> dict:
     }
 
 
+def _fetch_rendered(url: str, timeout: int = 30) -> dict | None:
+    """Fetch URL with Playwright headless browser. Returns parsed page or None."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return None
+
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            ctx = browser.new_context(
+                user_agent="agent-a-readiness-scanner/0.1 (+contact)")
+            page = ctx.new_page()
+            page.goto(url, timeout=timeout * 1000, wait_until="networkidle")
+            html = page.content()
+            browser.close()
+        return _parse_html(html, url)
+    except Exception:
+        return None
+
+
 def fetch(target: str, timeout: int = 30) -> dict:
     """Fetch a URL or read a local .html file -> normalized page dict."""
+    import os
+    render = os.environ.get("RENDER", "").lower() == "playwright"
+
     if re.match(r"^https?://", target):
         import requests  # local import so offline/file mode needs no network dep
         headers = {"User-Agent": "agent-a-readiness-scanner/0.1 (+contact)"}
@@ -120,6 +144,17 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["llms_txt"] = llms_txt is not None
         page["llms_txt_content"] = llms_txt
         page["robots"] = _get_text(urljoin(origin, "/robots.txt"), timeout)
+
+        # Rendered DOM: optional Playwright fetch for JS-heavy sites
+        if render:
+            rendered = _fetch_rendered(target, timeout)
+            if rendered:
+                page["rendered_html"] = rendered["html"]
+                page["rendered_text"] = rendered["text"]
+                page["rendered_title"] = rendered["title"]
+                page["rendered_jsonld"] = rendered["jsonld"]
+                page["rendered_links"] = rendered["links"]
+                page["rendered_meta"] = rendered["meta"]
     else:
         with open(target, "r", encoding="utf-8") as f:
             html = f.read()
