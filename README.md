@@ -1,47 +1,125 @@
-# Agent Failure Audit — Internal Protocol
+# agent-a — Agent-Accessibility Scanner
 
-Private repo. This is the methodology, scenario library, and tooling behind the
-Agent Failure Audit service. **Never share this repo with clients** — clients
-receive the report and (Tier 2) their own eval suite, not the protocol.
+Scan any product page URL and find out how well AI shopping agents can read,
+extract from, interact with, and stay safe on it.
+
+AI agents (ChatGPT Shopping, Google Gemini, Perplexity, Amazon) are becoming
+a major sales channel for e-commerce. But most product pages were built for
+humans, not machines. This scanner tells merchants what's broken and gives
+them copy-paste fixes.
+
+## What it does
+
+Paste a product page URL → get a readiness score (0–100) with per-check
+results across four layers:
+
+### Layer 1 — Can agents READ the page? (Data)
+- Product structured data (JSON-LD) present and complete
+- Price in server-rendered HTML (not JS-only)
+- llms.txt / agent guidance present and well-structured
+- robots.txt not blocking agent user-agents
+- Return/refund policy reachable as text
+- JS rendering ratio (how much content agents actually see)
+
+### Layer 2 — Can agents EXTRACT correctly? (Simulation)
+- Agent extracts the correct price (N runs, pass rate)
+- Agent determines stock availability
+- Agent identifies the correct product name
+- Agent gives consistent return window
+- Agent gives consistent shipping answer
+
+### Layer 3 — Can agents ACT on the page? (Interaction)
+- Add-to-Cart button is semantic and identifiable
+- Variant selectors (size/color) use accessible HTML
+
+### Layer 4 — Is the page SAFE? (Security)
+- No hidden prompt injection in page content
+
+### Intel section
+- Platform detection (Shopify, WooCommerce, etc.)
+- Chat/support agents detected (Gladly, Ada, Zendesk, etc.)
+- Commerce protocols (UCP, Shop Pay, Shop Skill, MCP)
+- llms.txt protocol and feature parsing
+- Meta directive analysis (noindex detection)
+
+## How it works
+
+1. Fetches the product page (raw HTML + optional Playwright rendered DOM)
+2. Runs 16 checks — 11 static probes + 5 shopper simulations
+3. Shopper checks run N times (default 5) to report **pass rates**, not binary
+4. Computes a weighted readiness score (0–100)
+5. Generates platform-specific copy-paste fix recipes for every failure
+
+## Quick start
+
+```bash
+# Install dependencies
+pip install flask pyyaml requests python-dotenv anthropic
+
+# Set up env
+cp .env.example .env   # add your ANTHROPIC_API_KEY
+
+# Run a scan (CLI, offline mock mode)
+SHOPPER=mock python readiness/scan.py \
+  --checks readiness/checks/shopify-v1.yaml \
+  --target https://example.com/products/some-product \
+  --n 5
+
+# Run a scan (CLI, real AI extraction)
+SHOPPER=anthropic python readiness/scan.py \
+  --checks readiness/checks/shopify-v1.yaml \
+  --target https://example.com/products/some-product \
+  --n 10
+
+# Run the web app
+cd readiness && python app.py
+# Open http://localhost:5000
+
+# Enable rendered DOM (optional, for JS-heavy sites)
+pip install playwright && playwright install chromium
+RENDER=playwright SHOPPER=anthropic python readiness/scan.py ...
+```
+
+## Env vars
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SHOPPER` | `mock` | `mock` (offline) or `anthropic` (real Claude extraction) |
+| `SHOPPER_MODEL` | `claude-sonnet-4-6` | Model for shopper simulation |
+| `ANTHROPIC_API_KEY` | — | Required if SHOPPER=anthropic |
+| `RENDER` | — | Set to `playwright` for headless browser fetch |
+| `SCAN_N` | 5 (web) / 10 (CLI) | Shopper runs per check |
+| `STRIPE_SECRET_KEY` | — | For paid report checkout |
+| `STRIPE_PRICE_ID` | — | Stripe Price object for single report |
 
 ## Repo layout
 
 ```
-playbook/            The audit methodology (the IP)
-  protocol.md        Six-category failure taxonomy + per-category checklists
-  engagement.md      How to run an engagement start-to-finish (timeline, access, comms)
+readiness/                 The scanner (primary product)
+  scan.py                  CLI entry point
+  app.py                   Flask web frontend
+  fetch.py                 Page fetcher (requests + optional Playwright)
+  shopper.py               Simulated shopping agent
+  scorers.py               16 check probes + grading
+  intel.py                 Agent intelligence module
+  fixes.py                 Copy-paste fix recipe generator
+  checks/shopify-v1.yaml   Check pack (16 checks, weights sum to 100)
+  templates/               Web frontend templates
+  .scans/                  Scan results (gitignored)
 
-scenarios/           Reusable test scenario libraries (YAML)
-  universal/         Apply to every agent
-  voice-agents/      Voice/desktop agent specific
-  support-agents/    Customer support agent specific
-  mcp-tools/         MCP / tool-surface specific (injection, scope creep)
-
-runners/             Glue scripts to execute scenarios against a client agent
-  run_scenarios.py   Generic runner: scenarios in → transcript + verdicts out
-
-reports/
-  templates/         Report skeleton (markdown → PDF via pandoc)
-
-clients/             One folder per engagement (gitignored except .gitkeep)
-  <client-name>/     Their scenario overrides, traces, findings, final report
+playbook/                  Agent audit methodology (legacy track)
+scenarios/                 Reusable test scenario packs
+runners/                   Scenario runner + adapters
+reports/                   Report templates
+clients/                   Per-engagement work (gitignored)
 ```
 
-## Engagement workflow (short version)
+## Cost
 
-1. `cp -r clients/_template clients/<name>` — start engagement folder
-2. Read their architecture, pick applicable scenario packs, write 10–20
-   client-specific scenarios in `clients/<name>/scenarios/`
-3. Run: `python runners/run_scenarios.py --target <their endpoint/harness> --packs universal,mcp-tools,clients/<name>`
-4. Triage transcripts → findings.md (one entry per failure: repro steps, severity, fix)
-5. Generate report from `reports/templates/audit-report.md`
-6. **Feed back**: any novel failure mode discovered → generalize it → add to the
-   shared scenario packs. This step is what makes the repo compound in value.
+- ~$0.15/scan with Claude Sonnet
+- ~$0.03–0.05/scan with Claude Haiku
+- Free with SHOPPER=mock (offline, deterministic-ish)
 
-## Rules
+## Private repo
 
-- Client data never leaves `clients/` and `clients/` never leaves this machine
-  unencrypted. Check NDA terms per engagement.
-- Every scenario file has an `id`, so findings are traceable across versions.
-- Scenario packs are versioned by git tag per quarter (v2026Q2, ...) so a
-  re-audit can state exactly which protocol version was applied.
+This is proprietary. Clients receive the scan report, not this codebase.
