@@ -119,9 +119,11 @@ def _fetch_rendered(url: str, timeout: int = 30) -> dict | None:
             browser = pw.chromium.launch(headless=True)
             ctx = browser.new_context(
                 user_agent="agent-a-readiness-scanner/0.1 (+contact)")
-            page = ctx.new_page()
-            page.goto(url, timeout=timeout * 1000, wait_until="networkidle")
-            html = page.content()
+            pg = ctx.new_page()
+            pg.goto(url, timeout=timeout * 1000, wait_until="domcontentloaded")
+            # Wait for JS to render product content
+            pg.wait_for_timeout(3000)
+            html = pg.content()
             browser.close()
         return _parse_html(html, url)
     except Exception:
@@ -145,8 +147,22 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["llms_txt_content"] = llms_txt
         page["robots"] = _get_text(urljoin(origin, "/robots.txt"), timeout)
 
-        # Rendered DOM: optional Playwright fetch for JS-heavy sites
-        if render:
+        # Rendered DOM: Playwright fetch for JS-heavy sites
+        # Auto-enable if Playwright is installed and page looks JS-heavy,
+        # or always when RENDER=playwright
+        should_render = render
+        if not should_render:
+            # Auto-detect: if page is JS-heavy, try rendered fetch
+            html_len = len(page.get("html", ""))
+            if html_len > 100:
+                import re as _re
+                scripts = _re.findall(r"<script[^>]*>.*?</script>",
+                                      page["html"], _re.I | _re.S)
+                script_len = sum(len(s) for s in scripts)
+                if script_len / html_len > 0.50:
+                    should_render = True
+                    page["_auto_render"] = True
+        if should_render:
             rendered = _fetch_rendered(target, timeout)
             if rendered:
                 page["rendered_html"] = rendered["html"]

@@ -24,11 +24,15 @@ import json
 import pathlib
 import sys
 
+from dotenv import load_dotenv
+load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
+
 import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod          # noqa: E402
 import scorers                    # noqa: E402
+import impact as impactmod        # noqa: E402
 from shopper import ask           # noqa: E402
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
@@ -73,6 +77,82 @@ def score(results):
     return round(100 * num / den, 1) if den else None
 
 
+def report_data(results, page):
+    """Compute derived report data from scan results."""
+    # Agent reliability percentages
+    reliability = {}
+    LABELS = {
+        "price-extraction": "Price",
+        "availability-extraction": "Availability",
+        "identity-extraction": "Product name",
+        "policy-extraction": "Policy info",
+    }
+    for r in results:
+        cat = r.get("category", "")
+        if cat in LABELS and r.get("type") == "shopper":
+            pf = r.get("pass_fraction")
+            reliability[LABELS[cat]] = f"{int(pf * 100)}%" if pf is not None else "N/A"
+
+    # Browser vs agent comparison
+    browser_vs_agent = {}
+    feature_map = {
+        "price-extraction": "Price",
+        "price-legibility": "Price in HTML",
+        "availability-extraction": "Availability",
+        "identity-extraction": "Product name",
+        "agent-interaction": "Add to cart",
+    }
+    has_rendered = bool(page.get("rendered_text"))
+    for r in results:
+        cat = r.get("category", "")
+        if cat in feature_map:
+            label = feature_map[cat]
+            agent_ok = r.get("verdict") == "PASS"
+            # Browser generally works for everything (it renders JS)
+            browser_ok = True
+            if label not in browser_vs_agent:
+                browser_vs_agent[label] = {"browser": browser_ok, "agent": agent_ok}
+
+    # AI visibility gap (rendered DOM delta)
+    visibility_gap = None
+    for r in results:
+        if r.get("id") == "RDY-013" and "Rendered DOM has" in r.get("detail", ""):
+            import re
+            m = re.search(r"Rendered DOM has (\d+) more chars", r["detail"])
+            if m:
+                visibility_gap = int(m.group(1))
+
+    # Score improvement roadmap
+    roadmap = []
+    for r in results:
+        if r.get("verdict") == "FAIL" and r.get("weight"):
+            pf = r.get("pass_fraction", 0) or 0
+            potential_gain = r["weight"] * (1.0 - pf)
+            roadmap.append({
+                "fix": r.get("title", ""),
+                "severity": r.get("severity_if_fail", "medium"),
+                "points": round(potential_gain, 1),
+            })
+    roadmap.sort(key=lambda x: x["points"], reverse=True)
+
+    # Severity breakdown
+    severity = {"critical": [], "major": [], "minor": []}
+    for r in results:
+        if r.get("verdict") != "FAIL":
+            continue
+        sev = r.get("severity_if_fail", "medium")
+        bucket = "critical" if sev == "critical" else "major" if sev in ("high",) else "minor"
+        severity[bucket].append(r.get("title", ""))
+
+    return {
+        "agent_reliability": reliability,
+        "browser_vs_agent": browser_vs_agent,
+        "visibility_gap_chars": visibility_gap,
+        "score_roadmap": roadmap[:5],
+        "severity_breakdown": severity,
+    }
+
+
 def headline(results):
     crits = [r for r in results
              if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
@@ -94,6 +174,8 @@ def main():
     ap.add_argument("--target", required=True, help="URL or local .html file")
     ap.add_argument("--n", type=int, default=10, help="shopper runs per check")
     ap.add_argument("--out", default="/tmp/readiness", type=pathlib.Path)
+    ap.add_argument("--compare", default=None,
+                    help="Competitor URL to scan for side-by-side comparison")
     args = ap.parse_args()
 
     pack, version, checks = load_checks(args.checks)
@@ -103,6 +185,8 @@ def main():
     s = score(results)
 
     args.out.mkdir(parents=True, exist_ok=True)
+    impact_est = impactmod.estimate(results)
+    rdata = report_data(results, page)
     payload = {
         "meta": {
             "target": args.target, "pack": pack, "version": version,
@@ -112,8 +196,25 @@ def main():
         },
         "readiness_score": s,
         "headline": headline(results),
+        "report": rdata,
         "results": results,
+        "impact": impact_est,
     }
+
+    # ---- competitor comparison (optional) ----
+    if args.compare:
+        comp_page = fetchmod.fetch(args.compare)
+        comp_results = scan(checks, comp_page, args.n)
+        comp_results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
+        comp_s = score(comp_results)
+        payload["comparison"] = {
+            "competitor_url": args.compare,
+            "competitor_score": comp_s,
+            "competitor_page_status": comp_page.get("status"),
+            "delta": round(s - comp_s, 1) if s is not None and comp_s is not None else None,
+            "competitor_results": comp_results,
+        }
+
     (args.out / "results.json").write_text(json.dumps(payload, indent=2))
 
     # ---- free-tier console summary (score + headline only) ----
@@ -123,6 +224,14 @@ def main():
     for r in results:
         counts[r.get("verdict")] = counts.get(r.get("verdict"), 0) + 1
     print(f"  checks: {counts}")
+    loss = impact_est["estimated_monthly_loss"]
+    print(f"  est. monthly revenue at risk: ${loss['low']:,} - ${loss['high']:,}")
+    if args.compare and "comparison" in payload:
+        comp = payload["comparison"]
+        delta = comp["delta"]
+        arrow = "ahead" if delta and delta > 0 else "behind"
+        print(f"  vs competitor: {comp['competitor_score']}/100 "
+              f"(you are {abs(delta)} pts {arrow})" if delta else "")
     print(f"  full per-check report -> {args.out/'results.json'} (paid deliverable)\n")
 
 

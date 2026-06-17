@@ -337,7 +337,8 @@ def run_static(check, page):
 
 # ---- SHOPPER grading --------------------------------------------------------
 def _norm(s):
-    return re.sub(r"\s+", " ", str(s)).strip().lower()
+    t = re.sub(r"[*_`#>]+", "", str(s))   # strip markdown formatting
+    return re.sub(r"\s+", " ", t).strip().lower()
 
 
 def _norm_num(s):
