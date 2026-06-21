@@ -391,6 +391,28 @@ def _dismiss_popups(page):
             continue
 
 
+def _check_cart_api(page) -> bool:
+    """Check Shopify /cart.json API for items in cart."""
+    try:
+        # Use synchronous XHR — more reliable than async fetch for cart state
+        result = page.evaluate("""() => {
+            try {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/cart.json', false);
+                xhr.setRequestHeader('Accept', 'application/json');
+                xhr.send(null);
+                if (xhr.status === 200) {
+                    var cart = JSON.parse(xhr.responseText);
+                    return cart.item_count > 0;
+                }
+            } catch(e) {}
+            return false;
+        }""")
+        return result
+    except Exception:
+        return False
+
+
 def _force_clear_modals(page):
     """Nuclear option: remove all overlays, modals, and fixed-position blockers."""
     page.evaluate("""() => {
@@ -452,18 +474,7 @@ def _verify_cart(page) -> bool:
                     || body.includes('item added') || body.includes('added to your cart');
             }"""),
             # Shopify cart API check (works on any Shopify store)
-            page.evaluate("""() => {
-                try {
-                    const xhr = new XMLHttpRequest();
-                    xhr.open('GET', '/cart.json', false);
-                    xhr.send();
-                    if (xhr.status === 200) {
-                        const cart = JSON.parse(xhr.responseText);
-                        return cart.item_count > 0;
-                    }
-                } catch(e) {}
-                return false;
-            }"""),
+            _check_cart_api(page),
         ]
         return any(indicators)
     except Exception:
