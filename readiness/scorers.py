@@ -325,6 +325,42 @@ STATIC = {
 }
 
 
+def run_browser(check, page):
+    """Run a browser-agent check (e.g. Add-to-Cart flow)."""
+    url = page.get("url", "")
+    if not url or not url.startswith("http"):
+        return {"verdict": "UNKNOWN",
+                "detail": "Browser checks require a live URL.",
+                "pass_fraction": None}
+    try:
+        from browser_agent import run_add_to_cart
+    except ImportError:
+        return {"verdict": "UNKNOWN",
+                "detail": "browser_agent module not available.",
+                "pass_fraction": None}
+
+    result = run_add_to_cart(url)
+    steps_summary = "; ".join(
+        f"step {s['step']}: {s['action']}({s.get('selector','')[:40]}) -> {s.get('result','')}"
+        for s in result.get("steps", [])
+    )
+
+    if result.get("success"):
+        verified = result.get("cart_verified", False)
+        detail = (f"Agent added product to cart in {result['total_steps']} steps. "
+                  f"Cart verified: {'yes' if verified else 'not confirmed'}. "
+                  f"Steps: {steps_summary}")
+        pf = 1.0 if verified else 0.8
+        return {"verdict": "PASS", "detail": detail, "pass_fraction": pf,
+                "browser_result": result}
+
+    detail = (f"Agent failed to add product to cart after {result['total_steps']} steps. "
+              f"Reason: {result.get('final_reason', 'unknown')}. "
+              f"Steps: {steps_summary}")
+    return {"verdict": "FAIL", "detail": detail, "pass_fraction": 0.0,
+            "browser_result": result}
+
+
 def run_static(check, page):
     fn = STATIC.get(check.get("detect"))
     if not fn:

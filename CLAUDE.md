@@ -51,6 +51,25 @@ These guide every feature decision:
 6. **UNKNOWN is first-class.** Never silently treat an inconclusive result as
    PASS. Disclose it — if we can't verify it, neither can a shopping agent.
 
+## Outreach email principles
+
+Cold emails must cut through noise. Follow these rules:
+
+1. **Educate first, pitch never.** Lead with something the merchant doesn't
+   know — most have no idea AI agents are already visiting their product pages.
+   The email teaches, the report sells.
+2. **One finding, not a data dump.** Pick the single most surprising result
+   from the scan. Save the full breakdown for the attached report.
+3. **Under 80 words before the CTA.** Short subject (lowercase, specific),
+   three short paragraphs max, no sales language ("happy to hop on a call").
+4. **Subject line is jarring and specific.** e.g. "your sheets are invisible
+   to ChatGPT" — not "AI Readiness Report for Your Store."
+5. **No score or revenue estimate in the email body.** Those go in the
+   attached report. The email is a hook, not the deliverable.
+6. **Softer language in reports.** Use "appears to contribute to" not
+   "causes"; "many AI agents" not "90% of agents"; label revenue estimates
+   as "illustrative." Credibility over drama.
+
 ## Scanner architecture (readiness/)
 
 ```

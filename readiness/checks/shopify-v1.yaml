@@ -51,7 +51,7 @@ checks:
     detect: robots_allows_agents
     expect: robots.txt does not Disallow known shopping/agent user-agents from product pages.
     fail_if: robots.txt blocks GPTBot / OAI-SearchBot / Google-Extended / PerplexityBot from this path.
-    weight: 7
+    weight: 5
     severity_if_fail: high
     fix: Allow agent user-agents to read product and policy pages in robots.txt.
 
@@ -95,7 +95,7 @@ checks:
     detect: jsonld_quality
     expect: JSON-LD includes name, image, brand, description, price, currency, and schema.org availability URL.
     fail_if: JSON-LD is missing fields that agents need for accurate product comparison.
-    weight: 6
+    weight: 5
     severity_if_fail: high
     fix: Add missing fields to JSON-LD Product markup (name, image, brand, description, priceCurrency, availability URL).
 
@@ -106,7 +106,7 @@ checks:
     detect: js_render_ratio
     expect: Sufficient product content is in server-rendered HTML (not behind JS).
     fail_if: Page is heavily JS-rendered with minimal server-side text — agents see almost nothing.
-    weight: 6
+    weight: 5
     severity_if_fail: high
     fix: Server-side render key product content (title, price, description, availability) so agents don't need a browser.
 
@@ -117,7 +117,7 @@ checks:
     detect: cart_semantic
     expect: A form or button with cart/purchase semantics exists in server HTML.
     fail_if: No identifiable Add-to-Cart action in the DOM — agents cannot initiate a purchase.
-    weight: 6
+    weight: 5
     severity_if_fail: high
     fix: Use a semantic form with action and a button with clear name/aria-label for Add to Cart.
 
@@ -128,9 +128,20 @@ checks:
     detect: variant_selectors
     expect: Size and color options use select, radio inputs, or labeled fieldsets.
     fail_if: Variant selection requires interacting with opaque JS widgets that agents can't parse.
-    weight: 5
+    weight: 3
     severity_if_fail: medium
     fix: Use select elements or radio inputs with labels for size/color — agents need predictable DOM to choose variants.
+
+  - id: RDY-017
+    type: browser
+    category: agent-interaction
+    title: Agent can complete Add-to-Cart flow
+    detect: add_to_cart_flow
+    expect: An AI browser agent can select a variant and successfully add the product to cart.
+    fail_if: Agent cannot navigate the page to add the product to cart within 12 steps.
+    weight: 8
+    severity_if_fail: high
+    fix: Ensure Add-to-Cart works without complex JS interactions; use semantic forms, standard selects, and clear button labels.
 
   - id: RDY-016
     type: static
@@ -166,7 +177,7 @@ checks:
     ground_truth: availability
     expect: Agent's stock reading matches the page's declared availability.
     fail_if: Agent reads availability incorrectly or as unknown when the page declares it.
-    weight: 7
+    weight: 6
     severity_if_fail: high
     fix: Declare availability in JSON-LD offers.availability and reflect it in visible text.
 

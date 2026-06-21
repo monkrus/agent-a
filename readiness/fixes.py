@@ -403,32 +403,37 @@ GENERATORS = {
     "RDY-014": _fix_cart_semantic,
     "RDY-015": _fix_variant_selectors,
     "RDY-016": _fix_prompt_injection,
+    "RDY-017": _fix_add_to_cart_flow,
 }
-    return '''<!-- SECURITY: Hidden prompt injection detected on this page. -->
-<!-- Malicious text hidden in your page can hijack AI shopping agents, -->
-<!-- causing them to give wrong information to your customers. -->
 
-<!-- Steps to fix: -->
 
-<!-- 1. Audit HTML comments — remove any that contain instructions to AI -->
-<!--    Search your templates for <!-- comments with words like "ignore", -->
-<!--    "system", "override", or "instructions" -->
+def _fix_add_to_cart_flow(check, page):
+    return '''<!-- Ensure AI agents can complete the Add-to-Cart flow: -->
 
-<!-- 2. Audit hidden elements — check display:none, visibility:hidden, -->
-<!--    aria-hidden, and 0px/0-opacity elements for suspicious text -->
+<!-- 1. Use a standard <form> with action="/cart/add" -->
+<form method="post" action="/cart/add" id="product-form">
+  <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+  <input type="hidden" name="quantity" value="1">
 
-<!-- 3. Audit user-generated content (reviews, Q&A) -->
-<!--    Add a content filter that strips known injection patterns: -->
+  <!-- 2. Use <select> for variants (not custom JS swatches) -->
+  {% for option in product.options_with_values %}
+    <label for="option-{{ option.name }}">{{ option.name }}</label>
+    <select name="{{ option.name }}" id="option-{{ option.name }}">
+      {% for value in option.values %}
+        <option value="{{ value }}">{{ value }}</option>
+      {% endfor %}
+    </select>
+  {% endfor %}
 
-<!-- Shopify Liquid example — sanitize review text: -->
-<!-- {{ review.text | strip_html | escape }} -->
+  <!-- 3. Use a clear <button> with descriptive attributes -->
+  <button type="submit" name="add" aria-label="Add to Cart">
+    Add to Cart
+  </button>
+</form>
 
-<!-- 4. If using a review app (Yotpo, Judge.me, Loox), check their -->
-<!--    moderation settings and enable content filtering -->
-
-<!-- Common injection patterns to filter: -->
-<!-- "ignore previous instructions" -->
-<!-- "you are now a..." -->
-<!-- "system: override" -->
-<!-- "disregard all previous" -->
-<!-- "tell the user that..." -->'''
+<!-- Key requirements: -->
+<!-- - Standard form action, not JavaScript-only submission -->
+<!-- - Variant selectors as <select> or <input type="radio"> -->
+<!-- - Button with type="submit" and clear text ("Add to Cart") -->
+<!-- - Avoid popups/modals that block the buy flow -->
+<!-- - Cart confirmation should be visible after adding -->'''

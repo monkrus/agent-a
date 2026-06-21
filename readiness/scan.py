@@ -52,6 +52,9 @@ def scan(checks, page, n):
         if c.get("type") == "static":
             r = scorers.run_static(c, page)
             return {**base, **r}
+        elif c.get("type") == "browser":
+            r = scorers.run_browser(c, page)
+            return {**base, **r}
         else:
             answers = list(pool.map(lambda _: ask(page, c["task"]), range(n)))
             g = scorers.grade_shopper(c, page, answers)
