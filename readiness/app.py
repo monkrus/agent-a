@@ -60,17 +60,20 @@ def _load_checks():
     return data.get("pack", "pack"), data.get("version", ""), data.get("checks", [])
 
 
-def _run_scan(target_url, n=None):
+def _run_scan(target_url, n=None, pre_fetched_page=None):
     from concurrent.futures import ThreadPoolExecutor
     n = n or int(os.environ.get("SCAN_N", "5"))
     pack, version, checks = _load_checks()
-    page = fetchmod.fetch(target_url)
+    page = pre_fetched_page or fetchmod.fetch(target_url)
 
     def _run_check(c):
         base = {k: c.get(k) for k in
                 ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
         if c.get("type") == "static":
             r = scorers.run_static(c, page)
+            return {**base, **r}
+        elif c.get("type") == "browser":
+            r = scorers.run_browser(c, page)
             return {**base, **r}
         else:
             answers = list(pool.map(lambda _: ask(page, c["task"]), range(n)))
@@ -169,8 +172,18 @@ def scan():
             "on your store, click on any product and copy the URL from your browser. "
             "It usually looks like: your-store.com/products/product-name"
         ))
+    # Fetch page and check for 404 / soft-404 before running full scan
     try:
-        scan_id = _run_scan(url)
+        pre_page = fetchmod.fetch(url)
+    except Exception as e:
+        return render_template("index.html", error=f"Could not fetch that URL: {e}")
+
+    dead = fetchmod.is_dead_page(pre_page)
+    if dead:
+        return render_template("index.html", error=dead)
+
+    try:
+        scan_id = _run_scan(url, pre_fetched_page=pre_page)
     except Exception as e:
         return render_template("index.html", error=f"Could not scan that URL: {e}")
     return redirect(url_for("results", scan_id=scan_id))

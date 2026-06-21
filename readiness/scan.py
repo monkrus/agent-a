@@ -183,6 +183,13 @@ def main():
 
     pack, version, checks = load_checks(args.checks)
     page = fetchmod.fetch(args.target)
+
+    # Abort early on 404 / soft-404 pages
+    dead = fetchmod.is_dead_page(page)
+    if dead:
+        print(f"\n  SCAN ABORTED: {dead}\n")
+        sys.exit(1)
+
     results = scan(checks, page, args.n)
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
     s = score(results)

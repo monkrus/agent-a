@@ -199,6 +199,30 @@ def _get_text(url: str, timeout: int):
         return None
 
 
+def is_dead_page(page: dict) -> str | None:
+    """Return an error message if the page is a 404 or soft-404, else None."""
+    status = page.get("status")
+    if status and status >= 400:
+        return f"HTTP {status} — this URL returned an error. Please check the URL and try again."
+
+    title = (page.get("title") or "").lower()
+    soft_404_signals = ["not found", "404", "page doesn't exist",
+                        "page does not exist", "no longer available"]
+    for signal in soft_404_signals:
+        if signal in title:
+            return (f"This page appears to be a 404 (title: \"{page.get('title')}\"). "
+                    "The product may have been removed or the URL may be wrong. "
+                    "Please try a different product URL.")
+
+    # Almost-empty page body (< 50 chars of visible text) likely means dead page
+    text = page.get("text", "")
+    if len(text.strip()) < 50 and status == 200:
+        return ("This page has almost no visible content — it may be a removed product "
+                "or a JavaScript-only page that didn't load. Please check the URL.")
+
+    return None
+
+
 if __name__ == "__main__":
     page = fetch(sys.argv[1])
     print(json.dumps({k: (v if k not in ("html", "text") else f"<{len(v)} chars>")
