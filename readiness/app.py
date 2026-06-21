@@ -43,7 +43,7 @@ import fixes as fixesmod   # noqa: E402
 import intel as intelmod   # noqa: E402
 import scorers             # noqa: E402
 import yaml                # noqa: E402
-from shopper import ask    # noqa: E402
+from shopper import ask, ask_batch  # noqa: E402
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
@@ -66,24 +66,31 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
     pack, version, checks = _load_checks()
     page = pre_fetched_page or fetchmod.fetch(target_url)
 
-    def _run_check(c):
-        base = {k: c.get(k) for k in
+    def _base(c):
+        return {k: c.get(k) for k in
                 ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
-        if c.get("type") == "static":
-            r = scorers.run_static(c, page)
-            return {**base, **r}
-        elif c.get("type") == "browser":
-            r = scorers.run_browser(c, page)
-            return {**base, **r}
-        else:
-            answers = list(pool.map(lambda _: ask(page, c["task"]), range(n)))
-            g = scorers.grade_shopper(c, page, answers)
-            return {**base, **g, "sample_answers": answers[:3]}
 
-    shopper_checks = [c for c in checks if c.get("type") != "static"]
-    max_workers = n * max(len(shopper_checks), 1)
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        results = list(pool.map(_run_check, checks))
+    static_checks = [c for c in checks if c.get("type") == "static"]
+    browser_checks = [c for c in checks if c.get("type") == "browser"]
+    shopper_checks = [c for c in checks if c.get("type") == "shopper"]
+
+    results = []
+    for c in static_checks:
+        r = scorers.run_static(c, page)
+        results.append({**_base(c), **r})
+    for c in browser_checks:
+        r = scorers.run_browser(c, page)
+        results.append({**_base(c), **r})
+
+    if shopper_checks:
+        tasks = {c["id"]: c["task"] for c in shopper_checks}
+        with ThreadPoolExecutor(max_workers=n) as pool:
+            batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
+        answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+        for c in shopper_checks:
+            answers = answers_by_check[c["id"]]
+            g = scorers.grade_shopper(c, page, answers)
+            results.append({**_base(c), **g, "sample_answers": answers[:3]})
 
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 

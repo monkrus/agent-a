@@ -33,7 +33,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod          # noqa: E402
 import scorers                    # noqa: E402
 import impact as impactmod        # noqa: E402
-from shopper import ask           # noqa: E402
+from shopper import ask, ask_batch  # noqa: E402
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 
@@ -46,24 +46,36 @@ def load_checks(path):
 def scan(checks, page, n):
     from concurrent.futures import ThreadPoolExecutor
 
-    def _run_check(c):
-        base = {k: c.get(k) for k in
-                ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
-        if c.get("type") == "static":
-            r = scorers.run_static(c, page)
-            return {**base, **r}
-        elif c.get("type") == "browser":
-            r = scorers.run_browser(c, page)
-            return {**base, **r}
-        else:
-            answers = list(pool.map(lambda _: ask(page, c["task"]), range(n)))
-            g = scorers.grade_shopper(c, page, answers)
-            return {**base, **g, "sample_answers": answers[:5]}
+    static_checks = [c for c in checks if c.get("type") == "static"]
+    browser_checks = [c for c in checks if c.get("type") == "browser"]
+    shopper_checks = [c for c in checks if c.get("type") == "shopper"]
 
-    shopper_checks = [c for c in checks if c.get("type") != "static"]
-    max_workers = n * max(len(shopper_checks), 1)
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        results = list(pool.map(_run_check, checks))
+    def _base(c):
+        return {k: c.get(k) for k in
+                ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
+
+    # Static + browser checks (unchanged)
+    results = []
+    for c in static_checks:
+        r = scorers.run_static(c, page)
+        results.append({**_base(c), **r})
+    for c in browser_checks:
+        r = scorers.run_browser(c, page)
+        results.append({**_base(c), **r})
+
+    # Shopper checks: batched — all tasks in one API call per run
+    if shopper_checks:
+        tasks = {c["id"]: c["task"] for c in shopper_checks}
+        # N batched calls in parallel (each call asks all shopper questions)
+        with ThreadPoolExecutor(max_workers=n) as pool:
+            batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
+        # Transpose: {check_id: [answer_run1, answer_run2, ...]}
+        answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+        for c in shopper_checks:
+            answers = answers_by_check[c["id"]]
+            g = scorers.grade_shopper(c, page, answers)
+            results.append({**_base(c), **g, "sample_answers": answers[:5]})
+
     return results
 
 

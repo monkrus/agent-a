@@ -137,3 +137,75 @@ def ask(page: dict, task: str) -> str:
         return backend(page, task)
     except Exception as e:
         return f"__error__: {e}"
+
+
+# ---- batched shopper (all tasks in one call) --------------------------------
+
+def _mock_batch(page: dict, tasks: dict[str, str]) -> dict[str, str]:
+    """Mock batch: just call individual mock for each task."""
+    return {cid: _mock_answer(page, task) for cid, task in tasks.items()}
+
+
+def _anthropic_batch(page: dict, tasks: dict[str, str]) -> dict[str, str]:
+    """Real batch: all extraction tasks in a single API call."""
+    import anthropic
+    import json as _json
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    model = os.environ.get("SHOPPER_MODEL", "claude-sonnet-4-6")
+
+    # Build combined prompt
+    task_lines = []
+    for cid, task in tasks.items():
+        task_lines.append(f'  "{cid}": "{task}"')
+    tasks_block = "{\n" + ",\n".join(task_lines) + "\n}"
+
+    sys_prompt = (
+        "You are an AI shopping agent extracting facts from a product page. "
+        "Use ONLY the page content provided. If the page does not clearly state "
+        "the answer, say 'unknown'. You will receive multiple extraction tasks. "
+        "Answer each one with a short value. Return a JSON object mapping each "
+        "task ID to your answer string. No explanation, just the JSON."
+    )
+
+    user_msg = (
+        f"{_page_blob(page)}\n\n"
+        f"TASKS (answer each with a short value):\n{tasks_block}\n\n"
+        f"Reply with ONLY a JSON object like: {{\"RDY-006\": \"29.99\", \"RDY-007\": \"in_stock\", ...}}"
+    )
+
+    msg = client.messages.create(
+        model=model, max_tokens=300, system=sys_prompt,
+        messages=[{"role": "user", "content": user_msg}],
+    )
+    raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+
+    # Parse JSON response
+    try:
+        result = _json.loads(raw)
+        if isinstance(result, dict):
+            return {cid: str(result.get(cid, "unknown")) for cid in tasks}
+    except _json.JSONDecodeError:
+        # Try to extract JSON from response
+        m = re.search(r"\{[^{}]*\}", raw, re.S)
+        if m:
+            try:
+                result = _json.loads(m.group())
+                if isinstance(result, dict):
+                    return {cid: str(result.get(cid, "unknown")) for cid in tasks}
+            except _json.JSONDecodeError:
+                pass
+
+    # Fallback: return unknown for all
+    return {cid: "unknown" for cid in tasks}
+
+
+_BATCH_BACKENDS = {"mock": _mock_batch, "anthropic": _anthropic_batch}
+
+
+def ask_batch(page: dict, tasks: dict[str, str]) -> dict[str, str]:
+    """Ask all shopper tasks in a single API call. Returns {check_id: answer}."""
+    backend = _BATCH_BACKENDS.get(os.environ.get("SHOPPER", "mock"), _mock_batch)
+    try:
+        return backend(page, tasks)
+    except Exception as e:
+        return {cid: f"__error__: {e}" for cid in tasks}
