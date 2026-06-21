@@ -341,7 +341,7 @@ def run_browser(check, page):
 
     result = run_add_to_cart(url)
     steps_summary = "; ".join(
-        f"step {s['step']}: {s['action']}({s.get('selector','')[:40]}) -> {s.get('result','')}"
+        f"step {s['step']}: {s['action']}({(s.get('selector') or '')[:40]}) -> {s.get('result','')}"
         for s in result.get("steps", [])
     )
 
