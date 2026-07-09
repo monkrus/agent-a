@@ -129,6 +129,15 @@ reports/templates/     Client deliverable skeleton.
 clients/               One folder per engagement (GITIGNORED).
 ```
 
+## TODO (deferred)
+
+Extract business materials to a private repo — `playbook/`,
+`reports/templates/`, `clients/_template/` expose engagement process,
+quoting formula, and tier strategy, violating this file's own
+"kitchen, not menu" rule. Public repo should keep only: `readiness/`,
+`scenarios/`, `runners/`, `README`, `QUICKSTART`. Nothing moves until
+after the interview; this note ensures it happens.
+
 ## When in doubt
 
 If a request would (a) commit client/scan data, (b) leak check logic or

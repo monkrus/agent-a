@@ -1,4 +1,18 @@
-# agent-a — Agent-Accessibility Scanner
+# agent-a — LLM agent QA framework + agent-accessibility scanner
+
+## Two tracks
+
+**1. Agent Failure Audit framework** — `scenarios/`, `runners/`:
+N-run scenario testing for LLM agents with programmatic graders
+(including trace-based "behavior, not narration" graders), six
+failure categories, pass-rate reporting instead of single-run
+verdicts, and fault/injection scenarios.
+
+**2. Agent-Accessibility Scanner** — `readiness/`: self-serve tool
+scoring product pages on AI shopping-agent readiness (the sections
+below).
+
+---
 
 Scan any product page URL and find out how well AI shopping agents can read,
 extract from, interact with, and stay safe on it.
