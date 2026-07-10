@@ -112,20 +112,20 @@ RENDER=playwright SHOPPER=anthropic python readiness/scan.py ...
 readiness/                 The scanner (primary product)
   scan.py                  CLI entry point
   app.py                   Flask web frontend
+  batch.py                 Batch scan CLI
+  leaderboard.py           Leaderboard export
   fetch.py                 Page fetcher (requests + optional Playwright)
   shopper.py               Simulated shopping agent
-  scorers.py               16 check probes + grading
+  scorers.py               Check probes + grading
   intel.py                 Agent intelligence module
   fixes.py                 Copy-paste fix recipe generator
-  checks/shopify-v1.yaml   Check pack (16 checks, weights sum to 100)
+  og_image.py              OG image generator for shareable results
+  checks/shopify-v1.yaml   Check pack (weights sum to 100)
   templates/               Web frontend templates
   .scans/                  Scan results (gitignored)
 
-playbook/                  Agent audit methodology (legacy track)
 scenarios/                 Reusable test scenario packs
 runners/                   Scenario runner + adapters
-reports/                   Report templates
-clients/                   Per-engagement work (gitignored)
 ```
 
 ## Cost

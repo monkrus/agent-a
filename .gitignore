@@ -1,7 +1,5 @@
 # Client data never leaves the machine via git
-clients/*
-!clients/_template/
-!clients/.gitkeep
+clients/
 
 # Python
 __pycache__/
@@ -15,3 +13,9 @@ venv/
 
 # Scan results (per-run, like client data — never commit)
 readiness/.scans/
+
+# Outreach drafts (generated, contain scan data)
+outreach/
+
+# Leaderboard output
+leaderboard/

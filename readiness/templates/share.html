@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ domain }} scored {{ score }}/100 on AI Agent Readiness</title>
+
+  <!-- OG meta tags -->
+  <meta property="og:title" content="{{ domain }} scored {{ score }}/100 on AI Agent Readiness">
+  <meta property="og:description" content="{{ og_description }}">
+  <meta property="og:image" content="{{ og_image_url }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ domain }} scored {{ score }}/100 on AI Agent Readiness">
+  <meta name="twitter:description" content="{{ og_description }}">
+  <meta name="twitter:image" content="{{ og_image_url }}">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AI Agent Readiness Score</h1>
+      <p class="subtitle">How well can AI shopping agents read this product page?</p>
+    </header>
+
+    <!-- Score -->
+    <div class="card score-card">
+      <div class="score-display">
+        <span class="score-number {% if score and score >= 80 %}score-good{% elif score and score >= 50 %}score-ok{% else %}score-bad{% endif %}">
+          {{ score if score is not none else 'N/A' }}
+        </span>
+        <span class="score-label">/ 100</span>
+      </div>
+      <p class="headline">{{ data.headline }}</p>
+      <div class="meta-row">
+        <span>{{ domain }}</span>
+        <span>{{ data.meta.n }} AI agent visits simulated</span>
+        <span>{{ data.meta.timestamp[:10] }}</span>
+      </div>
+    </div>
+
+    <!-- Category bars -->
+    <div class="card">
+      <h2>Readiness by Layer</h2>
+      <p class="intel-subtitle">How the page performs across four dimensions of agent readiness.</p>
+      {% for layer in layers %}
+      <div class="layer-bar">
+        <div class="layer-bar-header">
+          <span class="layer-bar-label">{{ layer.label }}</span>
+          <span class="layer-bar-pct">{{ layer.pct }}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill bar-fill-{{ layer.grade }}" style="width: {{ layer.pct }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Top 3 findings -->
+    {% if findings %}
+    <div class="card">
+      <h2>Top Findings</h2>
+      <p class="intel-subtitle">The most impactful issues AI shopping agents encounter on this page.</p>
+      {% for f in findings %}
+      <div class="check-block check-{{ f.verdict|lower }}">
+        <div class="check-header">
+          <span class="sev sev-{{ f.severity_if_fail }}">{{ f.severity_if_fail }}</span>
+          <span class="check-title">{{ f.title }}</span>
+          <span class="verdict verdict-badge-{{ f.verdict|lower }}">{{ f.verdict }}</span>
+        </div>
+        <div class="check-detail">
+          <p style="font-size:0.85rem; color:var(--text-muted); padding:0.3rem 0;">{{ f.plain_finding }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Share + CTA -->
+    <div class="card" style="text-align:center;">
+      <button class="btn-share" onclick="copyShareLink()">Copy share link</button>
+      <span id="share-msg" style="font-size:0.8rem; color:var(--green); margin-left:0.5rem; display:none;">Copied!</span>
+    </div>
+
+    <div class="card paywall-card">
+      <h2>Scan Your Own Store</h2>
+      <p>See how your product pages score for AI shopping agents. Free scan, instant results.</p>
+      <a href="{{ url_for('index') }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Scan Now</a>
+    </div>
+
+    <footer>
+      <p>agent-a &middot; agent-accessibility scanner</p>
+    </footer>
+  </div>
+
+  <script>
+  function copyShareLink() {
+    navigator.clipboard.writeText(window.location.href).then(function() {
+      var msg = document.getElementById('share-msg');
+      msg.style.display = 'inline';
+      setTimeout(function() { msg.style.display = 'none'; }, 2000);
+    });
+  }
+  </script>
+</body>
+</html>

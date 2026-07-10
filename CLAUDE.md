@@ -4,24 +4,20 @@ Guidance for Claude Code when working in this repository.
 
 ## What this repo is
 
-This repo has **two tracks**:
+**Agent-Accessibility Scanner** — `readiness/`. A self-serve tool that scans
+any product page URL and tells a merchant how well AI shopping agents can read,
+extract from, interact with, and stay safe on their page.
 
-1. **Agent Failure Audit** (original) — `playbook/`, `scenarios/`, `runners/`,
-   `reports/`. A human QA engineer audits a client's LLM agent for failure
-   modes, delivers a written report and optional eval suite.
+Supporting code: `scenarios/` (reusable test packs), `runners/` (scenario
+runner + adapters).
 
-2. **Agent-Accessibility Scanner** (primary, revenue-generating) — `readiness/`.
-   A self-serve tool that scans any product page URL and tells a merchant how
-   well AI shopping agents can read, extract from, interact with, and stay safe
-   on their page. Sold as free score + paid full report via Stripe.
-
-**This repo is the kitchen, not the menu.** Clients see the report, not the
-source code, check library, or methodology.
+Business materials (playbook, report templates, client template) live in a
+separate private repo (`agent-a-private/`).
 
 ## Critical rules — do not violate
 
-1. **Never commit client data.** Everything under `clients/` (except
-   `clients/_template/`) is gitignored and must stay that way.
+1. **Never commit client data.** Everything under `clients/` is gitignored
+   and must stay that way.
 2. **Never expose the check library or scoring logic to a client deliverable.**
    The report is self-contained. Do not paste check YAML, scorer internals,
    or prompt injection patterns into anything destined for a client.
@@ -29,46 +25,6 @@ source code, check library, or methodology.
    live in `.env` (gitignored) or per-client local files, never in tracked code.
 4. **Scan results stay local.** `readiness/.scans/` is gitignored. Never commit
    scan output.
-
-## Product principles — the scanner
-
-These guide every feature decision:
-
-1. **Focus on the merchant's product page.** The scanner answers one question:
-   "Am I losing sales because AI agents can't buy from my store?" Everything
-   we build serves that question.
-2. **Don't try to be everything.** We are not a security tool, not an SEO tool,
-   not a bot management platform. We are a readiness scanner for the AI
-   shopping era, focused on what the merchant controls: their product pages.
-3. **Show, don't tell.** Run a real agent N times, report pass rates, show
-   sample answers. A page that returns the right price 3/5 times is a finding
-   nobody else catches.
-4. **Copy-paste fixes win deals.** Platform-specific code the merchant can
-   paste is worth more than a paragraph of advice.
-5. **Ship what sells today.** Don't build for hypothetical future markets.
-   Double down on what works: agent simulation accuracy, fix quality, rendered
-   DOM support.
-6. **UNKNOWN is first-class.** Never silently treat an inconclusive result as
-   PASS. Disclose it — if we can't verify it, neither can a shopping agent.
-
-## Outreach email principles
-
-Cold emails must cut through noise. Follow these rules:
-
-1. **Educate first, pitch never.** Lead with something the merchant doesn't
-   know — most have no idea AI agents are already visiting their product pages.
-   The email teaches, the report sells.
-2. **One finding, not a data dump.** Pick the single most surprising result
-   from the scan. Save the full breakdown for the attached report.
-3. **Under 80 words before the CTA.** Short subject (lowercase, specific),
-   three short paragraphs max, no sales language ("happy to hop on a call").
-4. **Subject line is jarring and specific.** e.g. "your sheets are invisible
-   to ChatGPT" — not "AI Readiness Report for Your Store."
-5. **No score or revenue estimate in the email body.** Those go in the
-   attached report. The email is a hook, not the deliverable.
-6. **Softer language in reports.** Use "appears to contribute to" not
-   "causes"; "many AI agents" not "90% of agents"; label revenue estimates
-   as "illustrative." Credibility over drama.
 
 ## Scanner architecture (readiness/)
 
@@ -78,11 +34,14 @@ readiness/
   app.py               Flask web frontend (port 5000)
   fetch.py             Page fetcher (requests + optional Playwright for rendered DOM)
   shopper.py           Simulated shopping agent (mock or anthropic backend)
-  scorers.py           Static probes + shopper grading (16 checks)
+  scorers.py           Static probes + shopper grading
   intel.py             Agent intelligence: platform, chat agents, commerce protocols
   fixes.py             Copy-paste fix recipe generator per failing check
+  batch.py             Batch scan CLI (python -m readiness.batch targets.txt)
+  leaderboard.py       Leaderboard export (python -m readiness.leaderboard)
+  og_image.py          OG image generator for shareable results
   checks/
-    shopify-v1.yaml    Check pack (16 checks, weights sum to 100)
+    shopify-v1.yaml    Check pack (weights sum to 100)
   templates/           Flask HTML templates
   .scans/              Scan results (gitignored)
 ```
@@ -99,7 +58,7 @@ Every check maps to one layer of agent readiness:
 ## Check IDs and conventions
 
 - Check IDs (RDY-NNN) are stable and never reused — scan results reference them.
-- Severity: `critical` / `high` / `medium` / `low` (rubric in playbook/protocol.md).
+- Severity: `critical` / `high` / `medium` / `low`.
 - Weights in the YAML must sum to 100.
 - Every new check needs: scorer in `scorers.py`, entry in YAML, fix in `fixes.py`.
 
@@ -111,32 +70,16 @@ Every check maps to one layer of agent readiness:
 - `RENDER` — `playwright` enables headless browser fetch (optional, degrades gracefully)
 - `SCAN_N` — shopper runs per check (default: 5 web, 10 CLI)
 - `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` — for paid report checkout
+- `DEV_MODE` — set to `true` to enable demo unlock without Stripe (never in production)
 
 ## Common tasks
 
 - **Run a scan (CLI):** `SHOPPER=mock python readiness/scan.py --checks readiness/checks/shopify-v1.yaml --target <url> --n 5`
-- **Run the web app:** `cd readiness && flask run` (or `python app.py`)
+- **Run the web app:** `cd readiness && python app.py`
+- **Batch scan:** `python -m readiness.batch targets.txt`
+- **Generate leaderboard:** `python -m readiness.leaderboard`
 - **Add a check:** add scorer in `scorers.py`, entry in `shopify-v1.yaml` (rebalance weights to 100), fix in `fixes.py`
 - **Enable rendered DOM:** `pip install playwright && playwright install chromium`, then set `RENDER=playwright`
-
-## Layout (legacy audit track)
-
-```
-playbook/protocol.md   Six-category failure taxonomy.
-scenarios/             Reusable test packs (YAML).
-runners/               Scenario runner + adapters + graders.
-reports/templates/     Client deliverable skeleton.
-clients/               One folder per engagement (GITIGNORED).
-```
-
-## TODO (deferred)
-
-Extract business materials to a private repo — `playbook/`,
-`reports/templates/`, `clients/_template/` expose engagement process,
-quoting formula, and tier strategy, violating this file's own
-"kitchen, not menu" rule. Public repo should keep only: `readiness/`,
-`scenarios/`, `runners/`, `README`, `QUICKSTART`. Nothing moves until
-after the interview; this note ensures it happens.
 
 ## When in doubt
 

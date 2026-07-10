@@ -269,8 +269,10 @@
           {% endif %}
         </button>
       </form>
-      {% if not has_stripe %}
-      <p class="note">Stripe not configured — clicking unlocks the report in demo mode.</p>
+      {% if not has_stripe and dev_mode %}
+      <p class="note">DEV MODE — clicking unlocks the report without payment.</p>
+      {% elif not has_stripe %}
+      <p class="note">Payment system is being set up. Check back soon.</p>
       {% endif %}
     </div>
     {% else %}

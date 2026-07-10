@@ -204,8 +204,9 @@ def results(scan_id):
     paid = session.get(f"paid_{scan_id}", False)
     stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
     has_stripe = bool(stripe_key)
+    dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
     return render_template("results.html", data=data, paid=paid,
-                           has_stripe=has_stripe)
+                           has_stripe=has_stripe, dev_mode=dev_mode)
 
 
 @app.route("/checkout/<scan_id>", methods=["POST"])
@@ -217,9 +218,11 @@ def checkout(scan_id):
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
     price_id = os.environ.get("STRIPE_PRICE_ID")
     if not stripe_key or not price_id:
-        # No Stripe configured — unlock directly (dev/demo mode)
-        session[f"paid_{scan_id}"] = True
-        return redirect(url_for("results", scan_id=scan_id))
+        # Only allow demo unlock if DEV_MODE is explicitly enabled
+        if os.environ.get("DEV_MODE", "").lower() == "true":
+            session[f"paid_{scan_id}"] = True
+            return redirect(url_for("results", scan_id=scan_id))
+        abort(503, description="Payment system is not configured.")
 
     import stripe
     stripe.api_key = stripe_key
@@ -242,6 +245,129 @@ def payment_success(scan_id):
         abort(404)
     session[f"paid_{scan_id}"] = True
     return redirect(url_for("results", scan_id=scan_id))
+
+
+# ---- Shareable public results (/r/<scan_id>) --------------------------------
+
+SEV_RANK_SHARE = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
+LAYER_ORDER = ["data", "extraction", "interaction", "security"]
+LAYER_LABELS = {"data": "Data", "extraction": "Extraction",
+                "interaction": "Interaction", "security": "Security"}
+
+
+def _layer_scores(results):
+    """Compute per-layer scores from results."""
+    CAT_TO_LAYER = {}
+    for r in results:
+        cat = r.get("category", "")
+        ctype = r.get("type", "")
+        if ctype == "shopper":
+            CAT_TO_LAYER[cat] = "extraction"
+        elif ctype == "browser":
+            CAT_TO_LAYER[cat] = "interaction"
+        elif cat in ("security",):
+            CAT_TO_LAYER[cat] = "security"
+        elif cat in ("agent-interaction", "variant-interaction"):
+            CAT_TO_LAYER[cat] = "interaction"
+        else:
+            CAT_TO_LAYER[cat] = "data"
+    layers = {}
+    for r in results:
+        cat = r.get("category", "")
+        layer = CAT_TO_LAYER.get(cat, "data")
+        pf = r.get("pass_fraction")
+        if pf is None:
+            continue
+        w = r.get("weight", 0) or 0
+        if layer not in layers:
+            layers[layer] = {"num": 0.0, "den": 0.0}
+        layers[layer]["num"] += w * pf
+        layers[layer]["den"] += w
+    return {lay: round(v["num"] / v["den"] * 100, 1) if v["den"] else 0
+            for lay, v in layers.items()}
+
+
+def _plain_finding(r):
+    """Convert a check result into a plain-English one-liner for merchants."""
+    v = r.get("verdict", "")
+    title = r.get("title", "")
+    detail = r.get("detail", "")
+    pr = r.get("pass_rate", "")
+    if v == "FAIL" and pr:
+        return f"{title} — agents got this right only {pr} times."
+    if v == "UNKNOWN":
+        return f"{title} — could not be verified (agents can't find this data either)."
+    if detail and len(detail) < 120:
+        return detail
+    return title
+
+
+def _domain_from_url(url):
+    from urllib.parse import urlparse
+    h = urlparse(url).hostname or url
+    return h[4:] if h.startswith("www.") else h
+
+
+@app.route("/r/<scan_id>")
+def share(scan_id):
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+
+    score = data.get("readiness_score")
+    domain = _domain_from_url(data.get("meta", {}).get("target", ""))
+    results = data.get("results", [])
+
+    # Layer scores for bars
+    ls = _layer_scores(results)
+    layers = []
+    for lay in LAYER_ORDER:
+        if lay in ls:
+            pct = ls[lay]
+            grade = "good" if pct >= 80 else "ok" if pct >= 50 else "bad"
+            layers.append({"label": LAYER_LABELS[lay], "pct": int(pct), "grade": grade})
+
+    # Top 3 findings (FAIL/UNKNOWN, sorted by severity)
+    findings_raw = [r for r in results if r.get("verdict") in ("FAIL", "UNKNOWN")]
+    findings_raw.sort(key=lambda r: SEV_RANK_SHARE.get(r.get("severity_if_fail"), 4))
+    findings = []
+    for f in findings_raw[:3]:
+        findings.append({**f, "plain_finding": _plain_finding(f)})
+
+    # OG description: worst finding one-liner
+    og_desc = findings[0]["plain_finding"] if findings else "All checks passed."
+
+    # OG image URL
+    og_image_url = request.host_url.rstrip("/") + url_for("share_og_image", scan_id=scan_id)
+    canonical_url = request.host_url.rstrip("/") + url_for("share", scan_id=scan_id)
+
+    return render_template("share.html",
+                           data=data, score=score, domain=domain,
+                           layers=layers, findings=findings,
+                           og_description=og_desc, og_image_url=og_image_url,
+                           canonical_url=canonical_url)
+
+
+@app.route("/r/<scan_id>/og.png")
+def share_og_image(scan_id):
+    from flask import Response
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+
+    # Check cached OG image
+    og_path = SCANS_DIR / f"{scan_id}_og.png"
+    if og_path.exists():
+        return Response(og_path.read_bytes(), mimetype="image/png",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+    try:
+        import og_image
+        png_bytes = og_image.generate(data, str(og_path))
+        return Response(png_bytes, mimetype="image/png",
+                        headers={"Cache-Control": "public, max-age=86400"})
+    except ImportError:
+        abort(404, description="Pillow not installed for OG image generation.")
 
 
 if __name__ == "__main__":
