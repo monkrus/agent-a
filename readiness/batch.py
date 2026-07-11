@@ -176,6 +176,8 @@ def main():
                     help="Seconds between scans (rate limiting, default: 5)")
     ap.add_argument("--base-url", default=BASE_URL,
                     help="Base URL for permalinks (default: from BASE_URL env or localhost:5000)")
+    ap.add_argument("--no-outreach", action="store_true",
+                    help="Skip outreach email generation (for leaderboard/public tier)")
     args = ap.parse_args()
 
     targets_path = pathlib.Path(args.targets_file)
@@ -246,11 +248,14 @@ def main():
         print(f"  Score: {score}/100 | Top issue: {worst}")
         print(f"  Permalink: {permalink}")
 
-        # Generate outreach email
-        email_md = generate_email(payload, permalink)
-        outreach_path = OUTREACH_DIR / f"{domain}.md"
-        outreach_path.write_text(email_md)
-        print(f"  Outreach: {outreach_path}")
+        # Generate outreach email (unless --no-outreach)
+        if not args.no_outreach:
+            email_md = generate_email(payload, permalink)
+            outreach_path = OUTREACH_DIR / f"{domain}.md"
+            outreach_path.write_text(email_md)
+            print(f"  Outreach: {outreach_path}")
+        else:
+            print(f"  Outreach: skipped (--no-outreach)")
 
         csv_rows.append({
             "domain": domain, "score": score,
