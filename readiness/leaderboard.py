@@ -56,7 +56,10 @@ def _top_weakness_category(results):
     if not layers:
         return "Unknown"
     scored = {k: v["num"] / v["den"] if v["den"] else 0 for k, v in layers.items()}
-    return min(scored, key=scored.get)
+    worst = min(scored, key=scored.get)
+    if scored[worst] >= 1.0:
+        return "—"
+    return worst
 
 
 def load_all_scans():

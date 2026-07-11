@@ -135,7 +135,7 @@ def _layer_scores(results):
             for layer, v in layers.items()}
 
 
-def generate(scan_data: dict, output_path: Optional[str] = None) -> bytes:
+def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str = "") -> bytes:
     """Generate a 1200x630 OG image PNG. Returns bytes."""
     try:
         from PIL import Image, ImageDraw
@@ -242,7 +242,8 @@ def generate(scan_data: dict, output_path: Optional[str] = None) -> bytes:
 
     # --- Footer ---
     draw.line([(60, 560), (W - 60, 560)], fill=BORDER, width=1)
-    draw.text((60, 575), "agent-a  |  agent-accessibility scanner", fill=MUTED, font=font_xs)
+    footer_left = f"agent-a  |  agent-accessibility scanner  |  {date_stamp}" if date_stamp else "agent-a  |  agent-accessibility scanner"
+    draw.text((60, 575), footer_left, fill=MUTED, font=font_xs)
     draw.text((W - 260, 575), "Scan your store free", fill=ACCENT, font=font_xs)
 
     # Save
