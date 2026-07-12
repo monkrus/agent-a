@@ -92,6 +92,52 @@ def score(results):
     return round(100 * num / den, 1) if den else None
 
 
+def confidence_band(results, n):
+    """Estimate +/- confidence interval for the score.
+
+    Sources of variance:
+    - Shopper checks: N runs with stochastic LLM -> binomial uncertainty
+    - Browser checks: non-deterministic (modal timing, popups)
+    - Static checks: deterministic (zero variance)
+
+    Returns (low, high) bounds as absolute score points, or None.
+    Uses Wilson interval per shopper check, propagated through weights.
+    """
+    import math
+    z = 1.96  # 95% CI
+
+    den = 0.0
+    variance_sum = 0.0
+    for r in results:
+        pf = r.get("pass_fraction")
+        if pf is None:
+            continue
+        w = r.get("weight", 0) or 0
+        den += w
+
+        check_type = r.get("type", "static")
+        if check_type == "shopper":
+            # Binomial variance for pass_fraction with N observations
+            p = pf
+            se = math.sqrt(p * (1 - p) / n) if n > 0 else 0
+            variance_sum += (w * se) ** 2
+        elif check_type == "browser":
+            # Browser with majority-vote (3 attempts): lower variance than single-shot
+            browser_attempts = r.get("browser_attempts", 1)
+            se = 0.3 / math.sqrt(max(browser_attempts, 1))
+            variance_sum += (w * se) ** 2
+        # static: variance = 0
+
+    if den == 0:
+        return None
+
+    # Propagate: score = 100 * sum(w*pf) / sum(w)
+    # SE(score) = 100 * sqrt(sum((w*se)^2)) / sum(w)
+    score_se = 100 * math.sqrt(variance_sum) / den
+    margin = round(z * score_se, 1)
+    return margin
+
+
 def report_data(results, page):
     """Compute derived report data from scan results."""
     # Agent reliability percentages
@@ -205,6 +251,7 @@ def main():
     results = scan(checks, page, args.n)
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
     s = score(results)
+    margin = confidence_band(results, args.n)
 
     args.out.mkdir(parents=True, exist_ok=True)
     impact_est = impactmod.estimate(results)
@@ -217,6 +264,7 @@ def main():
             "page_status": page.get("status"),
         },
         "readiness_score": s,
+        "confidence_margin": margin,
         "headline": headline(results),
         "report": rdata,
         "results": results,

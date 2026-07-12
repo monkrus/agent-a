@@ -87,17 +87,73 @@ def _anthropic_answer(page: dict, task: str) -> str:
 
 
 # ---- jsonld helpers (also used by scorers for ground truth) -----------------
-def _jsonld_offers(page: dict):
-    for obj in page.get("jsonld", []):
+
+def _types_lower(obj):
+    """Return set of lowercased @type values for a JSON-LD object."""
+    t = obj.get("@type", "")
+    return {str(x).lower() for x in (t if isinstance(t, list) else [t])}
+
+
+def _extract_offer(obj):
+    """Extract the first Offer dict from an object's 'offers' field."""
+    off = obj.get("offers")
+    if isinstance(off, list):
+        off = off[0] if off else None
+    return off if isinstance(off, dict) else None
+
+
+def _flatten_jsonld(objects):
+    """Yield all JSON-LD objects, unwrapping @graph containers and arrays."""
+    for obj in objects:
+        if isinstance(obj, list):
+            yield from _flatten_jsonld(obj)
+            continue
         if not isinstance(obj, dict):
             continue
-        types = obj.get("@type", "")
-        types = types if isinstance(types, list) else [types]
-        if any(str(x).lower() == "product" for x in types):
-            off = obj.get("offers")
-            if isinstance(off, list):
-                off = off[0] if off else None
-            return obj, (off if isinstance(off, dict) else None)
+        yield obj
+        # Recurse into @graph
+        graph = obj.get("@graph")
+        if isinstance(graph, list):
+            yield from _flatten_jsonld(graph)
+
+
+def _jsonld_offers(page: dict):
+    """Find a Product (or ProductGroup) and its first Offer.
+
+    Handles:
+    - top-level @type: "Product"
+    - @type given as array (e.g. ["Product", "Thing"])
+    - ProductGroup with hasVariant[] of Product (uses group-level
+      fields + first variant's offers)
+    - @graph containers holding either of the above
+    """
+    objects = list(_flatten_jsonld(page.get("jsonld", [])))
+
+    # Pass 1: look for a direct Product
+    for obj in objects:
+        if "product" in _types_lower(obj):
+            return obj, _extract_offer(obj)
+
+    # Pass 2: look for ProductGroup with hasVariant
+    for obj in objects:
+        if "productgroup" in _types_lower(obj):
+            variants = obj.get("hasVariant", [])
+            if not isinstance(variants, list):
+                variants = [variants]
+            for v in variants:
+                if isinstance(v, dict) and "product" in _types_lower(v):
+                    # Merge: group-level fields + variant offers
+                    merged = dict(obj)  # shallow copy of group
+                    merged.pop("hasVariant", None)
+                    merged["@type"] = "Product"
+                    # Variant-level offers override
+                    off = _extract_offer(v)
+                    if off:
+                        merged["offers"] = v.get("offers")
+                    return merged, off
+            # ProductGroup without typed variants — use its own offers
+            return obj, _extract_offer(obj)
+
     return None, None
 
 

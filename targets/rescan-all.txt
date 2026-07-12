@@ -1,0 +1,23 @@
+# Tier brands (18 URLs, gymshark will likely skip again)
+https://gymshark.com/products/gymshark-storm-seamless-top-ss-tops-red-ss26
+https://everlane.com/products/mens-lightweight-denim-resort-shirt-medium-indigo
+https://untuckit.com/products/crosby
+https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather
+https://kyliecosmetics.com/products/compact-mirror
+https://fentybeauty.com/products/bounce-blend-blur-bronzer-and-brush-duo
+https://harrys.com/products/harrys-original-on-the-go-bundle
+https://casper.com/products/your-mattress-knows-too-much-bundle-cloud-one-split-king-white
+https://tuftandneedle.com/products/legacy-original-2022
+https://purple.com/mattresses/purple-mattress
+https://liquid-iv.com/products/sugar-free-paradise-bundle
+https://www.warbyparker.com/eyeglasses/men/durand/whiskey-tortoise
+https://aloyoga.com/products/n1001f-multivitamin-alo-scent
+https://awaytravel.com/products/celebration-bundle
+https://framebridge.com/products/professional-pet-portraits-at-framebridge-old-town
+https://sundayriley.com/products/tidal-deep-hydration-plumping-serum
+https://us.dollarshaveclub.com/products/travel-bundle-1x-diamond-grip-handle-blue-2ct-6b-razor-3oz-shave-butter-1-oz-post-shave-dew-traveler-bag
+https://olaplex.com/products/the-pro-healthy-hair-discovery-set
+# Test domains
+https://bearaby.com/products/the-napper
+https://cutsclothing.com/products/black-fleece-1-4-zip
+https://thursdayboots.com/products/womens-beanie-heather-grey

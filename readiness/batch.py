@@ -129,6 +129,27 @@ def _run_scan(target_url, n):
         den += w
     readiness_score = round(100 * num / den, 1) if den else None
 
+    # Confidence band (95% CI margin)
+    import math
+    z = 1.96
+    variance_sum = 0.0
+    for r in results:
+        pf = r.get("pass_fraction")
+        if pf is None:
+            continue
+        w = r.get("weight", 0) or 0
+        ctype = r.get("type", "static")
+        if ctype == "shopper":
+            p = pf
+            se = math.sqrt(p * (1 - p) / n) if n > 0 else 0
+            variance_sum += (w * se) ** 2
+        elif ctype == "browser":
+            browser_attempts = r.get("browser_attempts", 1)
+            se = 0.3 / math.sqrt(max(browser_attempts, 1))
+            variance_sum += (w * se) ** 2
+    score_se = 100 * math.sqrt(variance_sum) / den if den else 0
+    confidence_margin = round(z * score_se, 1) if den else None
+
     # Headline
     crits = [r for r in results
              if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
@@ -157,6 +178,7 @@ def _run_scan(target_url, n):
             "page_status": page.get("status"),
         },
         "readiness_score": readiness_score,
+        "confidence_margin": confidence_margin,
         "headline": headline,
         "results": results,
         "intel": intelmod.analyze(page, page.get("llms_txt_content")),
@@ -170,8 +192,8 @@ def _run_scan(target_url, n):
 def main():
     ap = argparse.ArgumentParser(description="Batch scan domains from a file")
     ap.add_argument("targets_file", help="Text file with one URL/domain per line")
-    ap.add_argument("--n", type=int, default=int(os.environ.get("SCAN_N", "5")),
-                    help="Shopper runs per check (default: 5)")
+    ap.add_argument("--n", type=int, default=int(os.environ.get("SCAN_N", "10")),
+                    help="Shopper runs per check (default: 10)")
     ap.add_argument("--delay", type=int, default=5,
                     help="Seconds between scans (rate limiting, default: 5)")
     ap.add_argument("--base-url", default=BASE_URL,

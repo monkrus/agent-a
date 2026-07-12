@@ -160,12 +160,17 @@ def static_js_render_ratio(page):
     if html_len < 100:
         return "UNKNOWN", "Page too small to evaluate rendering ratio."
 
-    # Script content size
+    # Script content size (exclude external scripts with src= and empty body)
     scripts = _re.findall(r"<script[^>]*>.*?</script>", html, _re.I | _re.S)
     script_len = sum(len(s) for s in scripts)
 
-    # Visible text vs total page
+    # Visible text vs total page (strip tags for non-script content)
     text_len = len(text)
+    # More robust: measure text outside scripts
+    non_script_html = _re.sub(r"<script[^>]*>.*?</script>", "", html, flags=_re.I | _re.S)
+    non_script_text = _re.sub(r"<[^>]+>", " ", non_script_html)
+    non_script_text_len = len(non_script_text.strip())
+
     script_ratio = round(script_len / html_len * 100, 1) if html_len else 0
     text_ratio = round(text_len / html_len * 100, 1) if html_len else 0
 
@@ -179,11 +184,22 @@ def static_js_render_ratio(page):
         if gap > 200:
             detail += f" Rendered DOM has {gap} more chars of text — JS hides content from text-mode agents."
 
-    # Heavy JS with very little text = bad for agents
-    if script_ratio > 60 and text_ratio < 10:
+    # Key insight: JSON-LD is inside <script type="application/ld+json"> tags,
+    # which IS server-rendered structured data requiring NO JS execution.
+    # If JSON-LD has price+availability, the page's key content is accessible
+    # without JavaScript — that's what this check measures.
+    has_structured_data = _jsonld_price(page) is not None
+
+    if has_structured_data:
+        # Structured data present: agents can extract product info from raw HTML.
+        # Pass — other checks (RDY-002, RDY-014) cover visible-text and interaction gaps.
+        return "PASS", f"Structured data provides agent-readable content despite JS ratio. {detail}"
+
+    # Without structured data: agents have no machine-readable fallback
+    if script_ratio > 60 and text_ratio < 8:
+        return "FAIL", f"High JS dependency with no structured data fallback. {detail}"
+    if script_ratio > 50 and text_ratio < 5 and non_script_text_len < 500:
         return "FAIL", f"Page is heavily JS-rendered — agents see very little content. {detail}"
-    if script_ratio > 50 and text_ratio < 15:
-        return "FAIL", f"High JS dependency — limited content without a browser. {detail}"
     return "PASS", f"Acceptable text-to-script ratio for agents. {detail}"
 
 
@@ -326,7 +342,13 @@ STATIC = {
 
 
 def run_browser(check, page):
-    """Run a browser-agent check (e.g. Add-to-Cart flow)."""
+    """Run a browser-agent check (e.g. Add-to-Cart flow).
+
+    Uses majority-vote: runs the browser flow up to 3 times if the first
+    attempt fails. PASS if at least 2/3 succeed (reduces non-deterministic
+    flips from modals, timing, popups).
+    """
+    import os
     url = page.get("url", "")
     if not url or not url.startswith("http"):
         return {"verdict": "UNKNOWN",
@@ -339,26 +361,55 @@ def run_browser(check, page):
                 "detail": "browser_agent module not available.",
                 "pass_fraction": None}
 
-    result = run_add_to_cart(url)
+    max_attempts = int(os.environ.get("BROWSER_ATTEMPTS", "3"))
+    successes = 0
+    attempts = 0
+    best_result = None
+
+    for attempt in range(max_attempts):
+        result = run_add_to_cart(url)
+        attempts += 1
+        if result.get("success"):
+            successes += 1
+            if best_result is None:
+                best_result = result
+            # Early exit: if we have majority already, stop
+            if successes >= (max_attempts + 1) // 2:
+                break
+        else:
+            if best_result is None:
+                best_result = result
+            # Early exit: if majority failure already certain, stop
+            remaining = max_attempts - attempts
+            if (attempts - successes) > max_attempts // 2 and remaining == 0:
+                break
+
+    result = best_result
+    pass_rate = successes / attempts
+
     steps_summary = "; ".join(
         f"step {s['step']}: {s['action']}({(s.get('selector') or '')[:40]}) -> {s.get('result','')}"
         for s in result.get("steps", [])
     )
 
-    if result.get("success"):
+    if successes >= (max_attempts + 1) // 2:
         verified = result.get("cart_verified", False)
-        detail = (f"Agent added product to cart in {result['total_steps']} steps. "
+        detail = (f"Agent added product to cart in {result['total_steps']} steps "
+                  f"({successes}/{attempts} attempts succeeded). "
                   f"Cart verified: {'yes' if verified else 'not confirmed'}. "
                   f"Steps: {steps_summary}")
         pf = 1.0 if verified else 0.8
         return {"verdict": "PASS", "detail": detail, "pass_fraction": pf,
-                "browser_result": result}
+                "browser_result": result, "browser_attempts": attempts,
+                "browser_successes": successes}
 
-    detail = (f"Agent failed to add product to cart after {result['total_steps']} steps. "
+    detail = (f"Agent failed to add product to cart after {result['total_steps']} steps "
+              f"({successes}/{attempts} attempts succeeded). "
               f"Reason: {result.get('final_reason', 'unknown')}. "
               f"Steps: {steps_summary}")
-    return {"verdict": "FAIL", "detail": detail, "pass_fraction": 0.0,
-            "browser_result": result}
+    return {"verdict": "FAIL", "detail": detail, "pass_fraction": pass_rate,
+            "browser_result": result, "browser_attempts": attempts,
+            "browser_successes": successes}
 
 
 def run_static(check, page):

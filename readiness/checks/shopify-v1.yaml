@@ -102,13 +102,13 @@ checks:
   - id: RDY-013
     type: static
     category: rendering
-    title: Page content is accessible without JavaScript
+    title: Agents can access key product data without JavaScript
     detect: js_render_ratio
-    expect: Sufficient product content is in server-rendered HTML (not behind JS).
-    fail_if: Page is heavily JS-rendered with minimal server-side text — agents see almost nothing.
+    expect: Product price and availability are available in server-rendered HTML or structured data (JSON-LD) without JS execution.
+    fail_if: No structured data fallback and page is heavily JS-rendered — agents have no machine-readable content.
     weight: 5
     severity_if_fail: high
-    fix: Server-side render key product content (title, price, description, availability) so agents don't need a browser.
+    fix: Add schema.org/Product JSON-LD with price and availability, or server-render key product content so agents don't need a browser.
 
   - id: RDY-014
     type: static
