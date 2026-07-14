@@ -306,7 +306,7 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
                     consecutive_fails = 0
                     if _verify_cart(page):
                         steps.append({
-                            "step": step_num,
+                            "step": step_num + 1,
                             "action": "done",
                             "selector": "",
                             "value": "",
@@ -464,11 +464,20 @@ def _verify_cart(page) -> bool:
                 }
                 return false;
             }"""),
-            # "Added to cart" confirmation message
+            # "Added to cart" confirmation in notification/transient elements
             page.evaluate("""() => {
-                const body = document.body.innerText.toLowerCase();
-                return body.includes('added to cart') || body.includes('added to bag')
-                    || body.includes('item added') || body.includes('added to your cart');
+                const sels = '[aria-live], [role="alert"], [role="status"], '
+                    + '.cart-notification, .cart-popup, .notification, '
+                    + '[class*="notification"], [class*="cart-confirm"], '
+                    + '[class*="added-to-cart"], [data-cart-notification]';
+                for (const el of document.querySelectorAll(sels)) {
+                    const t = el.innerText.toLowerCase();
+                    if (t.includes('added to cart') || t.includes('added to bag')
+                        || t.includes('item added') || t.includes('added to your cart')) {
+                        return true;
+                    }
+                }
+                return false;
             }"""),
             # Shopify cart API check (works on any Shopify store)
             _check_cart_api(page),

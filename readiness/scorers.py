@@ -407,10 +407,14 @@ def run_browser(check, page):
                   f"({successes}/{attempts} attempts succeeded). "
                   f"Cart verified: {'yes' if verified else 'not confirmed'}. "
                   f"Steps: {steps_summary}")
-        pf = 1.0 if verified else 0.8
-        return {"verdict": "PASS", "detail": detail, "pass_fraction": pf,
+        if verified:
+            return {"verdict": "PASS", "detail": detail, "pass_fraction": 1.0,
+                    "browser_result": result, "browser_attempts": attempts,
+                    "browser_successes": successes}
+        # Agent reported success but cart not confirmed — disclose as UNKNOWN
+        return {"verdict": "UNKNOWN", "detail": detail, "pass_fraction": None,
                 "browser_result": result, "browser_attempts": attempts,
-                "browser_successes": successes}
+                "browser_successes": successes, "cart_verified": False}
 
     detail = (f"Agent failed to add product to cart after {result['total_steps']} steps "
               f"({successes}/{attempts} attempts succeeded). "

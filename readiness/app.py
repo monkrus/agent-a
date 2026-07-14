@@ -390,3 +390,12 @@ def share_og_image(scan_id):
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
+else:
+    # Production guard: DEV_MODE must not be enabled outside debug mode
+    if os.environ.get("DEV_MODE", "").lower() == "true" and not app.debug:
+        import warnings
+        warnings.warn(
+            "DEV_MODE=true is set but app is not in debug mode. "
+            "Demo unlock is active — unset DEV_MODE in production.",
+            stacklevel=1,
+        )
