@@ -54,7 +54,6 @@ CHAT_AGENTS = {
     "ada": {"name": "Ada", "type": "AI agent", "desc": "AI-first customer service automation"},
     "forethought": {"name": "Forethought", "type": "AI agent", "desc": "Generative AI for support"},
     "dixa": {"name": "Dixa", "type": "support agent", "desc": "Conversational customer service"},
-    "re:amaze": {"name": "Re:amaze", "type": "support agent", "desc": "Helpdesk for e-commerce"},
     "reamaze": {"name": "Re:amaze", "type": "support agent", "desc": "Helpdesk for e-commerce"},
     "shopify-inbox": {"name": "Shopify Inbox", "type": "support agent", "desc": "Shopify native chat"},
 }
@@ -85,7 +84,7 @@ def _detect_platform(page: dict) -> dict | None:
         return {"name": "BigCommerce", "detail": "BigCommerce storefront"}
     if "squarespace" in html:
         return {"name": "Squarespace", "detail": "Squarespace commerce"}
-    if "magento" in html or "mage" in html:
+    if "magento" in html or "x-magento" in html:
         return {"name": "Magento", "detail": "Magento / Adobe Commerce"}
     return None
 

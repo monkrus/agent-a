@@ -44,8 +44,10 @@ def _worst_finding_plain(results):
         return "your price only appears after JavaScript runs — most AI agents don't run JavaScript and see no price at all"
     if "robots" in title:
         return "your robots.txt blocks AI shopping agents from reading your product pages entirely"
-    if "availability" in title and pr:
-        return f"AI agents got your stock availability right only {pr} times — inconsistent answers lose buyer confidence"
+    if "availability" in title and pr and "/" in pr:
+        parts = pr.split("/")
+        if len(parts) == 2:
+            return f"AI agents got your stock availability right only {parts[0]} of {parts[1]} times — inconsistent answers lose buyer confidence"
     if "cart" in title:
         return "AI agents couldn't find or click your Add to Cart button"
     if "llms" in title:
@@ -64,8 +66,10 @@ def _worst_finding_plain(results):
         return "AI agents can't reliably identify what product this page sells"
     if "json-ld" in title and "complete" in title:
         return "your structured product data is incomplete — AI agents need all fields to compare products accurately"
-    if pr:
-        return f"agents got '{worst.get('title', 'this check')}' right only {pr} times"
+    if pr and "/" in pr:
+        parts = pr.split("/")
+        if len(parts) == 2:
+            return f"agents got '{worst.get('title', 'this check')}' right only {parts[0]} of {parts[1]} times"
     if detail and len(detail) < 100:
         return detail.rstrip(".")
     return worst.get("title", "a readiness issue was found")

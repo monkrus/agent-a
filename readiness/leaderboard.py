@@ -68,8 +68,6 @@ def load_all_scans():
         return []
     scans = []
     for f in sorted(SCANS_DIR.glob("*.json")):
-        if f.name.endswith("_og.png"):
-            continue
         try:
             data = json.loads(f.read_text())
             if "readiness_score" in data and data["readiness_score"] is not None:

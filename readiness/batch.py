@@ -62,8 +62,6 @@ def _find_existing_scan(domain):
     if not SCANS_DIR.exists():
         return None
     for f in SCANS_DIR.glob("*.json"):
-        if f.name.endswith("_og.png"):
-            continue
         try:
             data = json.loads(f.read_text())
             target = data.get("meta", {}).get("target", "")

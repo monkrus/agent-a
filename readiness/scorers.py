@@ -362,27 +362,36 @@ def run_browser(check, page):
                 "pass_fraction": None}
 
     max_attempts = int(os.environ.get("BROWSER_ATTEMPTS", "3"))
+    if max_attempts < 1:
+        return {"verdict": "UNKNOWN", "detail": "BROWSER_ATTEMPTS set to 0.",
+                "pass_fraction": None}
     successes = 0
     attempts = 0
     best_result = None
+    majority_needed = (max_attempts + 1) // 2
 
     for attempt in range(max_attempts):
         result = run_add_to_cart(url)
         attempts += 1
         if result.get("success"):
             successes += 1
-            if best_result is None:
+            # Prefer a successful result for the detail output
+            if best_result is None or not best_result.get("success"):
                 best_result = result
-            # Early exit: if we have majority already, stop
-            if successes >= (max_attempts + 1) // 2:
+            # Early exit: majority achieved
+            if successes >= majority_needed:
                 break
         else:
             if best_result is None:
                 best_result = result
-            # Early exit: if majority failure already certain, stop
-            remaining = max_attempts - attempts
-            if (attempts - successes) > max_attempts // 2 and remaining == 0:
+            # Early exit: majority failure certain
+            failures = attempts - successes
+            if failures > max_attempts - majority_needed:
                 break
+
+    if best_result is None:
+        return {"verdict": "UNKNOWN", "detail": "Browser agent returned no results.",
+                "pass_fraction": None}
 
     result = best_result
     pass_rate = successes / attempts
@@ -468,7 +477,8 @@ def grade_shopper(check, page, answers):
         hits = 0
         for a in answers:
             if isinstance(gt, float):
-                hits += (_norm_num(a) == gt)
+                num = _norm_num(a)
+                hits += (num is not None and abs(num - gt) < 0.01)
             else:
                 hits += (_norm(gt) in _norm(a) or _norm(a) in _norm(gt)) and _norm(a) not in ("", "unknown")
         frac = hits / n if n else None
@@ -477,6 +487,9 @@ def grade_shopper(check, page, answers):
                 "detail": f"{hits}/{n} runs matched ground truth ({gt})."}
 
     # consistency
+    if not answers:
+        return {"verdict": "UNKNOWN", "pass_fraction": None, "n": 0,
+                "detail": "no shopper answers to grade (n=0 or all runs failed)."}
     counts = Counter(_norm(a) for a in answers)
     modal, modal_n = counts.most_common(1)[0]
     frac = modal_n / n if n else None

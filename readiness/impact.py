@@ -35,14 +35,10 @@ def estimate(results: list[dict], product_price: float | None = None,
         product_price = 50.0  # conservative fallback
 
     # -- Estimate monthly visits if not provided --
-    # Use tiered defaults based on product price as a rough proxy for brand size
+    # Smooth linear estimate: higher AOV correlates with fewer but higher-value visits.
+    # Range: 300k visits at $10 AOV down to 80k at $300+, clamped.
     if monthly_visits is None:
-        if product_price >= 150:
-            monthly_visits = 100_000  # premium DTC
-        elif product_price >= 50:
-            monthly_visits = 200_000  # mid-market DTC
-        else:
-            monthly_visits = 300_000  # high-volume / lower AOV
+        monthly_visits = max(80_000, min(300_000, 320_000 - int(product_price * 800)))
 
     # -- AI traffic share (conservative range) --
     ai_share_low = 0.05   # 5%

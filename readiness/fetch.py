@@ -36,14 +36,14 @@ class _Extract(HTMLParser):
         self.jsonld_raw: list[str] = []
         self.links: list[tuple[str, str]] = []  # (href, anchor_text)
         self._in_script_ld = False
-        self._in_skip = False
+        self._skip_depth = 0
         self._cur_href = None
         self._cur_anchor: list[str] = []
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
         if tag in ("script", "style"):
-            self._in_skip = True
+            self._skip_depth += 1
             if tag == "script" and a.get("type", "").strip() == "application/ld+json":
                 self._in_script_ld = True
                 self._ld_buf = []
@@ -57,7 +57,7 @@ class _Extract(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag in ("script", "style"):
-            self._in_skip = False
+            self._skip_depth = max(0, self._skip_depth - 1)
             if self._in_script_ld:
                 self.jsonld_raw.append("".join(self._ld_buf))
                 self._in_script_ld = False
@@ -70,7 +70,7 @@ class _Extract(HTMLParser):
         if self._in_script_ld:
             self._ld_buf.append(data)
             return
-        if self._in_skip:
+        if self._skip_depth > 0:
             return
         s = data.strip()
         if s:
@@ -138,10 +138,18 @@ def fetch(target: str, timeout: int = 30) -> dict:
     if re.match(r"^https?://", target):
         import requests  # local import so offline/file mode needs no network dep
         headers = {"User-Agent": "agent-a-readiness-scanner/0.1 (+contact)"}
-        r = requests.get(target, headers=headers, timeout=timeout)
+        try:
+            r = requests.get(target, headers=headers, timeout=timeout)
+        except requests.exceptions.RequestException as e:
+            return {"url": target, "status": 0, "html": "", "text": "",
+                    "jsonld": [], "meta": {}, "title": "", "links": [],
+                    "llms_txt": False, "llms_txt_content": None, "robots": None,
+                    "_fetch_error": str(e)}
         page = _parse_html(r.text, target)
         page["status"] = r.status_code
-        origin = f"{urlparse(target).scheme}://{urlparse(target).netloc}"
+        # Use final URL after redirects for origin (e.g. http->https)
+        final_url = r.url
+        origin = f"{urlparse(final_url).scheme}://{urlparse(final_url).netloc}"
         llms_txt = _get_text(urljoin(origin, "/llms.txt"), timeout)
         page["llms_txt"] = llms_txt is not None
         page["llms_txt_content"] = llms_txt

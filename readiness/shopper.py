@@ -71,7 +71,10 @@ def _mock_answer(page: dict, task: str) -> str:
 # ---- real shopper -----------------------------------------------------------
 def _anthropic_answer(page: dict, task: str) -> str:
     import anthropic
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set. Set SHOPPER=mock or provide the key.")
+    client = anthropic.Anthropic(api_key=api_key)
     model = os.environ.get("SHOPPER_MODEL", "claude-sonnet-4-6")
     sys_prompt = (
         "You are an AI shopping agent extracting facts from a product page. "
@@ -206,7 +209,10 @@ def _anthropic_batch(page: dict, tasks: dict[str, str]) -> dict[str, str]:
     """Real batch: all extraction tasks in a single API call."""
     import anthropic
     import json as _json
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set. Set SHOPPER=mock or provide the key.")
+    client = anthropic.Anthropic(api_key=api_key)
     model = os.environ.get("SHOPPER_MODEL", "claude-sonnet-4-6")
 
     # Build combined prompt
@@ -241,11 +247,12 @@ def _anthropic_batch(page: dict, tasks: dict[str, str]) -> dict[str, str]:
         if isinstance(result, dict):
             return {cid: str(result.get(cid, "unknown")) for cid in tasks}
     except _json.JSONDecodeError:
-        # Try to extract JSON from response
-        m = re.search(r"\{[^{}]*\}", raw, re.S)
-        if m:
+        # Try to extract JSON from response (first { to last })
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start != -1 and end != -1 and end > start:
             try:
-                result = _json.loads(m.group())
+                result = _json.loads(raw[start:end + 1])
                 if isinstance(result, dict):
                     return {cid: str(result.get(cid, "unknown")) for cid in tasks}
             except _json.JSONDecodeError:

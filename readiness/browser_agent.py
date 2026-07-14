@@ -118,7 +118,10 @@ def _ask_agent(elements: list[dict], screenshot_b64: str, goal: str,
                history: list[dict], step: int) -> dict:
     """Ask Claude what action to take next."""
     import anthropic
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise RuntimeError("ANTHROPIC_API_KEY is not set. Browser agent requires an API key.")
+    client = anthropic.Anthropic(api_key=api_key)
     model = os.environ.get("BROWSER_AGENT_MODEL",
                            os.environ.get("SHOPPER_MODEL", "claude-sonnet-4-6"))
 
@@ -386,7 +389,6 @@ def _dismiss_popups(page):
             if loc.is_visible(timeout=500):
                 loc.click(timeout=1000)
                 page.wait_for_timeout(500)
-                return
         except Exception:
             continue
 
@@ -394,23 +396,13 @@ def _dismiss_popups(page):
 def _check_cart_api(page) -> bool:
     """Check Shopify /cart.json API for items in cart."""
     try:
-        # Use synchronous XHR — more reliable than async fetch for cart state
-        result = page.evaluate("""() => {
-            try {
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', '/cart.json', false);
-                xhr.setRequestHeader('Accept', 'application/json');
-                xhr.send(null);
-                if (xhr.status === 200) {
-                    var cart = JSON.parse(xhr.responseText);
-                    return cart.item_count > 0;
-                }
-            } catch(e) {}
-            return false;
-        }""")
-        return result
+        response = page.request.get("/cart.json")
+        if response.ok:
+            cart = response.json()
+            return cart.get("item_count", 0) > 0
     except Exception:
-        return False
+        pass
+    return False
 
 
 def _force_clear_modals(page):
@@ -423,16 +415,21 @@ def _force_clear_modals(page):
             + '[id*="modal"], [id*="popup"], [id*="overlay"]'
         ).forEach(el => el.remove());
         // Remove fixed/absolute positioned overlays that cover the viewport
+        const toRemove = [];
         for (const el of document.querySelectorAll('*')) {
-            const style = getComputedStyle(el);
-            if ((style.position === 'fixed' || style.position === 'absolute') &&
-                parseInt(style.zIndex) > 100 &&
-                el.offsetWidth > window.innerWidth * 0.5 &&
-                el.offsetHeight > window.innerHeight * 0.3 &&
-                el.tagName !== 'HEADER' && el.tagName !== 'NAV') {
-                el.remove();
-            }
+            if (!el.isConnected) continue;
+            try {
+                const style = getComputedStyle(el);
+                if ((style.position === 'fixed' || style.position === 'absolute') &&
+                    parseInt(style.zIndex) > 100 &&
+                    el.offsetWidth > window.innerWidth * 0.5 &&
+                    el.offsetHeight > window.innerHeight * 0.3 &&
+                    el.tagName !== 'HEADER' && el.tagName !== 'NAV') {
+                    toRemove.push(el);
+                }
+            } catch(e) {}
         }
+        toRemove.forEach(el => el.remove());
         // Clear body-level pointer-event blockers (e.g., Mulberry warranty overlays)
         document.body.style.pointerEvents = 'auto';
         document.body.style.overflow = 'auto';

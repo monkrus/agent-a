@@ -234,7 +234,9 @@ def main():
     ap.add_argument("--checks", required=True)
     ap.add_argument("--target", required=True, help="URL or local .html file")
     ap.add_argument("--n", type=int, default=10, help="shopper runs per check")
-    ap.add_argument("--out", default="/tmp/readiness", type=pathlib.Path)
+    ap.add_argument("--out",
+                    default=str(pathlib.Path(__file__).resolve().parent / ".scans" / "cli"),
+                    type=pathlib.Path)
     ap.add_argument("--compare", default=None,
                     help="Competitor URL to scan for side-by-side comparison")
     args = ap.parse_args()

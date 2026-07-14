@@ -180,8 +180,9 @@ def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str
     sc = _score_color(score)
     if score is not None:
         arc_angle = int(score / 100 * 360)
-        draw.arc([cx - r, cy - r, cx + r, cy + r], -90, -90 + arc_angle,
-                 fill=sc, width=6)
+        if arc_angle > 0:
+            draw.arc([cx - r, cy - r, cx + r, cy + r], -90, -90 + arc_angle,
+                     fill=sc, width=6)
 
     # Score text centered in circle
     score_text = str(int(score)) if score is not None else "N/A"
@@ -232,7 +233,9 @@ def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str
                                radius=4, fill=color)
 
     # --- Top finding (bottom area) ---
+    _sev_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     findings = [r for r in results if r.get("verdict") == "FAIL"]
+    findings.sort(key=lambda r: _sev_rank.get(r.get("severity_if_fail"), 4))
     if findings:
         worst = findings[0]
         finding_text = f"Top finding: {worst.get('title', '')}"

@@ -110,8 +110,9 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
         den += w
     readiness_score = round(100 * num / den, 1) if den else None
 
+    now = datetime.datetime.now()
     scan_id = hashlib.sha256(
-        f"{target_url}:{datetime.datetime.now().isoformat()}".encode()
+        f"{target_url}:{now.isoformat()}".encode()
     ).hexdigest()[:12]
 
     payload = {
@@ -119,7 +120,7 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
         "meta": {
             "target": target_url, "pack": pack, "version": version,
             "n": n, "shopper": os.environ.get("SHOPPER", "mock"),
-            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "timestamp": now.isoformat(timespec="seconds"),
             "page_status": page.get("status"),
         },
         "readiness_score": readiness_score,
@@ -147,6 +148,9 @@ def _headline(results):
 
 
 def _load_scan(scan_id):
+    import re as _re
+    if not _re.match(r'^[a-f0-9]{12}$', scan_id):
+        return None
     path = SCANS_DIR / f"{scan_id}.json"
     if not path.exists():
         return None
@@ -230,7 +234,8 @@ def checkout(scan_id):
         line_items=[{"price": price_id, "quantity": 1}],
         mode="payment",
         success_url=request.host_url.rstrip("/") +
-                     url_for("payment_success", scan_id=scan_id),
+                     url_for("payment_success", scan_id=scan_id) +
+                     "?session_id={CHECKOUT_SESSION_ID}",
         cancel_url=request.host_url.rstrip("/") +
                     url_for("results", scan_id=scan_id),
         metadata={"scan_id": scan_id},
@@ -243,7 +248,20 @@ def payment_success(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    session[f"paid_{scan_id}"] = True
+    # Verify payment via Stripe checkout session before unlocking
+    stripe_session_id = request.args.get("session_id", "")
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    if stripe_key and stripe_session_id:
+        try:
+            import stripe
+            stripe.api_key = stripe_key
+            cs = stripe.checkout.Session.retrieve(stripe_session_id)
+            if cs.payment_status == "paid" and cs.metadata.get("scan_id") == scan_id:
+                session[f"paid_{scan_id}"] = True
+        except Exception:
+            pass  # fall through — don't unlock without verified payment
+    elif os.environ.get("DEV_MODE", "").lower() == "true":
+        session[f"paid_{scan_id}"] = True
     return redirect(url_for("results", scan_id=scan_id))
 
 
