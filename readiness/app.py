@@ -40,6 +40,7 @@ from flask import (Flask, abort, redirect, render_template, request,
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod   # noqa: E402
 import fixes as fixesmod   # noqa: E402
+import impact as impactmod # noqa: E402
 import intel as intelmod   # noqa: E402
 import scorers             # noqa: E402
 import yaml                # noqa: E402
@@ -51,6 +52,13 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
 CHECKS_PATH = pathlib.Path(__file__).resolve().parent / "checks" / "shopify-v1.yaml"
 SCANS_DIR = pathlib.Path(__file__).resolve().parent / ".scans"
 SCANS_DIR.mkdir(exist_ok=True)
+
+# Simple in-memory rate limiter for /scan (no extra dependency)
+import time as _time
+import threading as _threading
+_scan_timestamps: dict[str, float] = {}
+_scan_lock = _threading.Lock()
+SCAN_RATE_LIMIT = int(os.environ.get("SCAN_RATE_LIMIT", "30"))  # seconds between scans per IP
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 
@@ -115,6 +123,12 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
         f"{target_url}:{now.isoformat()}".encode()
     ).hexdigest()[:12]
 
+    # Confidence band (same logic as scan.py CLI)
+    from scan import confidence_band
+    margin = confidence_band(results, n)
+
+    impact_est = impactmod.estimate(results)
+
     payload = {
         "scan_id": scan_id,
         "meta": {
@@ -124,8 +138,10 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
             "page_status": page.get("status"),
         },
         "readiness_score": readiness_score,
+        "confidence_margin": margin,
         "headline": _headline(results),
         "results": results,
+        "impact": impact_est,
         "intel": intelmod.analyze(page, page.get("llms_txt_content")),
     }
     (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload, indent=2))
@@ -166,6 +182,22 @@ def index():
 
 @app.route("/scan", methods=["POST"])
 def scan():
+    # Rate limit: one scan per IP per SCAN_RATE_LIMIT seconds
+    client_ip = request.remote_addr or "unknown"
+    now_ts = _time.time()
+    with _scan_lock:
+        last = _scan_timestamps.get(client_ip, 0)
+        if now_ts - last < SCAN_RATE_LIMIT:
+            wait = int(SCAN_RATE_LIMIT - (now_ts - last)) + 1
+            return render_template("index.html",
+                                   error=f"Please wait {wait} seconds before scanning again."), 429
+        _scan_timestamps[client_ip] = now_ts
+        # Prune old entries (older than 10 minutes) to prevent memory growth
+        cutoff = now_ts - 600
+        stale = [ip for ip, ts in _scan_timestamps.items() if ts < cutoff]
+        for ip in stale:
+            del _scan_timestamps[ip]
+
     url = request.form.get("url", "").strip()
     # Strip leading bullets, dashes, whitespace from copy-paste
     url = url.lstrip("-*•· \t")

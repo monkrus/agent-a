@@ -1,10 +1,14 @@
 # Core
 pyyaml>=6.0
 requests>=2.28
+python-dotenv>=1.0
 
 # Web frontend (free-score page)
 flask>=3.0
 stripe>=7.0
+
+# OG images and leaderboard charts
+Pillow>=10.0
 
 # Optional: real shopper backend (not needed for mock mode)
 # anthropic>=0.30
