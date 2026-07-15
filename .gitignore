@@ -17,5 +17,9 @@ readiness/.scans/
 # Outreach drafts (generated, contain scan data)
 outreach/
 
-# Leaderboard output
-leaderboard/
+# Leaderboard output (generated data, not post-assets)
+leaderboard/*
+!leaderboard/post-assets/
+!leaderboard/diff_report.py
+!leaderboard/generate_post_assets.py
+!leaderboard/spotcheck.py

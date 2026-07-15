@@ -1,0 +1,646 @@
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "SKIMS",
+    "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather",
+    "logo": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/Skims-Logo-Shopify_afa1385f-2e6f-46f3-940e-923f2385bc9b.svg?v=1764022219",
+    "founder": {
+      "@type": "Person",
+      "name": "Kim Kardashian"
+    },
+    "sameAs": [
+      "https://www.instagram.com/skims",
+      "https://www.facebook.com/skimsbody",
+      "https://x.com/skims",
+      "https://www.youtube.com/c/skims",
+      "https://www.tiktok.com/@skims"
+    ],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "Customer Support",
+      "email": "help@skims.com",
+      "url": "https://skims.com/pages/contact-us"
+    },
+    "brand": {
+      "@type": "Brand",
+      "name": "SKIMS"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://https://skims.com/"
+      },
+      {
+        "@type": "ListItem",
+        "name": "Bras",
+        "item": "https://https://skims.com/collections/bras",
+        "position": 2
+      },
+      {
+        "@type": "ListItem",
+        "name": "Push-Up Bras",
+        "item": "https://https://skims.com/collections/push-up-bras",
+        "position": 3
+      },
+      {
+        "@type": "ListItem",
+        "position": 4,
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER",
+        "item": "https://https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather"
+      }
+    ]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "ProductGroup",
+    "brand": {
+      "@type": "Brand",
+      "name": "SKIMS"
+    },
+    "description": "Our viral solution, reimagined in the softest, premium natural cotton. Stretchy and breathable, this push-up bra features bonded side wings for comforta...",
+    "image": [
+      "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943"
+    ],
+    "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER",
+    "productGroupID": "BR-PUS-10645W",
+    "variesBy": [
+      "https://schema.org/size"
+    ],
+    "hasVariant": [
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-30%20A",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 30 A",
+        "gtin": "199106729899",
+        "mpn": "BR-PUS-10645W-SNN-30A",
+        "size": "30 A",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210061153"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-30%20B",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 30 B",
+        "gtin": "199106729882",
+        "mpn": "BR-PUS-10645W-SNN-30B",
+        "size": "30 B",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/OutOfStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210093921"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-30%20C",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 30 C",
+        "gtin": "199106729806",
+        "mpn": "BR-PUS-10645W-SNN-30C",
+        "size": "30 C",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/OutOfStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210126689"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-30%20D",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 30 D",
+        "gtin": "199106729790",
+        "mpn": "BR-PUS-10645W-SNN-30D",
+        "size": "30 D",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/OutOfStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210159457"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-32%20A",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 32 A",
+        "gtin": "199106729837",
+        "mpn": "BR-PUS-10645W-SNN-32A",
+        "size": "32 A",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210192225"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-32%20B",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 32 B",
+        "gtin": "199106729912",
+        "mpn": "BR-PUS-10645W-SNN-32B",
+        "size": "32 B",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210224993"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-32%20C",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 32 C",
+        "gtin": "199106729752",
+        "mpn": "BR-PUS-10645W-SNN-32C",
+        "size": "32 C",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210257761"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-32%20D",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 32 D",
+        "gtin": "199106729608",
+        "mpn": "BR-PUS-10645W-SNN-32D",
+        "size": "32 D",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210290529"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-32%20DD",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 32 DD",
+        "gtin": "199106729646",
+        "mpn": "BR-PUS-10645W-SNN-32DD",
+        "size": "32 DD",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210323297"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-32%20F",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 32 F",
+        "gtin": "199106729677",
+        "mpn": "BR-PUS-10645W-SNN-32DDD",
+        "size": "32 F",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210356065"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-34%20A",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 34 A",
+        "gtin": "199106729691",
+        "mpn": "BR-PUS-10645W-SNN-34A",
+        "size": "34 A",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210388833"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-34%20B",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 34 B",
+        "gtin": "199106729585",
+        "mpn": "BR-PUS-10645W-SNN-34B",
+        "size": "34 B",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210421601"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-34%20C",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 34 C",
+        "gtin": "199106729622",
+        "mpn": "BR-PUS-10645W-SNN-34C",
+        "size": "34 C",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210454369"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-34%20D",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 34 D",
+        "gtin": "199106729707",
+        "mpn": "BR-PUS-10645W-SNN-34D",
+        "size": "34 D",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210487137"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-34%20DD",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 34 DD",
+        "gtin": "199106729714",
+        "mpn": "BR-PUS-10645W-SNN-34DD",
+        "size": "34 DD",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210519905"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-34%20F",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 34 F",
+        "gtin": "199106729639",
+        "mpn": "BR-PUS-10645W-SNN-34DDD",
+        "size": "34 F",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210552673"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-36%20A",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 36 A",
+        "gtin": "199106729721",
+        "mpn": "BR-PUS-10645W-SNN-36A",
+        "size": "36 A",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210585441"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-36%20B",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 36 B",
+        "gtin": "199106729745",
+        "mpn": "BR-PUS-10645W-SNN-36B",
+        "size": "36 B",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210618209"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-36%20C",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 36 C",
+        "gtin": "199106729738",
+        "mpn": "BR-PUS-10645W-SNN-36C",
+        "size": "36 C",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210650977"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-36%20D",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 36 D",
+        "gtin": "199106729561",
+        "mpn": "BR-PUS-10645W-SNN-36D",
+        "size": "36 D",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210683745"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-36%20DD",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 36 DD",
+        "gtin": "199106729615",
+        "mpn": "BR-PUS-10645W-SNN-36DD",
+        "size": "36 DD",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210716513"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-36%20F",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 36 F",
+        "gtin": "199106729684",
+        "mpn": "BR-PUS-10645W-SNN-36DDD",
+        "size": "36 F",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210749281"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-38%20B",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 38 B",
+        "gtin": "199106729660",
+        "mpn": "BR-PUS-10645W-SNN-38B",
+        "size": "38 B",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210782049"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-38%20C",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 38 C",
+        "gtin": "199106729653",
+        "mpn": "BR-PUS-10645W-SNN-38C",
+        "size": "38 C",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210814817"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-38%20D",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 38 D",
+        "gtin": "199106729578",
+        "mpn": "BR-PUS-10645W-SNN-38D",
+        "size": "38 D",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210847585"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-38%20DD",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 38 DD",
+        "gtin": "199106729592",
+        "mpn": "BR-PUS-10645W-SNN-38DD",
+        "size": "38 DD",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210880353"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-38%20F",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 38 F",
+        "gtin": "199106729448",
+        "mpn": "BR-PUS-10645W-SNN-38DDD",
+        "size": "38 F",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210913121"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-40%20B",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 40 B",
+        "gtin": "199106729479",
+        "mpn": "BR-PUS-10645W-SNN-40B",
+        "size": "40 B",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/OutOfStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210945889"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-40%20C",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 40 C",
+        "gtin": "199106729462",
+        "mpn": "BR-PUS-10645W-SNN-40C",
+        "size": "40 C",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897210978657"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-40%20D",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 40 D",
+        "gtin": "199106729394",
+        "mpn": "BR-PUS-10645W-SNN-40D",
+        "size": "40 D",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897211011425"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-40%20DD",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 40 DD",
+        "gtin": "199106729431",
+        "mpn": "BR-PUS-10645W-SNN-40DD",
+        "size": "40 DD",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897211044193"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-40%20F",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 40 F",
+        "gtin": "199106729530",
+        "mpn": "BR-PUS-10645W-SNN-40DDD",
+        "size": "40 F",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897211076961"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-42%20C",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 42 C",
+        "gtin": "199106729455",
+        "mpn": "BR-PUS-10645W-SNN-42C",
+        "size": "42 C",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/OutOfStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897211109729"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-42%20D",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 42 D",
+        "gtin": "199106729387",
+        "mpn": "BR-PUS-10645W-SNN-42D",
+        "size": "42 D",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897211142497"
+        }
+      },
+      {
+        "@type": "Product",
+        "@id": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather#variant-42%20DD",
+        "name": "EVERYDAY COTTON ULTIMATE TEARDROP PUSH-UP BRA | SIENNA HEATHER | 42 DD",
+        "gtin": "199106729509",
+        "mpn": "BR-PUS-10645W-SNN-42DD",
+        "size": "42 DD",
+        "image": "https://cdn.shopify.com/s/files/1/0259/5448/4284/files/SKIMS-BRA-BR-PUS-10645W-SNN-FLT_dd8293d7-c359-44e5-8e8a-663fa6dce003.jpg?v=1770817943",
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "price": 64,
+          "priceCurrency": "USD",
+          "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather?variant=47897211175265"
+        }
+      }
+    ],
+    "url": "https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.7",
+      "bestRating": "5",
+      "ratingCount": "88"
+    }
+  }
+]
