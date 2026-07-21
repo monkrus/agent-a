@@ -18,13 +18,18 @@ separate private repo (`agent-a-private/`).
 
 1. **Never commit client data.** Everything under `clients/` is gitignored
    and must stay that way.
-2. **Never expose the check library or scoring logic to a client deliverable.**
-   The report is self-contained. Do not paste check YAML, scorer internals,
-   or prompt injection patterns into anything destined for a client.
+2. **Keep paid content in agent-a-private.** Fix recipes (the full
+   `generate_fix` implementations), report templates, and client materials
+   belong in the private repo. The public `fixes.py` is a stub that returns
+   placeholders. Do not paste full fix recipes into the public repo.
 3. **No secrets in the repo.** API keys, client endpoints, Stripe keys, etc.
    live in `.env` (gitignored) or per-client local files, never in tracked code.
 4. **Scan results stay local.** `readiness/.scans/` is gitignored. Never commit
    scan output.
+
+**Intentionally public:** Check YAML (IDs, weights, descriptions), scoring
+logic in `scorers.py`, prompt-injection detection patterns, and the scanner
+framework code. These are portfolio-value open source.
 
 ## Scanner architecture (readiness/)
 
@@ -36,7 +41,7 @@ readiness/
   shopper.py           Simulated shopping agent (mock or anthropic backend)
   scorers.py           Static probes + shopper grading
   intel.py             Agent intelligence: platform, chat agents, commerce protocols
-  fixes.py             Copy-paste fix recipe generator per failing check
+  fixes.py             Fix recipe stub (full recipes in agent-a-private)
   batch.py             Batch scan CLI (python -m readiness.batch targets.txt)
   leaderboard.py       Leaderboard export (python -m readiness.leaderboard)
   og_image.py          OG image generator for shareable results
@@ -78,11 +83,11 @@ Every check maps to one layer of agent readiness:
 - **Run the web app:** `cd readiness && python app.py`
 - **Batch scan:** `python -m readiness.batch targets.txt`
 - **Generate leaderboard:** `python -m readiness.leaderboard`
-- **Add a check:** add scorer in `scorers.py`, entry in `shopify-v1.yaml` (rebalance weights to 100), fix in `fixes.py`
+- **Add a check:** add scorer in `scorers.py`, entry in `shopify-v1.yaml` (rebalance weights to 100), fix recipe in `agent-a-private/fixes.py`
 - **Enable rendered DOM:** `pip install playwright && playwright install chromium`, then set `RENDER=playwright`
 
 ## When in doubt
 
-If a request would (a) commit client/scan data, (b) leak check logic or
-injection patterns into a client deliverable, or (c) put secrets in tracked
+If a request would (a) commit client/scan data, (b) put full fix recipes
+or report templates into the public repo, or (c) put secrets in tracked
 files — stop and flag it. Everything else, proceed.

@@ -145,6 +145,27 @@ def fetch(target: str, timeout: int = 30) -> dict:
                     "jsonld": [], "meta": {}, "title": "", "links": [],
                     "llms_txt": False, "llms_txt_content": None, "robots": None,
                     "_fetch_error": str(e)}
+        # If rate-limited (429), fall back to Playwright (real browser UA)
+        if r.status_code == 429:
+            rendered = _fetch_rendered(target, timeout)
+            if rendered and rendered.get("html"):
+                page = _parse_html(rendered["html"], target)
+                page["status"] = 200
+                page["rendered_html"] = rendered["html"]
+                page["rendered_text"] = rendered["text"]
+                page["rendered_title"] = rendered["title"]
+                page["rendered_jsonld"] = rendered["jsonld"]
+                page["rendered_links"] = rendered["links"]
+                page["rendered_meta"] = rendered["meta"]
+                page["_429_recovered"] = True
+                final_url = target
+                origin = f"{urlparse(final_url).scheme}://{urlparse(final_url).netloc}"
+                llms_txt = _get_text(urljoin(origin, "/llms.txt"), timeout)
+                page["llms_txt"] = llms_txt is not None
+                page["llms_txt_content"] = llms_txt
+                page["robots"] = _get_text(urljoin(origin, "/robots.txt"), timeout)
+                return page
+
         page = _parse_html(r.text, target)
         page["status"] = r.status_code
         # Use final URL after redirects for origin (e.g. http->https)

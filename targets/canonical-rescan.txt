@@ -1,0 +1,21 @@
+# Canonical rescan — 2026-07-20
+# SHOPPER=anthropic, N=10, RENDER=playwright
+# 17 brands (gymshark excluded: JS-only rendering)
+# Updated URLs for: everlane, kyliecosmetics, casper, framebridge
+https://untuckit.com/products/crosby
+https://skims.com/products/everyday-cotton-ultimate-teardrop-push-up-bra-sienna-heather
+https://fentybeauty.com/products/bounce-blend-blur-bronzer-and-brush-duo
+https://harrys.com/products/harrys-original-on-the-go-bundle
+https://tuftandneedle.com/products/legacy-original-2022
+https://purple.com/mattresses/purple-mattress
+https://liquid-iv.com/products/sugar-free-paradise-bundle
+https://www.warbyparker.com/eyeglasses/men/durand/whiskey-tortoise
+https://aloyoga.com/products/n1001f-multivitamin-alo-scent
+https://awaytravel.com/products/celebration-bundle
+https://sundayriley.com/products/tidal-deep-hydration-plumping-serum
+https://us.dollarshaveclub.com/products/travel-bundle-1x-diamond-grip-handle-blue-2ct-6b-razor-3oz-shave-butter-1-oz-post-shave-dew-traveler-bag
+https://olaplex.com/products/the-pro-healthy-hair-discovery-set
+https://www.everlane.com/products/mens-transit-chino-slim-graphite
+https://kyliecosmetics.com/products/blush-brush-04
+https://casper.com/products/casper-one-foam
+https://framebridge.com/products/mercer-slim-black-frame

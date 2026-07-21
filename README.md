@@ -118,7 +118,7 @@ readiness/                 The scanner (primary product)
   shopper.py               Simulated shopping agent
   scorers.py               Check probes + grading
   intel.py                 Agent intelligence module
-  fixes.py                 Copy-paste fix recipe generator
+  fixes.py                 Fix recipe stub (full recipes in agent-a-private)
   og_image.py              OG image generator for shareable results
   checks/shopify-v1.yaml   Check pack (weights sum to 100)
   templates/               Web frontend templates
@@ -134,6 +134,16 @@ runners/                   Scenario runner + adapters
 - ~$0.03–0.05/scan with Claude Haiku
 - Free with SHOPPER=mock (offline, deterministic-ish)
 
-## Private repo
+## Open-core model
 
-This is proprietary. Clients receive the scan report, not this codebase.
+The scanner framework, check definitions, and scoring methodology are
+**open source** (this repo). Fix recipes, report templates, and client
+materials live in a separate private repository (`agent-a-private/`).
+
+| Public (this repo)              | Private (`agent-a-private/`)       |
+|---------------------------------|------------------------------------|
+| Scanner engine & CLI            | Copy-paste fix recipes             |
+| Check pack (IDs, weights, YAML) | Report templates                   |
+| Scoring & grading logic         | Playbook & client templates        |
+| Web frontend                    | Client deliverables                |
+| Prompt-injection detection      | Outreach materials                 |

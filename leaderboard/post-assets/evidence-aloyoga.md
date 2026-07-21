@@ -1,4 +1,4 @@
-# Evidence — olaplex.com (34.6/100)
+# Evidence — aloyoga.com (38.0/100)
 
 Scanned July 2026 | SHOPPER=anthropic, N=10 runs per extraction check
 
@@ -16,9 +16,9 @@ Scanned July 2026 | SHOPPER=anthropic, N=10 runs per extraction check
 
 ---
 
-### 3. RDY-004 — Return / refund policy reachable as text (HIGH)
+### 3. RDY-006 — Agent extracts the correct product price (CRITICAL)
 
-**Observed:** No discoverable return/refund policy text or link.
+**Observed:** 0/10 runs matched ground truth (42.0).
 
 ---
 
@@ -30,7 +30,7 @@ Scanned July 2026 | SHOPPER=anthropic, N=10 runs per extraction check
 
 ### 5. RDY-013 — Agents can access key product data without JavaScript (HIGH)
 
-**Observed:** High JS dependency with no structured data fallback. Script: 77.9% of page, visible text: 1.8% of page.
+**Observed:** High JS dependency with no structured data fallback. Script: 73.9% of page, visible text: 0.8% of page. Rendered DOM has 10066 more chars of text — JS hides content from text-mode agents.
 
 ---
 
@@ -41,17 +41,17 @@ Scanned July 2026 | SHOPPER=anthropic, N=10 runs per extraction check
 | RDY-001 Product structured data present with pri | FAIL (0/10) | No schema.org/Product JSON-LD found. |
 | RDY-002 Price appears in server-rendered HTML (n | FAIL (0/10) | No price string in server HTML (likely JS-rendered only). |
 | RDY-016 No hidden prompt injection in page conte | PASS (10/10) | No prompt injection patterns detected in page content. |
-| RDY-006 Agent extracts the correct product price | UNKNOWN | no ground truth for 'price' (page doesn't expose it cleanly — itself a weakness) |
+| RDY-006 Agent extracts the correct product price | FAIL (0/10) | 0/10 runs matched ground truth (42.0). |
 | RDY-003 Agents are not blocked by robots.txt | PASS (10/10) | No agent user-agents fully disallowed in robots.txt. |
-| RDY-004 Return / refund policy reachable as text | FAIL (0/10) | No discoverable return/refund policy text or link. |
+| RDY-004 Return / refund policy reachable as text | PASS (10/10) | Return/refund policy referenced in text or links. |
 | RDY-012 JSON-LD Product markup is complete and w | FAIL (0/10) | No schema.org/Product JSON-LD to validate. |
-| RDY-013 Agents can access key product data witho | FAIL (0/10) | High JS dependency with no structured data fallback. Script: 77.9% of page, visi |
-| RDY-014 Add-to-Cart is a semantic, identifiable  | FAIL (0/10) | No Add-to-Cart form or button found in server HTML — agents cannot purchase. |
+| RDY-013 Agents can access key product data witho | FAIL (0/10) | High JS dependency with no structured data fallback. Script: 73.9% of page, visi |
+| RDY-014 Add-to-Cart is a semantic, identifiable  | PASS (10/10) | Buy/cart button with semantic attributes found. |
 | RDY-017 Agent can complete Add-to-Cart flow | FAIL (0/10) | Agent failed to add product to cart after 0 steps (0/2 attempts succeeded). Reas |
-| RDY-007 Agent determines stock availability | UNKNOWN | no ground truth for 'availability' (page doesn't expose it cleanly — itself a we |
+| RDY-007 Agent determines stock availability | FAIL (0/10) | 0/10 runs matched ground truth (in_stock). |
 | RDY-010 Agent gives a consistent shipping answer | PASS (10/10) | agent agreed with itself 10/10 (modal: 'error: error code: 401 - {'type': 'error |
 | RDY-011 llms.txt content is complete and well-st | PASS (10/10) | llms.txt has product paths, policy links, and sitemap. |
-| RDY-015 Variant selectors (size/color) use seman | UNKNOWN | No variant selectors detected (may be a single-variant product). |
-| RDY-008 Agent identifies the correct product | FAIL (0/10) | 0/10 runs matched ground truth (Just a moment...). |
+| RDY-015 Variant selectors (size/color) use seman | FAIL (0/10) | Variant UI detected but uses non-semantic JS widgets — agents can't select sizes |
+| RDY-008 Agent identifies the correct product | FAIL (0/10) | 0/10 runs matched ground truth (Superfood Multivitamin - 60 Pack | ALO). |
 | RDY-009 Agent gives a consistent return window | PASS (10/10) | agent agreed with itself 10/10 (modal: 'error: error code: 401 - {'type': 'error |
 | RDY-005 llms.txt / agent guidance present | PASS (10/10) | llms.txt present. |
