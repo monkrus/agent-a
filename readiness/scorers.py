@@ -341,6 +341,11 @@ STATIC = {
 }
 
 
+BROWSER = {
+    "add_to_cart_flow": "run_add_to_cart",
+}
+
+
 def run_browser(check, page):
     """Run a browser-agent check (e.g. Add-to-Cart flow).
 
@@ -349,14 +354,21 @@ def run_browser(check, page):
     flips from modals, timing, popups).
     """
     import os
+    detect = check.get("detect")
+    func_name = BROWSER.get(detect)
+    if not func_name:
+        return {"verdict": "UNKNOWN",
+                "detail": f"No browser probe for detect={detect!r}.",
+                "pass_fraction": None}
     url = page.get("url", "")
     if not url or not url.startswith("http"):
         return {"verdict": "UNKNOWN",
                 "detail": "Browser checks require a live URL.",
                 "pass_fraction": None}
     try:
-        from browser_agent import run_add_to_cart
-    except ImportError:
+        import browser_agent
+        probe_fn = getattr(browser_agent, func_name)
+    except (ImportError, AttributeError):
         return {"verdict": "UNKNOWN",
                 "detail": "browser_agent module not available.",
                 "pass_fraction": None}
@@ -371,7 +383,7 @@ def run_browser(check, page):
     majority_needed = (max_attempts + 1) // 2
 
     for attempt in range(max_attempts):
-        result = run_add_to_cart(url)
+        result = probe_fn(url)
         attempts += 1
         if result.get("success"):
             successes += 1
