@@ -276,6 +276,31 @@
       {% endif %}
     </div>
     {% else %}
+    <!-- PAID: email confirmation -->
+    {% if email_sent_to %}
+    <div class="card" style="border-left:4px solid #22c55e;">
+      <p style="margin:0;color:#374151;">Report sent to <strong>{{ email_sent_to }}</strong></p>
+    </div>
+    {% endif %}
+    {% if team_sent %}
+    <div class="card" style="border-left:4px solid #22c55e;">
+      <p style="margin:0;color:#374151;">Report sent to your team member.</p>
+    </div>
+    {% endif %}
+
+    <!-- PAID: send to team -->
+    {% if has_email %}
+    <div class="card">
+      <h2>Send to your developer</h2>
+      <p>Forward this report with all the fix recipes to your dev team.</p>
+      <form action="{{ url_for('send_report', scan_id=data.scan_id) }}" method="post" style="display:flex;gap:8px;align-items:center;">
+        <input type="email" name="email" placeholder="developer@yourcompany.com" required
+               style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;">
+        <button type="submit" class="btn-pay" style="white-space:nowrap;">Send Report</button>
+      </form>
+    </div>
+    {% endif %}
+
     <!-- PAID: next steps -->
     <div class="card">
       <h2>What to do next</h2>

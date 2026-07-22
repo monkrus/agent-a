@@ -20,6 +20,11 @@ Env vars:
   STRIPE_PRICE_ID    the Stripe Price object for a single report
   FLASK_SECRET_KEY   session signing (defaults to random per-restart in dev)
   SCAN_N             shopper runs per check (default: 5 for web, 10 for CLI)
+  SMTP_HOST          SMTP server (default: smtp.gmail.com)
+  SMTP_PORT          SMTP port (default: 587)
+  SMTP_USER          SMTP username / login email
+  SMTP_PASS          SMTP password or app password
+  FROM_EMAIL         sender address (defaults to SMTP_USER)
 """
 from __future__ import annotations
 
@@ -44,6 +49,7 @@ import impact as impactmod # noqa: E402
 import intel as intelmod   # noqa: E402
 import scorers             # noqa: E402
 import yaml                # noqa: E402
+import emailer             # noqa: E402
 from shopper import ask, ask_batch  # noqa: E402
 
 app = Flask(__name__)
@@ -241,8 +247,13 @@ def results(scan_id):
     stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
     has_stripe = bool(stripe_key)
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
+    email_sent_to = session.get(f"email_{scan_id}")
+    team_sent = session.pop(f"sent_{scan_id}", False)
+    has_email = emailer._is_configured()
     return render_template("results.html", data=data, paid=paid,
-                           has_stripe=has_stripe, dev_mode=dev_mode)
+                           has_stripe=has_stripe, dev_mode=dev_mode,
+                           email_sent_to=email_sent_to, team_sent=team_sent,
+                           has_email=has_email)
 
 
 @app.route("/checkout/<scan_id>", methods=["POST"])
@@ -283,6 +294,7 @@ def payment_success(scan_id):
     # Verify payment via Stripe checkout session before unlocking
     stripe_session_id = request.args.get("session_id", "")
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    buyer_email = None
     if stripe_key and stripe_session_id:
         try:
             import stripe
@@ -290,10 +302,35 @@ def payment_success(scan_id):
             cs = stripe.checkout.Session.retrieve(stripe_session_id)
             if cs.payment_status == "paid" and cs.metadata.get("scan_id") == scan_id:
                 session[f"paid_{scan_id}"] = True
+                buyer_email = cs.customer_details.email if cs.customer_details else None
         except Exception:
             pass  # fall through — don't unlock without verified payment
     elif os.environ.get("DEV_MODE", "").lower() == "true":
         session[f"paid_{scan_id}"] = True
+
+    # Auto-send report to buyer's email
+    if buyer_email and session.get(f"paid_{scan_id}"):
+        emailer.send_report(buyer_email, data)
+        session[f"email_{scan_id}"] = buyer_email
+
+    return redirect(url_for("results", scan_id=scan_id))
+
+
+@app.route("/send-report/<scan_id>", methods=["POST"])
+def send_report(scan_id):
+    """Send the full report to an additional email (e.g. developer)."""
+    if not session.get(f"paid_{scan_id}"):
+        abort(403)
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+    to_email = request.form.get("email", "").strip()
+    if not to_email or "@" not in to_email:
+        return redirect(url_for("results", scan_id=scan_id))
+    target = data.get("meta", {}).get("target", "")
+    emailer.send_report(to_email, data,
+                        subject=f"Agent Readiness Report for {target} (shared with you)")
+    session[f"sent_{scan_id}"] = True
     return redirect(url_for("results", scan_id=scan_id))
 
 

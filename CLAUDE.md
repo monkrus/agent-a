@@ -76,6 +76,8 @@ Every check maps to one layer of agent readiness:
 - `SCAN_N` — shopper runs per check (default: 5 web, 10 CLI)
 - `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` — for paid report checkout
 - `DEV_MODE` — set to `true` to enable demo unlock without Stripe (never in production)
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — for emailing reports after purchase
+- `FROM_EMAIL` — sender address (defaults to SMTP_USER)
 
 ## Common tasks
 
