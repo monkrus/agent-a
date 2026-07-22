@@ -241,6 +241,9 @@ def main():
                     help="Competitor URL to scan for side-by-side comparison")
     args = ap.parse_args()
 
+    import time as _time
+    _t0 = _time.time()
+
     pack, version, checks = load_checks(args.checks)
     page = fetchmod.fetch(args.target)
 
@@ -304,6 +307,8 @@ def main():
         arrow = "ahead" if delta and delta > 0 else "behind"
         print(f"  vs competitor: {comp['competitor_score']}/100 "
               f"(you are {abs(delta)} pts {arrow})" if delta else "")
+    _elapsed = _time.time() - _t0
+    print(f"  scan completed in {_elapsed:.1f}s")
     print(f"  full per-check report -> {args.out/'results.json'} (paid deliverable)\n")
 
 

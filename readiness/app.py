@@ -76,6 +76,8 @@ def _load_checks():
 
 def _run_scan(target_url, n=None, pre_fetched_page=None):
     from concurrent.futures import ThreadPoolExecutor
+    import time as _time
+    _t0 = _time.time()
     n = n or int(os.environ.get("SCAN_N", "5"))
     pack, version, checks = _load_checks()
     page = pre_fetched_page or fetchmod.fetch(target_url)
@@ -135,6 +137,8 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
 
     impact_est = impactmod.estimate(results)
 
+    _elapsed = round(_time.time() - _t0, 1)
+
     payload = {
         "scan_id": scan_id,
         "meta": {
@@ -142,6 +146,7 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
             "n": n, "shopper": os.environ.get("SHOPPER", "mock"),
             "timestamp": now.isoformat(timespec="seconds"),
             "page_status": page.get("status"),
+            "duration_seconds": _elapsed,
         },
         "readiness_score": readiness_score,
         "confidence_margin": margin,

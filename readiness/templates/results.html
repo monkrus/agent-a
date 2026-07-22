@@ -24,7 +24,7 @@
       <p class="headline">{{ data.headline }}</p>
       <div class="meta-row">
         <span>{{ data.meta.target }}</span>
-        <span>{{ data.meta.n }} AI agent visits simulated</span>
+        <span>{{ data.meta.n }} AI agent visits simulated{% if data.meta.duration_seconds %} &middot; {{ data.meta.duration_seconds }}s{% endif %}</span>
       </div>
     </div>
 
