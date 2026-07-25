@@ -14,6 +14,8 @@
 #                                      N runs. Low self-agreement = the page is
 #                                      ambiguous to agents, which is itself a
 #                                      readiness failure.
+#   browser  — an LLM-driven browser agent attempts an end-to-end flow
+#              (e.g. Add-to-Cart, search, checkout). Majority-vote across attempts.
 #
 # Weights sum to 100 -> readiness score is a weighted pass rate, 0-100.
 
@@ -21,7 +23,7 @@ version: 2026Q2.1
 pack: shopify-readiness
 
 checks:
-  # ---- STATIC (10) ----
+  # ---- STATIC (11) ----
   - id: RDY-001
     type: static
     category: structured-data
@@ -29,7 +31,7 @@ checks:
     detect: jsonld_product
     expect: A schema.org/Product JSON-LD block with offers.price and availability.
     fail_if: No Product JSON-LD, or price/availability missing.
-    weight: 10
+    weight: 8
     severity_if_fail: critical
     fix: Emit schema.org/Product JSON-LD including offers.price, priceCurrency, and availability.
 
@@ -40,7 +42,7 @@ checks:
     detect: price_in_html
     expect: A currency-formatted price string is present in the raw HTML response.
     fail_if: No price string in the server HTML (price injected by client-side JS only).
-    weight: 10
+    weight: 8
     severity_if_fail: critical
     fix: Server-render the price into HTML; agents and crawlers often do not execute JS.
 
@@ -51,7 +53,7 @@ checks:
     detect: robots_allows_agents
     expect: robots.txt does not Disallow known shopping/agent user-agents from product pages.
     fail_if: robots.txt blocks GPTBot / OAI-SearchBot / Google-Extended / PerplexityBot from this path.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Allow agent user-agents to read product and policy pages in robots.txt.
 
@@ -62,7 +64,7 @@ checks:
     detect: policy_text_present
     expect: A return or refund policy is linked and served as readable text.
     fail_if: No discoverable return/refund policy text (missing, or PDF/image only).
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Publish return & shipping policies as plain HTML text with clear, linkable URLs.
 
@@ -84,7 +86,7 @@ checks:
     detect: llms_txt_quality
     expect: llms.txt contains product paths, policy links, sitemap reference, and valid URLs.
     fail_if: llms.txt is missing key sections (products, policies, sitemap) or has no absolute URLs.
-    weight: 5
+    weight: 4
     severity_if_fail: medium
     fix: Add product catalog paths, policy links, and sitemap URL to llms.txt.
 
@@ -95,7 +97,7 @@ checks:
     detect: jsonld_quality
     expect: JSON-LD includes name, image, brand, description, price, currency, and schema.org availability URL.
     fail_if: JSON-LD is missing fields that agents need for accurate product comparison.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Add missing fields to JSON-LD Product markup (name, image, brand, description, priceCurrency, availability URL).
 
@@ -106,7 +108,7 @@ checks:
     detect: js_render_ratio
     expect: Product price and availability are available in server-rendered HTML or structured data (JSON-LD) without JS execution.
     fail_if: No structured data fallback and page is heavily JS-rendered — agents have no machine-readable content.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Add schema.org/Product JSON-LD with price and availability, or server-render key product content so agents don't need a browser.
 
@@ -117,7 +119,7 @@ checks:
     detect: cart_semantic
     expect: A form or button with cart/purchase semantics exists in server HTML.
     fail_if: No identifiable Add-to-Cart action in the DOM — agents cannot initiate a purchase.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Use a semantic form with action and a button with clear name/aria-label for Add to Cart.
 
@@ -132,17 +134,6 @@ checks:
     severity_if_fail: medium
     fix: Use select elements or radio inputs with labels for size/color — agents need predictable DOM to choose variants.
 
-  - id: RDY-017
-    type: browser
-    category: agent-interaction
-    title: Agent can complete Add-to-Cart flow
-    detect: add_to_cart_flow
-    expect: An AI browser agent can select a variant and successfully add the product to cart.
-    fail_if: Agent cannot navigate the page to add the product to cart within 12 steps.
-    weight: 8
-    severity_if_fail: high
-    fix: Ensure Add-to-Cart works without complex JS interactions; use semantic forms, standard selects, and clear button labels.
-
   - id: RDY-016
     type: static
     category: security
@@ -150,9 +141,65 @@ checks:
     detect: prompt_injection
     expect: Page contains no hidden text designed to hijack AI agent behavior.
     fail_if: Hidden elements, HTML comments, or invisible text contain agent-override instructions.
-    weight: 5
+    weight: 4
     severity_if_fail: critical
     fix: Remove hidden text that contains agent-manipulating instructions from reviews, comments, or invisible elements.
+
+  # ---- BROWSER (5) ----
+  - id: RDY-017
+    type: browser
+    category: agent-interaction
+    title: Agent can complete Add-to-Cart flow
+    detect: add_to_cart_flow
+    expect: An AI browser agent can select a variant and successfully add the product to cart.
+    fail_if: Agent cannot navigate the page to add the product to cart within 12 steps.
+    weight: 6
+    severity_if_fail: high
+    fix: Ensure Add-to-Cart works without complex JS interactions; use semantic forms, standard selects, and clear button labels.
+
+  - id: RDY-018
+    type: browser
+    category: agent-search
+    title: Agent can find the product via site search
+    detect: search_discovery
+    expect: An AI browser agent can use the site's search to find and locate the product.
+    fail_if: Agent cannot find the search bar, submit a query, or locate the product in results.
+    weight: 4
+    severity_if_fail: medium
+    fix: Ensure site search is accessible (visible search bar or icon), accepts text input, and returns relevant product results with clear links.
+
+  - id: RDY-019
+    type: browser
+    category: agent-checkout
+    title: Agent can reach the checkout page
+    detect: checkout_reachable
+    expect: After adding to cart, an AI agent can navigate to the checkout page.
+    fail_if: Agent cannot reach checkout — blocked by popups, login walls, or broken navigation.
+    weight: 5
+    severity_if_fail: high
+    fix: Ensure the cart-to-checkout flow uses clear links and buttons; avoid requiring login before checkout; keep the path to checkout under 3 clicks from cart.
+
+  - id: RDY-020
+    type: browser
+    category: agent-navigation
+    title: Agent can navigate from homepage to product
+    detect: homepage_to_product
+    expect: An AI agent can find the product starting from the homepage via site navigation menus.
+    fail_if: Agent cannot navigate from the homepage to the product page via menus within 15 steps.
+    weight: 4
+    severity_if_fail: medium
+    fix: Use clear, hierarchical navigation menus with descriptive category names; ensure products are reachable within 3 levels of navigation.
+
+  - id: RDY-021
+    type: browser
+    category: agent-comparison
+    title: Agent can find and navigate to a related product
+    detect: compare_products
+    expect: An AI agent can find a related/recommended product on the page and navigate to it.
+    fail_if: No related products section exists, or agent cannot navigate to a second product for comparison.
+    weight: 3
+    severity_if_fail: medium
+    fix: Add a visible "You may also like" or "Related products" section with clickable product links; use semantic markup for product cards.
 
   # ---- SHOPPER (5) ----
   - id: RDY-006
@@ -164,7 +211,7 @@ checks:
     ground_truth: price
     expect: Extracted price matches the page's actual price across runs.
     fail_if: Agent extracts a wrong price, or cannot find one.
-    weight: 10
+    weight: 8
     severity_if_fail: critical
     fix: Make the canonical price unambiguous in HTML + structured data; remove stale/secondary prices.
 
@@ -177,7 +224,7 @@ checks:
     ground_truth: availability
     expect: Agent's stock reading matches the page's declared availability.
     fail_if: Agent reads availability incorrectly or as unknown when the page declares it.
-    weight: 6
+    weight: 5
     severity_if_fail: high
     fix: Declare availability in JSON-LD offers.availability and reflect it in visible text.
 

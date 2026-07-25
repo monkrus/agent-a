@@ -122,16 +122,17 @@ def _categorize_failures(results: list[dict]) -> dict:
         frac = r.get("pass_fraction")
 
         # Discovery: can agents find and identify the product?
-        if cat in ("structured-data", "agent-access", "rendering"):
+        if cat in ("structured-data", "agent-access", "rendering",
+                    "agent-search", "agent-navigation"):
             key = "discovery"
             label = "Agent can't find or identify the product"
         # Accuracy: does the agent get the facts right?
         elif cat in ("price-extraction", "price-legibility", "availability-extraction",
-                      "identity-extraction"):
+                      "identity-extraction", "agent-comparison"):
             key = "accuracy"
             label = "Agent gives wrong or missing information"
         # Interaction: can the agent help complete a purchase?
-        elif cat in ("agent-interaction",):
+        elif cat in ("agent-interaction", "agent-checkout"):
             key = "interaction"
             label = "Agent can't help complete the purchase"
         # Policy: can the agent answer pre-purchase questions?

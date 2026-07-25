@@ -343,6 +343,10 @@ STATIC = {
 
 BROWSER = {
     "add_to_cart_flow": "run_add_to_cart",
+    "search_discovery": "run_search_discovery",
+    "checkout_reachable": "run_checkout_reachable",
+    "homepage_to_product": "run_homepage_to_product",
+    "compare_products": "run_compare_products",
 }
 
 
