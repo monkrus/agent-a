@@ -1,24 +1,23 @@
 # AI Agent Readiness — 17 DTC Brand Leaderboard
 
 Scanned July 2026. 17 brands scanned with SHOPPER=anthropic (real Claude extraction), N=10 runs.
-gymshark.com excluded: product page returned no visible content to our fetch method (JS-only rendering).
 
-| Rank | Brand | Score | Weakest Layer |
-|------|-------|-------|---------------|
-| 1 | awaytravel.com | 71.0/100 | Extraction |
-| 2 | untuckit.com | 68.0/100 | Interaction |
-| 3 | framebridge.com | 68.0/100 | Interaction |
-| 4 | fentybeauty.com | 68.0/100 | Interaction |
-| 5 | dollarshaveclub.com | 66.7/100 | Interaction |
-| 6 | tuftandneedle.com | 66.0/100 | Extraction |
-| 7 | sundayriley.com | 66.0/100 | Extraction |
-| 8 | everlane.com | 66.0/100 | Extraction |
-| 9 | casper.com | 66.0/100 | Extraction |
-| 10 | liquid-iv.com | 63.0/100 | Interaction |
-| 11 | kyliecosmetics.com | 61.0/100 | Interaction |
-| 12 | skims.com | 60.0/100 | Interaction |
-| 13 | warbyparker.com | 58.0/100 | Interaction |
-| 14 | purple.com | 58.0/100 | Interaction |
-| 15 | harrys.com | 55.0/100 | Interaction |
-| 16 | aloyoga.com | 38.0/100 | Interaction |
-| 17 | olaplex.com | 34.6/100 | Interaction |
+| Rank | Brand | Score | Top Fail |
+|------|-------|-------|----------|
+| 1 | kyliecosmetics.com | 100.0/100 | (none) |
+| 2 | framebridge.com | 96.2/100 | Shipping answer consistency |
+| 3 | awaytravel.com | 94.7/100 | Add-to-Cart browser flow |
+| 4 | liquid-iv.com | 92.0/100 | llms.txt quality |
+| 5 | untuckit.com | 89.0/100 | Add-to-Cart browser flow |
+| 6 | skims.com | 87.0/100 | Shipping answer consistency |
+| 7 | harrys.com | 85.0/100 | Return policy reachable |
+| 8 | sundayriley.com | 79.5/100 | Return policy reachable |
+| 9 | warbyparker.com | 78.5/100 | robots.txt blocks agents |
+| 10 | tuftandneedle.com | 77.0/100 | robots.txt blocks agents |
+| 11 | fentybeauty.com | 74.0/100 | Price extraction |
+| 12 | olaplex.com | 72.5/100 | Price extraction |
+| 13 | casper.com | 71.0/100 | Price extraction |
+| 14 | everlane.com | 71.0/100 | Price extraction |
+| 15 | purple.com | 69.6/100 | Price extraction |
+| 16 | us.dollarshaveclub.com | 66.1/100 | No Product JSON-LD |
+| 17 | aloyoga.com | 46.7/100 | No Product JSON-LD |

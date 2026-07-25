@@ -4,6 +4,6 @@ It clicked "Band Size: 32" twelve times in a row. Never found the cup size picke
 
 Custom JS widgets, not semantic HTML. The agent could see the buttons but not the next step.
 
-18 DTC brands scanned. Add-to-Cart failed on all 18.
+17 DTC brands scanned. Average score: 79/100 — but one wrong product drops it by 20 points.
 
 Your next customer won't have a mouse.

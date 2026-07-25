@@ -65,7 +65,7 @@ If an AI shopping agent tells a customer this bra costs $37.80, and the customer
 
 ### What would fix it
 
-Three changes would move SKIMS from 67 to 85+:
+Three changes would move this product from 67 to 85+:
 
 **1. Surface availability in page text.** The JSON-LD says `InStock` but the page text never says "In Stock" anywhere the agent can read. Adding a visible availability badge eliminates 6 points of failure.
 
@@ -75,9 +75,9 @@ Three changes would move SKIMS from 67 to 85+:
 
 ### The bigger picture
 
-We've now scanned 18 major DTC brands. The average agent readiness score is 61/100. No brand scored above 71. Every brand failed the Add-to-Cart browser flow.
+We've now scanned 17 major DTC brands with real Claude extraction (N=10 runs per check). The average agent readiness score is 79/100. Seven brands scored above 80, but the scores mask real fragility — a single product with a sale price or a complex variant picker can drop a brand's score by 20 points. One brand hit 100, another landed at 47.
 
-The gap isn't in data — most Shopify stores have decent JSON-LD. It's not in security — none of the 18 brands had prompt injection issues. The gap is in the middle layers: extraction accuracy and interaction design. Pages are *readable* but not *reliably extractable*. Forms are *present* but not *agent-navigable*.
+The gap isn't in data — most Shopify stores have decent JSON-LD. It's not in security — none of the 17 brands had prompt injection issues. The gap is in edge cases: dual prices that confuse extraction, variant selectors that block interaction, and policies buried in JavaScript. Pages are *readable* but not *reliably extractable*. Forms are *present* but not *agent-navigable*.
 
 As AI shopping agents move from novelty to real purchase channel — Gartner projects 5-15% of e-commerce traffic will be agent-referred by end of 2027 — this gap becomes revenue at risk. For SKIMS, we estimate $6,300 to $37,900 per month in lost agent-driven conversions at current traffic levels.
 
