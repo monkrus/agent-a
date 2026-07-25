@@ -252,6 +252,43 @@ def is_dead_page(page: dict) -> str | None:
     return None
 
 
+def is_collection_page(page: dict) -> str | None:
+    """Return a warning if the page looks like a collection/category, not a PDP."""
+    url = page.get("url", "")
+    title = (page.get("title") or "").lower()
+
+    # URL signals
+    url_lower = url.lower()
+    collection_paths = ("/collections/", "/categories/", "/category/",
+                        "/collection/", "/shop/all", "/shop?")
+    is_collection_url = any(p in url_lower for p in collection_paths)
+
+    # Content signals: no Product JSON-LD but multiple product links
+    from shopper import _jsonld_offers
+    obj, _ = _jsonld_offers(page)
+    has_product_jsonld = obj is not None
+
+    product_links = sum(1 for href, _ in page.get("links", [])
+                        if "/products/" in href.lower() or "/product/" in href.lower())
+
+    if is_collection_url and not has_product_jsonld:
+        return (f"This URL looks like a collection page, not a product page. "
+                f"The scanner is designed for product pages (PDPs). "
+                f"Try scanning a specific product URL instead "
+                f"(e.g. one of the {product_links} product links found on this page)."
+                if product_links > 1 else
+                "This URL looks like a collection page, not a product page. "
+                "The scanner is designed for product pages (PDPs). "
+                "Try scanning a specific product URL instead.")
+
+    if not has_product_jsonld and product_links >= 5:
+        return (f"This page has no Product JSON-LD but links to {product_links} products — "
+                f"it may be a category or listing page. The scanner works best on "
+                f"individual product pages (PDPs).")
+
+    return None
+
+
 if __name__ == "__main__":
     page = fetch(sys.argv[1])
     print(json.dumps({k: (v if k not in ("html", "text") else f"<{len(v)} chars>")

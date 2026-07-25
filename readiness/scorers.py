@@ -479,9 +479,25 @@ def _ground_truth(kind, page):
     return None
 
 
+def _is_error(answer: str) -> bool:
+    """Check if an answer is an API error, not a real extraction."""
+    return str(answer).startswith("__error__")
+
+
 def grade_shopper(check, page, answers):
     """answers: list[str] of N agent responses -> grading dict."""
     n = len(answers)
+
+    # Filter out API errors — they aren't real extraction results
+    valid = [a for a in answers if not _is_error(a)]
+    error_count = n - len(valid)
+    if error_count > 0 and not valid:
+        return {"verdict": "UNKNOWN", "pass_fraction": None, "n": n,
+                "detail": f"All {n} shopper runs returned API errors — cannot grade."}
+    if error_count > 0 and valid:
+        n = len(valid)
+        answers = valid
+
     mode = check.get("grade", "consistency")
 
     if mode == "correctness":
@@ -498,9 +514,12 @@ def grade_shopper(check, page, answers):
             else:
                 hits += (_norm(gt) in _norm(a) or _norm(a) in _norm(gt)) and _norm(a) not in ("", "unknown")
         frac = hits / n if n else None
+        detail = f"{hits}/{n} runs matched ground truth ({gt})."
+        if error_count:
+            detail += f" ({error_count} runs excluded due to API errors.)"
         return {"verdict": _rate_verdict(frac, check), "pass_fraction": frac,
                 "n": n, "pass_rate": f"{hits}/{n}", "ground_truth": gt,
-                "detail": f"{hits}/{n} runs matched ground truth ({gt})."}
+                "detail": detail}
 
     # consistency
     if not answers:
@@ -509,10 +528,13 @@ def grade_shopper(check, page, answers):
     counts = Counter(_norm(a) for a in answers)
     modal, modal_n = counts.most_common(1)[0]
     frac = modal_n / n if n else None
+    detail = (f"agent agreed with itself {modal_n}/{n} (modal: '{modal}'); "
+              f"{len(counts)} distinct answers.")
+    if error_count:
+        detail += f" ({error_count} runs excluded due to API errors.)"
     return {"verdict": _rate_verdict(frac, check), "pass_fraction": frac, "n": n,
             "pass_rate": f"{modal_n}/{n}", "modal_answer": modal,
-            "detail": f"agent agreed with itself {modal_n}/{n} (modal: '{modal}'); "
-                      f"{len(counts)} distinct answers."}
+            "detail": detail}
 
 
 # severity-keyed thresholds, same philosophy as audit methodology.md

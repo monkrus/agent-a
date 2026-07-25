@@ -236,6 +236,10 @@ def scan():
     if dead:
         return render_template("index.html", error=dead)
 
+    collection_warning = fetchmod.is_collection_page(pre_page)
+    if collection_warning:
+        return render_template("index.html", error=collection_warning)
+
     try:
         scan_id = _run_scan(url, pre_fetched_page=pre_page)
     except Exception as e:

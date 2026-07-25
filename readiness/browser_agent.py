@@ -273,6 +273,8 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
             _dismiss_popups(page)
 
             consecutive_fails = 0
+            last_selector = None
+            repeat_count = 0
             for step_num in range(1, MAX_STEPS + 1):
                 # After several failed clicks, force-clear all modals
                 if consecutive_fails >= 3:
@@ -284,10 +286,29 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
                 action = _ask_agent(elements, screenshot, goal, steps, step_num)
 
                 act = action.get("action", "fail")
+                selector = action.get("selector", "")
+
+                # Detect stuck loop: same selector clicked 2+ times in a row
+                if act == "click" and selector and selector == last_selector:
+                    repeat_count += 1
+                    if repeat_count >= 2:
+                        steps.append({
+                            "step": step_num,
+                            "action": "fail",
+                            "selector": selector,
+                            "value": "",
+                            "reason": f"Stuck: clicked '{selector}' {repeat_count + 1} times with no progress",
+                            "result": "fail",
+                        })
+                        break
+                else:
+                    repeat_count = 0
+                last_selector = selector if act == "click" else last_selector
+
                 step_record = {
                     "step": step_num,
                     "action": act,
-                    "selector": action.get("selector", ""),
+                    "selector": selector,
                     "value": action.get("value", ""),
                     "reason": action.get("reason", ""),
                 }

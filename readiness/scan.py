@@ -253,6 +253,11 @@ def main():
         print(f"\n  SCAN ABORTED: {dead}\n")
         sys.exit(1)
 
+    # Warn if this looks like a collection/category page
+    collection_warning = fetchmod.is_collection_page(page)
+    if collection_warning:
+        print(f"\n  WARNING: {collection_warning}\n")
+
     results = scan(checks, page, args.n)
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
     s = score(results)
