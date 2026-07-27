@@ -3,7 +3,7 @@ import sys
 import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from shopper import _mock_answer, _jsonld_price, _jsonld_availability
+from shopper import _mock_answer, _jsonld_price, _jsonld_availability, _page_blob
 import scorers
 
 
@@ -148,3 +148,90 @@ class TestRateVerdict:
 
     def test_none_is_unknown(self):
         assert scorers._rate_verdict(None, {"severity_if_fail": "medium"}) == "UNKNOWN"
+
+
+# ---- page blob includes JSON-LD content ------------------------------------
+
+class TestPageBlob:
+    def test_jsonld_content_included(self):
+        page = _product_page()
+        blob = _page_blob(page)
+        assert "STRUCTURED_DATA (JSON-LD):" in blob
+        assert "29.99" in blob
+        assert "InStock" in blob
+
+    def test_no_jsonld_no_section(self):
+        page = _page()
+        blob = _page_blob(page)
+        assert "STRUCTURED_DATA" not in blob
+
+    def test_jsonld_capped_at_1500(self):
+        big_jsonld = [{"@type": "Product", "description": "x" * 3000}]
+        page = _page(jsonld=big_jsonld)
+        blob = _page_blob(page)
+        assert "STRUCTURED_DATA (JSON-LD):" in blob
+        assert blob.count("x") <= 1500
+
+
+# ---- alternative price acceptance ------------------------------------------
+
+class TestAlternativePriceAcceptance:
+    def test_sale_price_accepted(self):
+        """Agent extracting a visible sale price should count as correct."""
+        page = _page(
+            text="Was $54.00 Now $37.80 - Sale!",
+            jsonld=[{
+                "@type": "Product", "name": "Bra",
+                "offers": {"price": "54.00", "priceCurrency": "USD",
+                           "availability": "https://schema.org/InStock"}
+            }],
+        )
+        check = {"grade": "correctness", "ground_truth": "price",
+                 "severity_if_fail": "critical"}
+        # All answers are the sale price (visible on page)
+        answers = ["37.80", "37.80", "37.80", "37.80", "37.80"]
+        r = scorers.grade_shopper(check, page, answers)
+        assert r["pass_fraction"] == 1.0
+        assert r["verdict"] == "PASS"
+
+    def test_mix_of_prices_all_valid(self):
+        """Both JSON-LD price and visible sale price should be accepted."""
+        page = _page(
+            text="Regular $54.00 Sale $37.80",
+            jsonld=[{
+                "@type": "Product", "name": "Bra",
+                "offers": {"price": "54.00", "priceCurrency": "USD",
+                           "availability": "https://schema.org/InStock"}
+            }],
+        )
+        check = {"grade": "correctness", "ground_truth": "price",
+                 "severity_if_fail": "critical"}
+        answers = ["54.00", "37.80", "54", "37.80", "54.00"]
+        r = scorers.grade_shopper(check, page, answers)
+        assert r["pass_fraction"] == 1.0
+
+    def test_wrong_price_still_fails(self):
+        """A price not on the page at all should still fail."""
+        page = _page(
+            text="Price: $54.00",
+            jsonld=[{
+                "@type": "Product", "name": "Widget",
+                "offers": {"price": "54.00", "priceCurrency": "USD",
+                           "availability": "https://schema.org/InStock"}
+            }],
+        )
+        check = {"grade": "correctness", "ground_truth": "price",
+                 "severity_if_fail": "critical"}
+        answers = ["99.99", "99.99", "99.99", "99.99", "99.99"]
+        r = scorers.grade_shopper(check, page, answers)
+        assert r["pass_fraction"] == 0.0
+        assert r["verdict"] == "FAIL"
+
+    def test_non_price_checks_unaffected(self):
+        """Availability grading should not use alternative price logic."""
+        page = _product_page()
+        check = {"grade": "correctness", "ground_truth": "availability",
+                 "severity_if_fail": "high"}
+        answers = ["in_stock", "unknown", "unknown", "unknown", "unknown"]
+        r = scorers.grade_shopper(check, page, answers)
+        assert r["pass_fraction"] == 0.2

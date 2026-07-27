@@ -462,6 +462,21 @@ def _norm_num(s):
     return float(m.group(0).replace(",", "")) if m else None
 
 
+def _visible_prices(page) -> set[float]:
+    """Extract all currency-formatted prices from visible page text."""
+    text = (page.get("text", "") or "") + " " + (page.get("rendered_text", "") or "")
+    matches = re.findall(r"[$£€]\s?(\d[\d,]*\.?\d*)", text)
+    prices = set()
+    for m in matches:
+        try:
+            v = float(m.replace(",", ""))
+            if 0.01 < v < 100_000:
+                prices.add(v)
+        except ValueError:
+            continue
+    return prices
+
+
 def _ground_truth(kind, page):
     """Extract ground truth, falling back to rendered DOM when available."""
     if kind == "price":
@@ -510,15 +525,31 @@ def grade_shopper(check, page, answers):
             return {"verdict": "UNKNOWN", "pass_fraction": None, "n": n,
                     "detail": f"no ground truth for '{check.get('ground_truth')}' "
                               f"(page doesn't expose it cleanly — itself a weakness)."}
+
+        # For price checks: also accept prices visible on the page
+        # (sale prices, member prices are legitimately on the page —
+        # extracting them is not a wrong answer)
+        alt_prices = set()
+        if check.get("ground_truth") == "price" and isinstance(gt, float):
+            alt_prices = _visible_prices(page)
+            alt_prices.discard(gt)  # don't double-count the primary GT
+
         hits = 0
+        alt_hits = 0
         for a in answers:
             if isinstance(gt, float):
                 num = _norm_num(a)
-                hits += (num is not None and abs(num - gt) < 0.01)
+                if num is not None and abs(num - gt) < 0.01:
+                    hits += 1
+                elif num is not None and any(abs(num - ap) < 0.01 for ap in alt_prices):
+                    hits += 1
+                    alt_hits += 1
             else:
                 hits += (_norm(gt) in _norm(a) or _norm(a) in _norm(gt)) and _norm(a) not in ("", "unknown")
         frac = hits / n if n else None
         detail = f"{hits}/{n} runs matched ground truth ({gt})."
+        if alt_hits:
+            detail = f"{hits}/{n} runs returned a valid price ({hits - alt_hits} matched JSON-LD ${gt}, {alt_hits} matched a visible page price)."
         if error_count:
             detail += f" ({error_count} runs excluded due to API errors.)"
         return {"verdict": _rate_verdict(frac, check), "pass_fraction": frac,

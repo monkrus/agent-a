@@ -25,9 +25,19 @@ import re
 
 def _page_blob(page: dict, limit: int = 6000) -> str:
     """Compact text the agent 'sees'. Mirrors what a text-mode agent gets."""
+    import json as _json
     parts = [f"URL: {page.get('url','')}", f"TITLE: {page.get('title','')}"]
     if page.get("jsonld"):
-        parts.append("STRUCTURED_DATA: present")
+        # Include actual JSON-LD so the agent can read structured data
+        # (a real agent would parse this from <script type="application/ld+json">)
+        try:
+            jsonld_str = _json.dumps(page["jsonld"], indent=None, default=str)
+            # Cap at 1500 chars to leave room for page text
+            if len(jsonld_str) > 1500:
+                jsonld_str = jsonld_str[:1500] + "..."
+            parts.append(f"STRUCTURED_DATA (JSON-LD):\n{jsonld_str}")
+        except (TypeError, ValueError):
+            parts.append("STRUCTURED_DATA: present (could not serialize)")
     parts.append("PAGE TEXT:\n" + (page.get("text", "") or "")[:limit])
     return "\n".join(parts)
 
