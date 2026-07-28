@@ -1,21 +1,28 @@
 ---
-Subject: SKIMS scored 87/100 for AI shopping agents — 3 fixes would get you to 95+
+Subject: SKIMS is the only intimates brand AI agents can actually shop — here's how to lock that in
 
 Hi --
 
-I built an open-source scanner that tests how well AI shopping agents (ChatGPT, Perplexity, Claude) can shop on product pages. I ran a 17-check scan against the Everyday Cotton Ultimate Teardrop Push-Up Bra on skims.com.
+I'm a developer and a genuine SKIMS fan. I also build tools for AI commerce, and I ran into something I thought your team would want to know.
 
-SKIMS scored 87/100 — 6th out of 17 DTC brands.
+I built an open-source scanner (agent-a) that tests how well AI shopping agents -- ChatGPT, Perplexity, Claude -- can shop on product pages. I scanned 17 major DTC brands and then went deeper into the intimates category.
 
-Your data layer is strong: JSON-LD is complete, prices are server-rendered, agents extract the correct price and availability 100% of the time. But three issues hold the score back:
+Here's what I found: I tried to scan ThirdLove, Savage X, CUUP, Knix, Negative, Lively, and Parade. Every single one blocked the request -- 403, 429, or redirect loops. Their pages are completely invisible to AI agents. No price, no product data, nothing.
 
-- **The band/cup size picker defeats agents.** Non-semantic JS widgets mean agents can't select a size. No `<select>`, no ARIA roles they can parse. They click the same button repeatedly and give up.
-- **No llms.txt.** Agents have zero context for how to navigate or interact with SKIMS. A 20-line file at your site root fixes this.
-- **Shipping answers are inconsistent.** Agents extract "free on orders $75+" 80% of the time but get confused by secondary references the other 20%.
+SKIMS is the only intimates brand that actually serves the page. Your JSON-LD is complete, prices are server-rendered, and agents extract the correct price and availability 100% of the time. You scored 87/100 -- 6th out of 17 DTC brands overall.
 
-Three targeted fixes — semantic variant selectors, llms.txt, and shipping text cleanup — would move the score to 95+. Most take under a day.
+Four things keep it from being near-perfect:
 
-As AI shopping agents go from novelty to real purchase channel, these gaps become lost conversions. Happy to walk through the specifics if this is on your roadmap.
+1. The band/cup size picker uses HeadlessUI popovers (64 instances, zero `<select>` elements). Agents can't select a size -- they click the same button repeatedly and give up.
+2. No llms.txt file. Agents have zero context for how to navigate SKIMS. A 20-line file at your site root fixes this.
+3. Shipping text appears in two locales (USD and AUD) in the same page source. Agents extract "free on $75+" 80% of the time but get confused by the AUD reference the other 20%.
+4. /cart/add.js returns 410 Gone. The standard Shopify cart API is disabled, so agents can't add to cart programmatically.
+
+I wrote up specific fixes with code for all four -- semantic `<select>` elements for the size picker, a ready-to-use llms.txt, a `<template>` pattern for the shipping text, and the cart API re-enable. About a day of dev work total, projected to move the score to 97+.
+
+You're already ahead of every competitor in this category by a wide margin, simply because you serve the page. These fixes would make SKIMS the first intimates brand that AI agents can actually shop end-to-end -- before anyone else even shows up.
+
+Happy to share the full fix document or walk through it with your engineering team.
 
 -- Sergei Stadnik
 sergeigodev@gmail.com
