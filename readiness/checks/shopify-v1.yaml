@@ -31,7 +31,7 @@ checks:
     detect: jsonld_product
     expect: A schema.org/Product JSON-LD block with offers.price and availability.
     fail_if: No Product JSON-LD, or price/availability missing.
-    weight: 8
+    weight: 7
     severity_if_fail: critical
     fix: Emit schema.org/Product JSON-LD including offers.price, priceCurrency, and availability.
 
@@ -42,7 +42,7 @@ checks:
     detect: price_in_html
     expect: A currency-formatted price string is present in the raw HTML response.
     fail_if: No price string in the server HTML (price injected by client-side JS only).
-    weight: 8
+    weight: 7
     severity_if_fail: critical
     fix: Server-render the price into HTML; agents and crawlers often do not execute JS.
 
@@ -153,7 +153,7 @@ checks:
     detect: add_to_cart_flow
     expect: An AI browser agent can select a variant and successfully add the product to cart.
     fail_if: Agent cannot navigate the page to add the product to cart within 12 steps.
-    weight: 6
+    weight: 5
     severity_if_fail: high
     fix: Ensure Add-to-Cart works without complex JS interactions; use semantic forms, standard selects, and clear button labels.
 
@@ -175,7 +175,7 @@ checks:
     detect: checkout_reachable
     expect: After adding to cart, an AI agent can navigate to the checkout page.
     fail_if: Agent cannot reach checkout — blocked by popups, login walls, or broken navigation.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Ensure the cart-to-checkout flow uses clear links and buttons; avoid requiring login before checkout; keep the path to checkout under 3 clicks from cart.
 
@@ -201,6 +201,28 @@ checks:
     severity_if_fail: medium
     fix: Add a visible "You may also like" or "Related products" section with clickable product links; use semantic markup for product cards.
 
+  - id: RDY-022
+    type: static
+    category: agent-checkout
+    title: Guest checkout is available (no login wall)
+    detect: guest_checkout
+    expect: Checkout does not require account creation or login — agents can purchase as guests.
+    fail_if: Checkout requires login or account creation, blocking agents without credentials.
+    weight: 3
+    severity_if_fail: high
+    fix: Enable guest checkout so agents (and customers) can buy without creating an account.
+
+  - id: RDY-023
+    type: static
+    category: agent-interaction
+    title: Programmatic cart API endpoint available
+    detect: cart_api
+    expect: A /cart/add.js or equivalent AJAX endpoint exists so headless agents can add to cart without DOM interaction.
+    fail_if: No cart API endpoint found — agents must rely on browser-level DOM interaction to add items.
+    weight: 3
+    severity_if_fail: medium
+    fix: Expose a /cart/add.js (Shopify default) or equivalent API endpoint for programmatic cart operations.
+
   # ---- SHOPPER (5) ----
   - id: RDY-006
     type: shopper
@@ -211,7 +233,7 @@ checks:
     ground_truth: price
     expect: Extracted price matches the page's actual price across runs.
     fail_if: Agent extracts a wrong price, or cannot find one.
-    weight: 8
+    weight: 7
     severity_if_fail: critical
     fix: Make the canonical price unambiguous in HTML + structured data; remove stale/secondary prices.
 
@@ -224,7 +246,7 @@ checks:
     ground_truth: availability
     expect: Agent's stock reading matches the page's declared availability.
     fail_if: Agent reads availability incorrectly or as unknown when the page declares it.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Declare availability in JSON-LD offers.availability and reflect it in visible text.
 

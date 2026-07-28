@@ -326,6 +326,65 @@ def static_prompt_injection(page):
     return "FAIL", f"Potential prompt injection found: {'; '.join(findings)}."
 
 
+def static_guest_checkout(page):
+    checkout_html = page.get("checkout_html")
+    if checkout_html is None:
+        return "UNKNOWN", "Checkout page not probed (local file mode)."
+
+    if not checkout_html:
+        return "UNKNOWN", "Checkout page not reachable (empty or redirected)."
+
+    cl = checkout_html.lower()
+
+    # Login wall indicators: page requires sign-in before showing checkout
+    login_wall = any(phrase in cl for phrase in (
+        "log in to checkout", "sign in to checkout", "login to checkout",
+        "create an account to", "sign in to continue", "login to continue",
+        "you must be logged in", "please log in", "please sign in",
+        "account required",
+    ))
+
+    # Guest checkout indicators
+    guest_ok = any(phrase in cl for phrase in (
+        "guest checkout", "continue as guest", "checkout as guest",
+        "without an account", "no account needed", "email address",
+        "contact information", "shipping address",
+    ))
+
+    if login_wall and not guest_ok:
+        return "FAIL", "Checkout requires login — no guest checkout option found. Agents cannot purchase without credentials."
+    if guest_ok:
+        return "PASS", "Guest checkout available — agents can purchase without an account."
+    # Shopify default: checkout pages typically show email/shipping fields
+    if "email" in cl and ("shipping" in cl or "address" in cl):
+        return "PASS", "Checkout shows email and address fields (guest checkout likely available)."
+    return "UNKNOWN", "Could not determine guest checkout availability from checkout page."
+
+
+def static_cart_api(page):
+    cart_api = page.get("cart_api")
+    if cart_api is None:
+        return "UNKNOWN", "Cart API not probed (local file mode)."
+
+    html = page.get("html", "") or ""
+    hl = html.lower()
+
+    # Check for /cart/add.js endpoint availability
+    has_endpoint = cart_api
+
+    # Also check if page references the cart API in its scripts
+    has_cart_js_ref = any(path in hl for path in (
+        "/cart/add.js", "/cart/add.json", "cart/add",
+        "ajax_cart", "ajaxcart", "cart-api",
+    ))
+
+    if has_endpoint:
+        return "PASS", "Cart API endpoint (/cart/add.js) responds — headless agents can add to cart programmatically."
+    if has_cart_js_ref:
+        return "PASS", "Cart API references found in page scripts (AJAX cart likely supported)."
+    return "FAIL", "No cart API endpoint found — agents must interact with the DOM to add items to cart."
+
+
 STATIC = {
     "jsonld_product": static_jsonld_product,
     "price_in_html": static_price_in_html,
@@ -338,6 +397,8 @@ STATIC = {
     "cart_semantic": static_cart_semantic,
     "variant_selectors": static_variant_selectors,
     "prompt_injection": static_prompt_injection,
+    "guest_checkout": static_guest_checkout,
+    "cart_api": static_cart_api,
 }
 
 
