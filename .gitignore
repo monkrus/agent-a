@@ -17,6 +17,12 @@ readiness/.scans/
 # Outreach drafts (generated, contain scan data)
 outreach/
 
+# Unpublished articles (draft sales/marketing content)
+leaderboard/post-assets/article-free-vs-paid-scan.md
+leaderboard/post-assets/article-check-reliability.md
+leaderboard/post-assets/article-skims-vs-thirdlove.md
+leaderboard/post-assets/linkedin-skims-vs-thirdlove.md
+
 # Leaderboard output (generated data, not post-assets)
 leaderboard/*
 !leaderboard/post-assets/
