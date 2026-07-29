@@ -144,7 +144,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
             return {"url": target, "status": 0, "html": "", "text": "",
                     "jsonld": [], "meta": {}, "title": "", "links": [],
                     "llms_txt": False, "llms_txt_content": None, "robots": None,
-                    "cart_api": None, "checkout_html": None,
+                    "cart_api": None, "checkout_html": None, "homepage_html": None,
                     "_fetch_error": str(e)}
         # If rate-limited (429), fall back to Playwright (real browser UA)
         if r.status_code == 429:
@@ -167,6 +167,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["robots"] = _get_text(urljoin(origin, "/robots.txt"), timeout)
                 page["cart_api"] = _probe_ok(urljoin(origin, "/cart/add.js"), timeout)
                 page["checkout_html"] = _get_text(urljoin(origin, "/checkout"), timeout)
+                page["homepage_html"] = _get_text(origin + "/", timeout)
                 return page
 
         page = _parse_html(r.text, target)
@@ -180,6 +181,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["robots"] = _get_text(urljoin(origin, "/robots.txt"), timeout)
         page["cart_api"] = _probe_ok(urljoin(origin, "/cart/add.js"), timeout)
         page["checkout_html"] = _get_text(urljoin(origin, "/checkout"), timeout)
+        page["homepage_html"] = _get_text(origin + "/", timeout)
 
         # Rendered DOM: Playwright fetch for JS-heavy sites
         # Auto-enable if Playwright is installed and page looks JS-heavy,
@@ -215,6 +217,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["robots"] = None
         page["cart_api"] = None
         page["checkout_html"] = None
+        page["homepage_html"] = None
     return page
 
 

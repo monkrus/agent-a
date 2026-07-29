@@ -385,6 +385,149 @@ def static_cart_api(page):
     return "FAIL", "No cart API endpoint found — agents must interact with the DOM to add items to cart."
 
 
+def static_search_accessible(page):
+    """Proxy for RDY-018 browser check: can agents find site search?"""
+    homepage = page.get("homepage_html")
+    if homepage is None:
+        return "UNKNOWN", "Homepage not fetched (local file mode)."
+    if not homepage:
+        return "FAIL", "Homepage not reachable — agents cannot discover site search."
+
+    hl = homepage.lower()
+
+    # Look for search form or input
+    has_search_form = bool(re.search(
+        r'<form[^>]*action=["\'][^"\']*search[^"\']*["\']', hl))
+    has_search_input = bool(re.search(
+        r'<input[^>]*type=["\']search["\']', hl))
+    has_search_role = 'role="search"' in hl or "role='search'" in hl
+    has_search_link = bool(re.search(r'href=["\'][^"\']*search[^"\']*["\']', hl))
+
+    if has_search_form or has_search_input:
+        return "PASS", "Site search form or input found on homepage — agents can search for products."
+    if has_search_role:
+        return "PASS", "Search landmark (role=search) found on homepage."
+    if has_search_link:
+        return "PASS", "Search page link found on homepage."
+    return "FAIL", "No search form, search input, or search link found on homepage — agents cannot discover products via search."
+
+
+def static_nav_accessible(page):
+    """Proxy for RDY-020 browser check: can agents navigate from homepage?"""
+    homepage = page.get("homepage_html")
+    if homepage is None:
+        return "UNKNOWN", "Homepage not fetched (local file mode)."
+    if not homepage:
+        return "FAIL", "Homepage not reachable — agents cannot navigate to products."
+
+    hl = homepage.lower()
+
+    # Check for nav element with product/collection links
+    has_nav = "<nav" in hl
+    product_links = len(re.findall(r'href=["\'][^"\']*/(products|collections)/[^"\']*["\']', hl))
+    has_menu = bool(re.search(r'<(ul|ol)[^>]*class=["\'][^"\']*(?:menu|nav)[^"\']*["\']', hl))
+
+    if has_nav and product_links >= 3:
+        return "PASS", f"Navigation element with {product_links} product/collection links found — agents can browse."
+    if product_links >= 5:
+        return "PASS", f"{product_links} product/collection links found on homepage — agents can discover products."
+    if has_nav and has_menu:
+        return "PASS", "Navigation menu found on homepage — agents can browse categories."
+    if product_links >= 1:
+        return "PASS", f"{product_links} product link(s) found on homepage (limited but navigable)."
+    return "FAIL", "No navigation with product or collection links found on homepage — agents cannot browse to products."
+
+
+def static_related_products(page):
+    """Proxy for RDY-021 browser check: can agents find related products?"""
+    html = page.get("html", "") or ""
+    hl = html.lower()
+
+    # Look for related/recommended product sections
+    related_section = bool(re.search(
+        r'(you may also like|related products|customers also bought|'
+        r'recommended for you|similar products|complete the look|'
+        r'more from this collection|pairs well with|shop the look|'
+        r'frequently bought together)', hl))
+
+    # Count product links in the page (beyond the main product)
+    product_links = re.findall(r'href=["\'][^"\']*/(products)/[^"\']*["\']', hl)
+    distinct_products = len(set(product_links))
+
+    if related_section and distinct_products >= 2:
+        return "PASS", f"Related products section found with {distinct_products}+ product links — agents can compare."
+    if related_section:
+        return "PASS", "Related products section found on page."
+    if distinct_products >= 3:
+        return "PASS", f"{distinct_products} product links on page — agents can navigate to alternatives."
+    return "FAIL", "No related products section or product links found — agents cannot compare alternatives."
+
+
+def static_atc_flow_proxy(page):
+    """Proxy for RDY-017 browser check: can agents likely complete ATC?
+    Combines signals from semantic cart, variant selectors, and cart API."""
+    html = page.get("html", "") or ""
+    hl = html.lower()
+
+    issues = []
+
+    # Check ATC button
+    has_cart_btn = bool(re.search(
+        r'<(button|input)[^>]*(add.to.cart|addtocart|add-to-cart)', hl))
+    has_cart_form = bool(re.search(
+        r'<form[^>]*action=["\'][^"\']*cart[^"\']*["\']', hl))
+    if not has_cart_btn and not has_cart_form:
+        issues.append("no Add-to-Cart button or form found")
+
+    # Check variant selectors
+    has_select = bool(re.search(
+        r'<select[^>]*name=["\'][^"\']*(?:size|color|variant|option)', hl))
+    has_variant_js = bool(re.search(r'(variant|swatch|option-selector|size-selector)', hl))
+    if has_variant_js and not has_select:
+        issues.append("variant selectors use JS widgets instead of semantic HTML")
+
+    # Check cart API
+    cart_api = page.get("cart_api", False)
+    cart_refs = any(p in hl for p in ("/cart/add.js", "/cart/add.json", "cart/add"))
+    if not cart_api and not cart_refs:
+        issues.append("no cart API endpoint available")
+
+    if not issues:
+        return "PASS", "Add-to-Cart flow looks agent-friendly: semantic button, proper selectors, cart API available."
+    if len(issues) >= 2:
+        return "FAIL", f"Add-to-Cart flow likely broken for agents: {'; '.join(issues)}."
+    return "FAIL", f"Add-to-Cart flow has an issue: {issues[0]}."
+
+
+def static_checkout_proxy(page):
+    """Proxy for RDY-019 browser check: can agents reach checkout?"""
+    checkout_html = page.get("checkout_html")
+    cart_api = page.get("cart_api", False)
+
+    if checkout_html is None:
+        return "UNKNOWN", "Checkout page not probed (local file mode)."
+
+    html = page.get("html", "") or ""
+    hl = html.lower()
+
+    # Check if checkout link exists on the page
+    has_checkout_link = bool(re.search(r'href=["\'][^"\']*checkout[^"\']*["\']', hl))
+    has_cart_link = bool(re.search(r'href=["\'][^"\']*cart[^"\']*["\']', hl))
+
+    # Check if /checkout returns content
+    checkout_reachable = bool(checkout_html and len(checkout_html) > 100)
+
+    if checkout_reachable and (has_checkout_link or has_cart_link):
+        return "PASS", "Checkout page is reachable and cart/checkout links found — agents can complete the purchase path."
+    if checkout_reachable:
+        return "PASS", "Checkout page is reachable at /checkout."
+    if has_checkout_link:
+        return "PASS", "Checkout link found on product page (checkout likely reachable after adding to cart)."
+    if has_cart_link:
+        return "PASS", "Cart link found — agents can navigate toward checkout."
+    return "FAIL", "No checkout or cart links found, and /checkout not reachable — agents cannot complete a purchase."
+
+
 STATIC = {
     "jsonld_product": static_jsonld_product,
     "price_in_html": static_price_in_html,
@@ -399,6 +542,11 @@ STATIC = {
     "prompt_injection": static_prompt_injection,
     "guest_checkout": static_guest_checkout,
     "cart_api": static_cart_api,
+    "search_accessible": static_search_accessible,
+    "nav_accessible": static_nav_accessible,
+    "related_products": static_related_products,
+    "atc_flow_proxy": static_atc_flow_proxy,
+    "checkout_proxy": static_checkout_proxy,
 }
 
 
