@@ -25,6 +25,23 @@ from dotenv import load_dotenv
 load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
 MAX_STEPS = 12
+_JSON_RETRY_PROMPT = "Your previous response was not valid JSON. Reply with ONLY a JSON object, no explanation."
+
+
+def _parse_action_json(raw: str) -> dict | None:
+    """Try to extract a JSON action object from model output. Returns None on failure."""
+    raw = re.sub(r"^```json\s*", "", raw)
+    raw = re.sub(r"\s*```$", "", raw)
+    m = re.search(r"\{[^{}]*\}", raw, re.S)
+    if m:
+        try:
+            return json.loads(m.group(0))
+        except json.JSONDecodeError:
+            pass
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
 
 
 def _extract_elements(page) -> list[dict]:
@@ -122,8 +139,7 @@ def _ask_agent(elements: list[dict], screenshot_b64: str, goal: str,
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set. Browser agent requires an API key.")
     client = anthropic.Anthropic(api_key=api_key)
-    model = os.environ.get("BROWSER_AGENT_MODEL",
-                           os.environ.get("SHOPPER_MODEL", "claude-sonnet-4-6"))
+    model = os.environ.get("BROWSER_AGENT_MODEL", "claude-haiku-4-5-20251001")
 
     history_str = ""
     if history:
@@ -172,26 +188,20 @@ def _ask_agent(elements: list[dict], screenshot_b64: str, goal: str,
         }},
     ]
 
-    msg = client.messages.create(
-        model=model, max_tokens=200, system=sys_prompt,
-        messages=[{"role": "user", "content": user_content}],
-    )
-    raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
-
-    # Parse JSON from response (strip markdown fences and extra text)
-    raw = re.sub(r"^```json\s*", "", raw)
-    raw = re.sub(r"\s*```$", "", raw)
-    # Extract first JSON object if there's text after it
-    m = re.search(r"\{[^{}]*\}", raw, re.S)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError:
-            pass
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return {"action": "fail", "reason": f"Could not parse agent response: {raw[:200]}"}
+    messages = [{"role": "user", "content": user_content}]
+    for _attempt in range(2):
+        msg = client.messages.create(
+            model=model, max_tokens=200, system=sys_prompt,
+            messages=messages,
+        )
+        raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+        parsed = _parse_action_json(raw)
+        if parsed is not None:
+            return parsed
+        # Retry: feed the bad response back and ask for JSON only
+        messages.append({"role": "assistant", "content": raw})
+        messages.append({"role": "user", "content": _JSON_RETRY_PROMPT})
+    return {"action": "fail", "reason": f"Could not parse agent response: {raw[:200]}"}
 
 
 def _execute_action(page, action: dict) -> str:
@@ -675,8 +685,7 @@ def _ask_flow_agent(elements, screenshot_b64, goal, history, step,
     if not api_key:
         raise RuntimeError("ANTHROPIC_API_KEY required for browser flows.")
     client = anthropic.Anthropic(api_key=api_key)
-    model = os.environ.get("BROWSER_AGENT_MODEL",
-                           os.environ.get("SHOPPER_MODEL", "claude-sonnet-4-6"))
+    model = os.environ.get("BROWSER_AGENT_MODEL", "claude-haiku-4-5-20251001")
 
     history_str = ""
     if history:
@@ -694,23 +703,19 @@ def _ask_flow_agent(elements, screenshot_b64, goal, history, step,
             "type": "base64", "media_type": "image/jpeg",
             "data": screenshot_b64}},
     ]
-    msg = client.messages.create(
-        model=model, max_tokens=200, system=system_prompt,
-        messages=[{"role": "user", "content": user_content}],
-    )
-    raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
-    raw = re.sub(r"^```json\s*", "", raw)
-    raw = re.sub(r"\s*```$", "", raw)
-    m = re.search(r"\{[^{}]*\}", raw, re.S)
-    if m:
-        try:
-            return json.loads(m.group(0))
-        except json.JSONDecodeError:
-            pass
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return {"action": "fail", "reason": f"Could not parse: {raw[:200]}"}
+    messages = [{"role": "user", "content": user_content}]
+    for _attempt in range(2):
+        msg = client.messages.create(
+            model=model, max_tokens=200, system=system_prompt,
+            messages=messages,
+        )
+        raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+        parsed = _parse_action_json(raw)
+        if parsed is not None:
+            return parsed
+        messages.append({"role": "assistant", "content": raw})
+        messages.append({"role": "user", "content": _JSON_RETRY_PROMPT})
+    return {"action": "fail", "reason": f"Could not parse: {raw[:200]}"}
 
 
 def _run_flow(start_url: str, goal: str, system_prompt: str,
