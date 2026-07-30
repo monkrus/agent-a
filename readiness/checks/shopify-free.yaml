@@ -8,7 +8,7 @@
 #
 # Weights sum to 100.
 
-version: 2026Q3.free
+version: 2026Q3.1-free
 pack: shopify-readiness-free
 
 checks:
@@ -20,7 +20,7 @@ checks:
     detect: jsonld_product
     expect: A schema.org/Product JSON-LD block with offers.price and availability.
     fail_if: No Product JSON-LD, or price/availability missing.
-    weight: 10
+    weight: 9
     severity_if_fail: critical
     fix: Emit schema.org/Product JSON-LD including offers.price, priceCurrency, and availability.
 
@@ -31,7 +31,7 @@ checks:
     detect: price_in_html
     expect: A currency-formatted price string is present in the raw HTML response.
     fail_if: No price string in the server HTML (price injected by client-side JS only).
-    weight: 10
+    weight: 9
     severity_if_fail: critical
     fix: Server-render the price into HTML; agents and crawlers often do not execute JS.
 
@@ -75,7 +75,7 @@ checks:
     detect: jsonld_quality
     expect: JSON-LD includes name, image, brand, description, price, currency, and schema.org availability URL.
     fail_if: JSON-LD is missing fields that agents need for accurate product comparison.
-    weight: 6
+    weight: 5
     severity_if_fail: high
     fix: Add missing fields to JSON-LD Product markup (name, image, brand, description, priceCurrency, availability URL).
 
@@ -98,7 +98,7 @@ checks:
     detect: cart_semantic
     expect: A form or button with cart/purchase semantics exists in server HTML.
     fail_if: No identifiable Add-to-Cart action in the DOM.
-    weight: 6
+    weight: 5
     severity_if_fail: high
     fix: Use a semantic form with action and a button with clear name/aria-label for Add to Cart.
 
@@ -109,7 +109,7 @@ checks:
     detect: variant_selectors
     expect: Size and color options use select, radio inputs, or labeled fieldsets.
     fail_if: Variant selection requires interacting with opaque JS widgets.
-    weight: 6
+    weight: 5
     severity_if_fail: medium
     fix: Use select elements or radio inputs with labels for size/color.
 
@@ -142,7 +142,7 @@ checks:
     detect: atc_flow_proxy
     expect: Product page has semantic ATC button, proper variant selectors, and cart API — agents can likely complete a purchase.
     fail_if: Multiple interaction barriers detected (missing ATC form, JS-only selectors, no cart API).
-    weight: 8
+    weight: 7
     severity_if_fail: high
     fix: Use semantic HTML for Add-to-Cart form, standard select elements for variants, and enable /cart/add.js.
 
@@ -198,7 +198,7 @@ checks:
     detect: related_products
     expect: Page has a related/recommended products section with clickable links.
     fail_if: No related products section or product links for comparison.
-    weight: 6
+    weight: 5
     severity_if_fail: medium
     fix: Add a "You may also like" or "Related products" section with product links.
 
@@ -210,6 +210,40 @@ checks:
     detect: prompt_injection
     expect: Page contains no hidden text designed to hijack AI agent behavior.
     fail_if: Hidden elements, HTML comments, or invisible text contain agent-override instructions.
-    weight: 5
+    weight: 4
     severity_if_fail: critical
     fix: Remove hidden text that contains agent-manipulating instructions.
+
+  # ---- DISCOVERY + RESILIENCE (3 checks, 8 points) ----
+  - id: RDY-029
+    type: static
+    category: agent-discovery
+    title: Sitemap.xml exists and lists products
+    detect: sitemap_xml
+    expect: A valid sitemap.xml exists at the site root, ideally listing product URLs.
+    fail_if: No sitemap.xml found — agents cannot discover the product catalog programmatically.
+    weight: 3
+    severity_if_fail: medium
+    fix: Add a sitemap.xml that includes product page URLs so agents and crawlers can discover your catalog.
+
+  - id: RDY-030
+    type: static
+    category: agent-performance
+    title: Page responds within agent timeout threshold
+    detect: page_load_time
+    expect: Product page responds in under 5 seconds.
+    fail_if: Page takes more than 5 seconds to respond — agents with short timeouts will abandon the request.
+    weight: 2
+    severity_if_fail: medium
+    fix: Optimize server response time — reduce blocking resources, enable caching, and consider a CDN.
+
+  - id: RDY-031
+    type: static
+    category: agent-access
+    title: Site does not block agent-like traffic
+    detect: rate_limiting
+    expect: Site returns HTTP 200 when accessed with a bot-like user-agent (e.g. GPTBot).
+    fail_if: Site returns 403 or 429 to agent user-agents — AI shopping agents are actively blocked or rate-limited.
+    weight: 3
+    severity_if_fail: high
+    fix: Allow AI agent user-agents in your WAF/CDN rules. Blocking agents blocks revenue from AI-referred traffic.

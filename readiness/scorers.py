@@ -528,6 +528,62 @@ def static_checkout_proxy(page):
     return "FAIL", "No checkout or cart links found, and /checkout not reachable — agents cannot complete a purchase."
 
 
+def static_sitemap_xml(page):
+    """RDY-029: Does /sitemap.xml exist and list product URLs?"""
+    content = page.get("sitemap_xml")
+    if content is None:
+        return "UNKNOWN", "Sitemap not probed (local file mode)."
+    if not content:
+        return "FAIL", "No sitemap.xml at site root — agents cannot discover product catalog."
+
+    cl = content.lower()
+    product_urls = len(re.findall(r"<loc>[^<]*/products/[^<]*</loc>", cl))
+    has_urlset = "<urlset" in cl or "<sitemapindex" in cl
+
+    if not has_urlset:
+        return "FAIL", "sitemap.xml exists but is not valid XML (no <urlset> or <sitemapindex>)."
+    if product_urls >= 1:
+        return "PASS", f"sitemap.xml found with {product_urls} product URL(s) — agents can discover the catalog."
+    # Sitemap index (links to sub-sitemaps) is also valid
+    if "<sitemapindex" in cl:
+        return "PASS", "sitemap.xml is a sitemap index — agents can follow sub-sitemaps to discover products."
+    return "PASS", "sitemap.xml found (no direct product URLs, but site is discoverable)."
+
+
+def static_page_load_time(page):
+    """RDY-030: Does the page respond within a reasonable time for agents?"""
+    ms = page.get("fetch_time_ms")
+    if ms is None:
+        return "UNKNOWN", "Page load time not measured (local file mode or 429 recovery)."
+
+    if ms <= 2000:
+        return "PASS", f"Page responded in {ms}ms — well within agent timeout thresholds."
+    if ms <= 5000:
+        return "PASS", f"Page responded in {ms}ms — acceptable but could be faster for agents."
+    if ms <= 10000:
+        return "FAIL", f"Page took {ms}ms to respond — agents with short timeouts may give up."
+    return "FAIL", f"Page took {ms}ms to respond — most agents will timeout before loading this page."
+
+
+def static_rate_limiting(page):
+    """RDY-031: Does the site block or rate-limit agent-like traffic?"""
+    probe_status = page.get("agent_probe_status")
+    if probe_status is None:
+        return "UNKNOWN", "Agent probe not performed (local file mode)."
+
+    if probe_status == 200:
+        return "PASS", "Site responds 200 to agent-like requests (GPTBot user-agent) — agents are not blocked."
+    if probe_status == 403:
+        return "FAIL", f"Site returns HTTP 403 to agent user-agent — agents are actively blocked."
+    if probe_status == 429:
+        return "FAIL", f"Site returns HTTP 429 to agent user-agent — agents are rate-limited."
+    if 400 <= probe_status < 500:
+        return "FAIL", f"Site returns HTTP {probe_status} to agent user-agent — agents may be blocked."
+    if probe_status >= 500:
+        return "UNKNOWN", f"Site returns HTTP {probe_status} to agent user-agent — server error (may be transient)."
+    return "PASS", f"Site responds HTTP {probe_status} to agent-like requests."
+
+
 STATIC = {
     "jsonld_product": static_jsonld_product,
     "price_in_html": static_price_in_html,
@@ -547,6 +603,9 @@ STATIC = {
     "related_products": static_related_products,
     "atc_flow_proxy": static_atc_flow_proxy,
     "checkout_proxy": static_checkout_proxy,
+    "sitemap_xml": static_sitemap_xml,
+    "page_load_time": static_page_load_time,
+    "rate_limiting": static_rate_limiting,
 }
 
 

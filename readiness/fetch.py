@@ -145,7 +145,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
                     "jsonld": [], "meta": {}, "title": "", "links": [],
                     "llms_txt": False, "llms_txt_content": None, "robots": None,
                     "cart_api": None, "checkout_html": None, "homepage_html": None,
-                    "_fetch_error": str(e)}
+                    "sitemap_xml": None, "fetch_time_ms": None,
+                    "agent_probe_status": None, "_fetch_error": str(e)}
         # If rate-limited (429), fall back to Playwright (real browser UA)
         if r.status_code == 429:
             rendered = _fetch_rendered(target, timeout)
@@ -168,6 +169,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["cart_api"] = _probe_ok(urljoin(origin, "/cart/add.js"), timeout)
                 page["checkout_html"] = _get_text(urljoin(origin, "/checkout"), timeout)
                 page["homepage_html"] = _get_text(origin + "/", timeout)
+                page["sitemap_xml"] = _get_text(urljoin(origin, "/sitemap.xml"), timeout)
+                page["fetch_time_ms"] = None  # not measurable after 429 recovery
+                page["agent_probe_status"] = 429  # we already know it rate-limits
                 return page
 
         page = _parse_html(r.text, target)
@@ -182,6 +186,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["cart_api"] = _probe_ok(urljoin(origin, "/cart/add.js"), timeout)
         page["checkout_html"] = _get_text(urljoin(origin, "/checkout"), timeout)
         page["homepage_html"] = _get_text(origin + "/", timeout)
+        page["sitemap_xml"] = _get_text(urljoin(origin, "/sitemap.xml"), timeout)
+        page["fetch_time_ms"] = int(r.elapsed.total_seconds() * 1000)
+        page["agent_probe_status"] = _probe_as_agent(target, timeout)
 
         # Rendered DOM: Playwright fetch for JS-heavy sites
         # Auto-enable if Playwright is installed and page looks JS-heavy,
@@ -218,7 +225,21 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["cart_api"] = None
         page["checkout_html"] = None
         page["homepage_html"] = None
+        page["sitemap_xml"] = None
+        page["fetch_time_ms"] = None
+        page["agent_probe_status"] = None
     return page
+
+
+def _probe_as_agent(url: str, timeout: int) -> int | None:
+    """Probe the URL with a bot-like user-agent and return the HTTP status."""
+    try:
+        import requests
+        r = requests.get(url, timeout=timeout,
+                         headers={"User-Agent": "GPTBot/1.0"})
+        return r.status_code
+    except Exception:
+        return None
 
 
 def _probe_ok(url: str, timeout: int) -> bool:

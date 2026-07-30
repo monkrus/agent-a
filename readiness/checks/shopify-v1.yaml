@@ -19,11 +19,11 @@
 #
 # Weights sum to 100 -> readiness score is a weighted pass rate, 0-100.
 
-version: 2026Q2.1
+version: 2026Q3.1
 pack: shopify-readiness
 
 checks:
-  # ---- STATIC (11) ----
+  # ---- STATIC (14) ----
   - id: RDY-001
     type: static
     category: structured-data
@@ -31,7 +31,7 @@ checks:
     detect: jsonld_product
     expect: A schema.org/Product JSON-LD block with offers.price and availability.
     fail_if: No Product JSON-LD, or price/availability missing.
-    weight: 7
+    weight: 6
     severity_if_fail: critical
     fix: Emit schema.org/Product JSON-LD including offers.price, priceCurrency, and availability.
 
@@ -42,7 +42,7 @@ checks:
     detect: price_in_html
     expect: A currency-formatted price string is present in the raw HTML response.
     fail_if: No price string in the server HTML (price injected by client-side JS only).
-    weight: 7
+    weight: 6
     severity_if_fail: critical
     fix: Server-render the price into HTML; agents and crawlers often do not execute JS.
 
@@ -86,7 +86,7 @@ checks:
     detect: llms_txt_quality
     expect: llms.txt contains product paths, policy links, sitemap reference, and valid URLs.
     fail_if: llms.txt is missing key sections (products, policies, sitemap) or has no absolute URLs.
-    weight: 4
+    weight: 3
     severity_if_fail: medium
     fix: Add product catalog paths, policy links, and sitemap URL to llms.txt.
 
@@ -153,7 +153,7 @@ checks:
     detect: add_to_cart_flow
     expect: An AI browser agent can select a variant and successfully add the product to cart.
     fail_if: Agent cannot navigate the page to add the product to cart within 12 steps.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Ensure Add-to-Cart works without complex JS interactions; use semantic forms, standard selects, and clear button labels.
 
@@ -233,7 +233,7 @@ checks:
     ground_truth: price
     expect: Extracted price matches the page's actual price across runs.
     fail_if: Agent extracts a wrong price, or cannot find one.
-    weight: 7
+    weight: 6
     severity_if_fail: critical
     fix: Make the canonical price unambiguous in HTML + structured data; remove stale/secondary prices.
 
@@ -259,7 +259,7 @@ checks:
     ground_truth: product_name
     expect: Agent names the product matching the page's canonical title.
     fail_if: Agent returns a wrong, generic, or category-level name.
-    weight: 5
+    weight: 4
     severity_if_fail: medium
     fix: Set a single canonical product name in <title>, og:title, and JSON-LD name.
 
@@ -271,7 +271,7 @@ checks:
     grade: consistency
     expect: Agent returns the SAME return window on every run (page is unambiguous).
     fail_if: Agent returns differing windows across runs (page is ambiguous to agents).
-    weight: 5
+    weight: 4
     severity_if_fail: medium
     fix: State the return window once, explicitly, in text near the product or in a linked policy.
 
@@ -283,6 +283,40 @@ checks:
     grade: consistency
     expect: Agent gives a stable shipping answer across runs.
     fail_if: Agent's shipping answer varies run to run (ambiguous or absent shipping info).
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Publish shipping cost/conditions as explicit text; avoid burying it in checkout-only steps.
+
+  # ---- DISCOVERY + RESILIENCE (3) ----
+  - id: RDY-029
+    type: static
+    category: agent-discovery
+    title: Sitemap.xml exists and lists products
+    detect: sitemap_xml
+    expect: A valid sitemap.xml exists at the site root, ideally listing product URLs.
+    fail_if: No sitemap.xml found — agents cannot discover the product catalog programmatically.
+    weight: 3
+    severity_if_fail: medium
+    fix: Add a sitemap.xml that includes product page URLs so agents and crawlers can discover your catalog.
+
+  - id: RDY-030
+    type: static
+    category: agent-performance
+    title: Page responds within agent timeout threshold
+    detect: page_load_time
+    expect: Product page responds in under 5 seconds.
+    fail_if: Page takes more than 5 seconds to respond — agents with short timeouts will abandon the request.
+    weight: 2
+    severity_if_fail: medium
+    fix: Optimize server response time — reduce blocking resources, enable caching, and consider a CDN.
+
+  - id: RDY-031
+    type: static
+    category: agent-access
+    title: Site does not block agent-like traffic
+    detect: rate_limiting
+    expect: Site returns HTTP 200 when accessed with a bot-like user-agent (e.g. GPTBot).
+    fail_if: Site returns 403 or 429 to agent user-agents — AI shopping agents are actively blocked or rate-limited.
+    weight: 3
+    severity_if_fail: high
+    fix: Allow AI agent user-agents in your WAF/CDN rules. Blocking agents blocks revenue from AI-referred traffic.
