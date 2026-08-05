@@ -86,6 +86,8 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
         return {k: c.get(k) for k in
                 ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
 
+    ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
+
     static_checks = [c for c in checks if c.get("type") == "static"]
     browser_checks = [c for c in checks if c.get("type") == "browser"]
     shopper_checks = [c for c in checks if c.get("type") == "shopper"]
@@ -94,19 +96,34 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
     for c in static_checks:
         r = scorers.run_static(c, page)
         results.append({**_base(c), **r})
-    for c in browser_checks:
-        r = scorers.run_browser(c, page)
-        results.append({**_base(c), **r})
 
-    if shopper_checks:
-        tasks = {c["id"]: c["task"] for c in shopper_checks}
-        with ThreadPoolExecutor(max_workers=n) as pool:
-            batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
-        answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
-        for c in shopper_checks:
-            answers = answers_by_check[c["id"]]
-            g = scorers.grade_shopper(c, page, answers)
-            results.append({**_base(c), **g, "sample_answers": answers[:3]})
+    # Layer 0: access gate — if blocked, skip expensive checks
+    access_blocked = any(r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"
+                         for r in results)
+
+    if access_blocked:
+        gate_failures = [r.get("title", r.get("id")) for r in results
+                         if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"]
+        gate_reason = ("Skipped: site blocks agent access "
+                       f"({'; '.join(gate_failures)}). "
+                       "Fix access first — nothing else matters until agents can reach the page.")
+        for c in browser_checks + shopper_checks:
+            results.append({**_base(c), "verdict": "FAIL", "detail": gate_reason,
+                            "pass_fraction": 0.0, "gated": True})
+    else:
+        for c in browser_checks:
+            r = scorers.run_browser(c, page)
+            results.append({**_base(c), **r})
+
+        if shopper_checks:
+            tasks = {c["id"]: c["task"] for c in shopper_checks}
+            with ThreadPoolExecutor(max_workers=n) as pool:
+                batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
+            answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+            for c in shopper_checks:
+                answers = answers_by_check[c["id"]]
+                g = scorers.grade_shopper(c, page, answers)
+                results.append({**_base(c), **g, "sample_answers": answers[:3]})
 
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 

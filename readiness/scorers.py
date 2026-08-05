@@ -704,9 +704,40 @@ def run_browser(check, page):
               f"({successes}/{attempts} attempts succeeded). "
               f"Reason: {result.get('final_reason', 'unknown')}. "
               f"Steps: {steps_summary}")
-    return {"verdict": "FAIL", "detail": detail, "pass_fraction": pass_rate,
-            "browser_result": result, "browser_attempts": attempts,
-            "browser_successes": successes}
+
+    # Surface element-level diagnostics if available
+    diag = result.get("diagnostics")
+    if diag:
+        diag_parts = []
+        if diag.get("atc_state") == "disabled":
+            diag_parts.append("ATC button is disabled (likely requires variant selection)")
+        elif diag.get("atc_state") == "missing":
+            diag_parts.append("No Add-to-Cart button found on page")
+        for g in diag.get("gating", []):
+            diag_parts.append(g)
+        vs = diag.get("variant_selectors", [])
+        custom_swatches = [v for v in vs if v.get("type") == "custom_swatch"]
+        if custom_swatches:
+            diag_parts.append(f"{len(custom_swatches)} custom JS swatch(es) "
+                              f"instead of standard <select> elements")
+        fragile = [v for v in vs if not v.get("has_stable_locator")]
+        if fragile:
+            diag_parts.append(f"{len(fragile)} variant selector(s) lack stable locators "
+                              f"(no id/name/data-testid)")
+        loc = diag.get("locator_summary", {})
+        if loc.get("fragile", 0) > 0:
+            total = loc.get("stable", 0) + loc.get("fragile", 0)
+            pct = round(100 * loc["fragile"] / total) if total else 0
+            diag_parts.append(f"{pct}% of interactive elements use fragile locators")
+        if diag_parts:
+            detail += " | DIAGNOSTICS: " + "; ".join(diag_parts)
+
+    ret = {"verdict": "FAIL", "detail": detail, "pass_fraction": pass_rate,
+           "browser_result": result, "browser_attempts": attempts,
+           "browser_successes": successes}
+    if diag:
+        ret["diagnostics"] = diag
+    return ret
 
 
 def run_static(check, page):

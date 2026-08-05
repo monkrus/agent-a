@@ -45,7 +45,15 @@ def _parse_action_json(raw: str) -> dict | None:
 
 
 def _extract_elements(page) -> list[dict]:
-    """Extract interactive elements from the page with selectors and text."""
+    """Extract interactive elements from the page with selectors and text.
+
+    Each element includes a `locator_quality` field:
+      - "id"         — has a unique id attribute
+      - "name"       — has a name attribute
+      - "data-testid"— has a data-testid attribute
+      - "aria-label" — has an aria-label attribute
+      - "fragile"    — nth-of-type fallback only (breaks if DOM order changes)
+    """
     return page.evaluate("""() => {
         const els = [];
         const seen = new Set();
@@ -54,45 +62,50 @@ def _extract_elements(page) -> list[dict]:
         function txt(el) {
             return (el.innerText || el.textContent || '').trim().substring(0, 120);
         }
-        function selector(el) {
-            if (el.id) return '#' + CSS.escape(el.id);
-            if (el.name) return el.tagName.toLowerCase() + '[name="' + el.name + '"]';
+        function selectorAndQuality(el) {
+            if (el.id) return { sel: '#' + CSS.escape(el.id), quality: 'id' };
+            if (el.name && el.tagName !== 'A')
+                return { sel: el.tagName.toLowerCase() + '[name="' + el.name + '"]', quality: 'name' };
             if (el.getAttribute('data-testid'))
-                return '[data-testid="' + el.getAttribute('data-testid') + '"]';
+                return { sel: '[data-testid="' + el.getAttribute('data-testid') + '"]', quality: 'data-testid' };
             if (el.getAttribute('aria-label'))
-                return '[aria-label="' + el.getAttribute('aria-label') + '"]';
-            // fallback: nth-of-type
+                return { sel: '[aria-label="' + el.getAttribute('aria-label') + '"]', quality: 'aria-label' };
+            // fallback: nth-of-type — fragile, breaks if DOM order changes
             const parent = el.parentElement;
-            if (!parent) return el.tagName.toLowerCase();
+            if (!parent) return { sel: el.tagName.toLowerCase(), quality: 'fragile' };
             const siblings = Array.from(parent.children).filter(c => c.tagName === el.tagName);
             const idx = siblings.indexOf(el) + 1;
-            return el.tagName.toLowerCase() + ':nth-of-type(' + idx + ')';
+            return { sel: el.tagName.toLowerCase() + ':nth-of-type(' + idx + ')', quality: 'fragile' };
         }
 
-        // Buttons
+        // Buttons — also track disabled state for dependency detection
         document.querySelectorAll('button, input[type="submit"], [role="button"]').forEach((el, i) => {
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) return;
             const t = txt(el) || el.value || el.getAttribute('aria-label') || '';
             if (!t) return;
-            const s = selector(el);
-            if (seen.has(s)) return;
-            seen.add(s);
-            els.push({type: 'button', selector: s, text: t, visible: r.width > 0});
+            const sq = selectorAndQuality(el);
+            if (seen.has(sq.sel)) return;
+            seen.add(sq.sel);
+            const isDisabled = el.disabled || el.getAttribute('aria-disabled') === 'true'
+                || getComputedStyle(el).pointerEvents === 'none';
+            els.push({type: 'button', selector: sq.sel, text: t, visible: r.width > 0,
+                      locator_quality: sq.quality, disabled: isDisabled});
         });
 
         // Select dropdowns
         document.querySelectorAll('select').forEach((el, i) => {
-            const s = selector(el);
-            if (seen.has(s)) return;
-            seen.add(s);
+            const sq = selectorAndQuality(el);
+            if (seen.has(sq.sel)) return;
+            seen.add(sq.sel);
             const options = Array.from(el.options).map(o => ({
                 value: o.value, text: o.text.trim(), selected: o.selected
             }));
             const label = el.getAttribute('aria-label')
                 || (el.labels && el.labels[0] ? el.labels[0].textContent.trim() : '')
                 || el.name || '';
-            els.push({type: 'select', selector: s, label: label, options: options});
+            els.push({type: 'select', selector: sq.sel, label: label, options: options,
+                      locator_quality: sq.quality});
         });
 
         // Radio groups
@@ -101,8 +114,10 @@ def _extract_elements(page) -> list[dict]:
             const name = el.name || 'radio';
             if (!radioGroups[name]) radioGroups[name] = [];
             const label = el.labels && el.labels[0] ? el.labels[0].textContent.trim() : el.value;
+            const sq = selectorAndQuality(el);
             radioGroups[name].push({
-                selector: selector(el), value: el.value, label: label, checked: el.checked
+                selector: sq.sel, value: el.value, label: label, checked: el.checked,
+                locator_quality: sq.quality
             });
         });
         for (const [name, radios] of Object.entries(radioGroups)) {
@@ -114,14 +129,111 @@ def _extract_elements(page) -> list[dict]:
             const href = el.getAttribute('href') || '';
             const t = txt(el);
             if (/cart|checkout|bag|basket/i.test(href) || /cart|checkout|bag|view.cart/i.test(t)) {
-                const s = selector(el);
-                if (seen.has(s)) return;
-                seen.add(s);
-                els.push({type: 'link', selector: s, text: t, href: href});
+                const sq = selectorAndQuality(el);
+                if (seen.has(sq.sel)) return;
+                seen.add(sq.sel);
+                els.push({type: 'link', selector: sq.sel, text: t, href: href,
+                          locator_quality: sq.quality});
             }
         });
 
         return els;
+    }""")
+
+
+def _diagnose_page(page) -> dict:
+    """Run post-mortem diagnostics on a page to explain WHY a flow failed.
+
+    Returns a dict with:
+      - blocker: the element that likely blocked progress (or None)
+      - variant_selectors: unresolved variant selectors (size/color)
+      - atc_state: state of the Add-to-Cart button (enabled/disabled/missing)
+      - gating: list of dependency issues (e.g., "ATC disabled, size not selected")
+      - locator_summary: counts of stable vs fragile locators on the page
+    """
+    return page.evaluate("""() => {
+        const diag = {blocker: null, variant_selectors: [], atc_state: 'missing',
+                      gating: [], locator_summary: {stable: 0, fragile: 0}};
+
+        // Find ATC button
+        const atcPatterns = /add.to.cart|add.to.bag|add.to.basket/i;
+        let atcBtn = null;
+        document.querySelectorAll('button, input[type="submit"], [role="button"]').forEach(el => {
+            const t = (el.innerText || el.textContent || el.value || '').trim();
+            if (atcPatterns.test(t)) atcBtn = el;
+        });
+
+        if (atcBtn) {
+            const disabled = atcBtn.disabled
+                || atcBtn.getAttribute('aria-disabled') === 'true'
+                || getComputedStyle(atcBtn).pointerEvents === 'none';
+            diag.atc_state = disabled ? 'disabled' : 'enabled';
+
+            if (disabled) {
+                diag.blocker = {
+                    element: 'Add to Cart button',
+                    state: 'disabled',
+                    selector: atcBtn.id ? '#' + atcBtn.id : (atcBtn.className || 'button'),
+                    reason: 'Button is disabled — likely requires variant selection first'
+                };
+            }
+        }
+
+        // Find variant selectors (size/color pickers)
+        // 1. Standard <select> elements
+        document.querySelectorAll('select').forEach(el => {
+            const label = (el.getAttribute('aria-label') || el.name
+                || (el.labels && el.labels[0] ? el.labels[0].textContent : '') || '').toLowerCase();
+            if (/size|color|colour|variant|style|width|length|fit/i.test(label)) {
+                const selected = el.value;
+                const placeholder = el.options[0] && /select|choose|pick/i.test(el.options[0].text);
+                const isDefault = placeholder && el.selectedIndex === 0;
+                diag.variant_selectors.push({
+                    type: 'select', label: label, selected: selected,
+                    needs_selection: isDefault,
+                    has_stable_locator: !!(el.id || el.name || el.getAttribute('data-testid'))
+                });
+                if (isDefault && diag.atc_state === 'disabled') {
+                    diag.gating.push(label.trim() + ' not selected — ATC button disabled');
+                }
+            }
+        });
+
+        // 2. Custom JS swatch elements (common on Shopify)
+        const swatchPatterns = /swatch|option.?value|variant.?option|size.?option|color.?option/i;
+        document.querySelectorAll('[class*="swatch"], [class*="option-value"], [data-option-index]').forEach(el => {
+            const className = el.className || '';
+            const t = (el.innerText || '').trim().substring(0, 30);
+            if (swatchPatterns.test(className) && t) {
+                const hasStable = !!(el.id || el.getAttribute('data-testid')
+                    || el.getAttribute('data-value') || el.getAttribute('aria-label'));
+                diag.variant_selectors.push({
+                    type: 'custom_swatch', text: t,
+                    has_stable_locator: hasStable,
+                    is_standard_element: false
+                });
+            }
+        });
+
+        // 3. Check for "select a size" prompts
+        const promptText = document.body.innerText || '';
+        const sizePromptMatch = promptText.match(/(select|choose|pick)\\s+(a\\s+)?(size|variant|option)/i);
+        if (sizePromptMatch) {
+            diag.gating.push('Page shows "' + sizePromptMatch[0] + '" prompt');
+        }
+
+        // Locator quality summary across all interactive elements
+        document.querySelectorAll('button, select, input, [role="button"], a[href]').forEach(el => {
+            const r = el.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) return;
+            if (el.id || el.name || el.getAttribute('data-testid') || el.getAttribute('aria-label')) {
+                diag.locator_summary.stable++;
+            } else {
+                diag.locator_summary.fragile++;
+            }
+        });
+
+        return diag;
     }""")
 
 
@@ -359,15 +471,26 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
             success = any(s["action"] == "done" for s in steps)
             final_reason = steps[-1].get("reason", "") if steps else "no steps taken"
 
+            # Run diagnostics on failure to explain WHY
+            diagnostics = None
+            if not success:
+                try:
+                    diagnostics = _diagnose_page(page)
+                except Exception:
+                    pass
+
             browser.close()
 
-            return {
+            result = {
                 "success": success,
                 "steps": steps,
                 "total_steps": len(steps),
                 "final_reason": final_reason,
                 "cart_verified": cart_verified,
             }
+            if diagnostics:
+                result["diagnostics"] = diagnostics
+            return result
 
     except Exception as e:
         return {
@@ -563,19 +686,19 @@ def _extract_all_elements(page) -> list[dict]:
         function txt(el) {
             return (el.innerText || el.textContent || '').trim().substring(0, 120);
         }
-        function selector(el) {
-            if (el.id) return '#' + CSS.escape(el.id);
+        function selectorAndQuality(el) {
+            if (el.id) return { sel: '#' + CSS.escape(el.id), quality: 'id' };
             if (el.name && el.tagName !== 'A')
-                return el.tagName.toLowerCase() + '[name="' + el.name + '"]';
+                return { sel: el.tagName.toLowerCase() + '[name="' + el.name + '"]', quality: 'name' };
             if (el.getAttribute('data-testid'))
-                return '[data-testid="' + el.getAttribute('data-testid') + '"]';
+                return { sel: '[data-testid="' + el.getAttribute('data-testid') + '"]', quality: 'data-testid' };
             if (el.getAttribute('aria-label'))
-                return '[aria-label="' + el.getAttribute('aria-label') + '"]';
+                return { sel: '[aria-label="' + el.getAttribute('aria-label') + '"]', quality: 'aria-label' };
             const parent = el.parentElement;
-            if (!parent) return el.tagName.toLowerCase();
+            if (!parent) return { sel: el.tagName.toLowerCase(), quality: 'fragile' };
             const siblings = Array.from(parent.children).filter(c => c.tagName === el.tagName);
             const idx = siblings.indexOf(el) + 1;
-            return el.tagName.toLowerCase() + ':nth-of-type(' + idx + ')';
+            return { sel: el.tagName.toLowerCase() + ':nth-of-type(' + idx + ')', quality: 'fragile' };
         }
         function add(obj) { if (!seen.has(obj.selector)) { seen.add(obj.selector); els.push(obj); } }
 
@@ -584,7 +707,8 @@ def _extract_all_elements(page) -> list[dict]:
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) return;
             const t = txt(el) || el.value || el.getAttribute('aria-label') || '';
-            if (t) add({type: 'button', selector: selector(el), text: t});
+            const sq = selectorAndQuality(el);
+            if (t) add({type: 'button', selector: sq.sel, text: t, locator_quality: sq.quality});
         });
         // Text/search inputs
         document.querySelectorAll(
@@ -593,35 +717,41 @@ def _extract_all_elements(page) -> list[dict]:
         ).forEach(el => {
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) return;
-            add({type: 'input', selector: selector(el),
-                 label: el.getAttribute('aria-label') || el.placeholder || el.name || ''});
+            const sq = selectorAndQuality(el);
+            add({type: 'input', selector: sq.sel,
+                 label: el.getAttribute('aria-label') || el.placeholder || el.name || '',
+                 locator_quality: sq.quality});
         });
         // Select dropdowns
         document.querySelectorAll('select').forEach(el => {
-            const s = selector(el);
+            const sq = selectorAndQuality(el);
             const options = Array.from(el.options).slice(0, 10).map(o => ({value: o.value, text: o.text.trim()}));
             const label = el.getAttribute('aria-label') || (el.labels && el.labels[0] ? el.labels[0].textContent.trim() : '') || el.name || '';
-            add({type: 'select', selector: s, label: label, options: options});
+            add({type: 'select', selector: sq.sel, label: label, options: options, locator_quality: sq.quality});
         });
         // Navigation links
         document.querySelectorAll('nav a[href], header a[href]').forEach(el => {
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) return;
             const t = txt(el);
-            if (t && t.length >= 2) add({type: 'nav_link', selector: selector(el), text: t, href: el.getAttribute('href')});
+            const sq = selectorAndQuality(el);
+            if (t && t.length >= 2) add({type: 'nav_link', selector: sq.sel, text: t, href: el.getAttribute('href'), locator_quality: sq.quality});
         });
         // Product links
         document.querySelectorAll('a[href*="/products/"], a[href*="/product/"]').forEach(el => {
             const r = el.getBoundingClientRect();
             if (r.width === 0 || r.height === 0) return;
-            add({type: 'product_link', selector: selector(el), text: (txt(el) || '').substring(0, 80), href: el.getAttribute('href')});
+            const sq = selectorAndQuality(el);
+            add({type: 'product_link', selector: sq.sel, text: (txt(el) || '').substring(0, 80), href: el.getAttribute('href'), locator_quality: sq.quality});
         });
         // Cart/checkout links
         document.querySelectorAll('a[href]').forEach(el => {
             const href = el.getAttribute('href') || '';
             const t = txt(el);
-            if (/cart|checkout|bag|basket/i.test(href) || /cart|checkout|bag|view.cart/i.test(t))
-                add({type: 'link', selector: selector(el), text: t, href: href});
+            if (/cart|checkout|bag|basket/i.test(href) || /cart|checkout|bag|view.cart/i.test(t)) {
+                const sq = selectorAndQuality(el);
+                add({type: 'link', selector: sq.sel, text: t, href: href, locator_quality: sq.quality});
+            }
         });
         return els.slice(0, 60);
     }""")
@@ -801,11 +931,22 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
             verified = verify_fn(pg) if verify_fn else False
             success = any(s["action"] == "done" for s in steps)
             final_reason = steps[-1].get("reason", "") if steps else "no steps taken"
+
+            diagnostics = None
+            if not success:
+                try:
+                    diagnostics = _diagnose_page(pg)
+                except Exception:
+                    pass
+
             browser.close()
 
-            return {"success": success, "steps": steps,
-                    "total_steps": len(steps), "final_reason": final_reason,
-                    "cart_verified": verified}
+            result = {"success": success, "steps": steps,
+                      "total_steps": len(steps), "final_reason": final_reason,
+                      "cart_verified": verified}
+            if diagnostics:
+                result["diagnostics"] = diagnostics
+            return result
 
     except Exception as e:
         return {"success": False, "steps": steps,

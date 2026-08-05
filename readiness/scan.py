@@ -46,6 +46,11 @@ def load_checks(path):
 def scan(checks, page, n):
     from concurrent.futures import ThreadPoolExecutor
 
+    # Layer 0: Access gate — RDY-031 (WAF blocking) and RDY-003 (robots.txt)
+    # If the site blocks agents at the access layer, skip expensive browser/shopper
+    # checks. A blocked site shouldn't score 65/100.
+    ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
+
     static_checks = [c for c in checks if c.get("type") == "static"]
     browser_checks = [c for c in checks if c.get("type") == "browser"]
     shopper_checks = [c for c in checks if c.get("type") == "shopper"]
@@ -54,27 +59,46 @@ def scan(checks, page, n):
         return {k: c.get(k) for k in
                 ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
 
-    # Static + browser checks (unchanged)
+    # Run static checks first (includes access gate checks)
     results = []
     for c in static_checks:
         r = scorers.run_static(c, page)
         results.append({**_base(c), **r})
-    for c in browser_checks:
-        r = scorers.run_browser(c, page)
-        results.append({**_base(c), **r})
 
-    # Shopper checks: batched — all tasks in one API call per run
-    if shopper_checks:
-        tasks = {c["id"]: c["task"] for c in shopper_checks}
-        # N batched calls in parallel (each call asks all shopper questions)
-        with ThreadPoolExecutor(max_workers=n) as pool:
-            batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
-        # Transpose: {check_id: [answer_run1, answer_run2, ...]}
-        answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
-        for c in shopper_checks:
-            answers = answers_by_check[c["id"]]
-            g = scorers.grade_shopper(c, page, answers)
-            results.append({**_base(c), **g, "sample_answers": answers[:5]})
+    # Check the access gate: did RDY-031 or RDY-003 fail?
+    access_blocked = False
+    gate_failures = []
+    for r in results:
+        if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL":
+            access_blocked = True
+            gate_failures.append(r.get("title", r.get("id")))
+
+    if access_blocked:
+        # Skip browser + shopper checks — mark them as gated
+        gate_reason = ("Skipped: site blocks agent access "
+                       f"({'; '.join(gate_failures)}). "
+                       "Fix access first — nothing else matters until agents can reach the page.")
+        for c in browser_checks + shopper_checks:
+            results.append({**_base(c), "verdict": "FAIL", "detail": gate_reason,
+                            "pass_fraction": 0.0, "gated": True})
+    else:
+        # Access OK — run browser and shopper checks normally
+        for c in browser_checks:
+            r = scorers.run_browser(c, page)
+            results.append({**_base(c), **r})
+
+        # Shopper checks: batched — all tasks in one API call per run
+        if shopper_checks:
+            tasks = {c["id"]: c["task"] for c in shopper_checks}
+            # N batched calls in parallel (each call asks all shopper questions)
+            with ThreadPoolExecutor(max_workers=n) as pool:
+                batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
+            # Transpose: {check_id: [answer_run1, answer_run2, ...]}
+            answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+            for c in shopper_checks:
+                answers = answers_by_check[c["id"]]
+                g = scorers.grade_shopper(c, page, answers)
+                results.append({**_base(c), **g, "sample_answers": answers[:5]})
 
     return results
 
@@ -215,6 +239,15 @@ def report_data(results, page):
 
 
 def headline(results):
+    # Layer 0: access gate — surface this first if triggered
+    gated = [r for r in results if r.get("gated")]
+    if gated:
+        gate_sources = [r for r in results
+                        if r.get("id") in ("RDY-031", "RDY-003") and r.get("verdict") == "FAIL"]
+        names = "; ".join(r["title"] for r in gate_sources) if gate_sources else "access blocked"
+        return (f"ACCESS BLOCKED — {names}. "
+                f"{len(gated)} checks skipped. Fix access first.")
+
     crits = [r for r in results
              if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
     if crits:
