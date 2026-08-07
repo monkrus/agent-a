@@ -26,6 +26,15 @@
         <div class="input-row">
           <input type="text" id="url" name="url" placeholder="https://your-store.com/products/product-name" required>
           <button type="submit" id="scan-btn">Scan</button>
+          <button type="button" id="clear-btn" style="display:none;" onclick="
+            document.getElementById('stream-results').style.display='none';
+            document.getElementById('stream-log').innerHTML='';
+            document.getElementById('stream-score').style.display='none';
+            document.getElementById('stream-score').innerHTML='';
+            var t=document.getElementById('scan-timer'); if(t) t.textContent='';
+            document.getElementById('url').value='';
+            this.style.display='none';
+          ">Clear</button>
         </div>
       </form>
 
@@ -141,6 +150,7 @@
                 + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report →</a></div>';
               document.getElementById('scan-btn').disabled = false;
               document.getElementById('scan-btn').textContent = 'Scan';
+              document.getElementById('clear-btn').style.display = '';
             }
             else if (d.type === 'error') {
               es.close();
@@ -148,6 +158,7 @@
               timerSpan.textContent = '';
               addLine('<span style="color:#f87171;">Error: ' + d.message + '</span>');
               document.getElementById('scan-btn').disabled = false;
+              document.getElementById('clear-btn').style.display = '';
               document.getElementById('scan-btn').textContent = 'Scan';
             }
           };
