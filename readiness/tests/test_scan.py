@@ -103,7 +103,7 @@ class TestLoadChecks:
         yaml_path = pathlib.Path(__file__).resolve().parent.parent / "checks" / "shopify-v1.yaml"
         pack, version, checks = load_checks(yaml_path)
         assert pack == "shopify-readiness"
-        assert len(checks) == 23
+        assert len(checks) == 26
 
     def test_weights_sum_to_100(self):
         yaml_path = pathlib.Path(__file__).resolve().parent.parent / "checks" / "shopify-v1.yaml"
@@ -120,3 +120,26 @@ class TestLoadChecks:
             assert "detect" in c or "task" in c, f"Check {c['id']} missing detect/task"
             assert "weight" in c, f"Check {c['id']} missing weight"
             assert "severity_if_fail" in c, f"Check {c['id']} missing severity_if_fail"
+
+    def test_every_detect_has_scorer(self):
+        """Every YAML detect key must map to a registered scorer function."""
+        yaml_path = pathlib.Path(__file__).resolve().parent.parent / "checks" / "shopify-v1.yaml"
+        _, _, checks = load_checks(yaml_path)
+        from scorers import STATIC, BROWSER
+        for c in checks:
+            detect = c.get("detect")
+            if detect is None:
+                continue  # shopper checks use task, not detect
+            ctype = c["type"]
+            if ctype == "static":
+                assert detect in STATIC, (
+                    f"Check {c['id']} detect={detect!r} not wired in STATIC dict")
+            elif ctype == "browser":
+                assert detect in BROWSER, (
+                    f"Check {c['id']} detect={detect!r} not wired in BROWSER dict")
+
+    def test_no_duplicate_check_ids(self):
+        yaml_path = pathlib.Path(__file__).resolve().parent.parent / "checks" / "shopify-v1.yaml"
+        _, _, checks = load_checks(yaml_path)
+        ids = [c["id"] for c in checks]
+        assert len(ids) == len(set(ids)), f"Duplicate check IDs: {[i for i in ids if ids.count(i) > 1]}"

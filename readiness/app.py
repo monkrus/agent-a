@@ -39,7 +39,7 @@ import sys
 from dotenv import load_dotenv
 load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
-from flask import (Flask, abort, redirect, render_template, request,
+from flask import (Flask, Response, abort, redirect, render_template, request,
                    session, url_for)
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -177,6 +177,13 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
 
 
 def _headline(results):
+    gated = [r for r in results if r.get("gated")]
+    if gated:
+        gate_sources = [r for r in results
+                        if r.get("id") in ("RDY-031", "RDY-003") and r.get("verdict") == "FAIL"]
+        names = "; ".join(r["title"] for r in gate_sources) if gate_sources else "access blocked"
+        return (f"ACCESS BLOCKED — {names}. "
+                f"{len(gated)} checks skipped. Fix access first.")
     crits = [r for r in results
              if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
     if crits:
@@ -262,6 +269,254 @@ def scan():
     except Exception as e:
         return render_template("index.html", error=f"Could not scan that URL: {e}")
     return redirect(url_for("results", scan_id=scan_id))
+
+
+# ---- Layer-by-layer check ordering for streaming display ----
+LAYER_CHECKS = {
+    "access":      {"RDY-003", "RDY-031"},
+    "data":        {"RDY-001", "RDY-002", "RDY-004", "RDY-005", "RDY-011",
+                    "RDY-012", "RDY-013", "RDY-029", "RDY-030"},
+    "extraction":  {"RDY-006", "RDY-007", "RDY-008", "RDY-009", "RDY-010"},
+    "interaction": {"RDY-014", "RDY-015", "RDY-017", "RDY-018", "RDY-019",
+                    "RDY-020", "RDY-021", "RDY-022", "RDY-023"},
+    "security":    {"RDY-016"},
+}
+
+def _check_layer(check_id):
+    for layer, ids in LAYER_CHECKS.items():
+        if check_id in ids:
+            return layer
+    return "other"
+
+
+@app.route("/scan-stream")
+def scan_stream():
+    """SSE endpoint: streams check results one at a time as they complete."""
+    url = request.args.get("url", "").strip().lstrip("-*•· \t")
+    if not url:
+        return Response("data: " + json.dumps({"type": "error", "message": "No URL"}) + "\n\n",
+                        content_type="text/event-stream")
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    def generate():
+        from concurrent.futures import ThreadPoolExecutor
+        import time as t
+
+        _t0 = t.time()
+        n = int(os.environ.get("SCAN_N", "5"))
+        ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
+
+        yield "data: " + json.dumps({"type": "status", "message": "Fetching page..."}) + "\n\n"
+
+        try:
+            page = fetchmod.fetch(url)
+        except Exception as e:
+            yield "data: " + json.dumps({"type": "error", "message": f"Fetch failed: {e}"}) + "\n\n"
+            return
+
+        dead = fetchmod.is_dead_page(page)
+        if dead:
+            yield "data: " + json.dumps({"type": "error", "message": dead}) + "\n\n"
+            return
+
+        pack, version, checks = _load_checks()
+
+        def _base(c):
+            return {k: c.get(k) for k in
+                    ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
+
+        static_checks = [c for c in checks if c.get("type") == "static"]
+        browser_checks = [c for c in checks if c.get("type") == "browser"]
+        shopper_checks = [c for c in checks if c.get("type") == "shopper"]
+        total_checks = len(checks)
+
+        results = []
+        completed = 0
+
+        # --- Layer 0: Access ---
+        yield "data: " + json.dumps({"type": "layer", "layer": "access", "label": "Layer 0: Access"}) + "\n\n"
+
+        access_checks = [c for c in static_checks if c.get("id") in ACCESS_GATE_IDS]
+        other_static = [c for c in static_checks if c.get("id") not in ACCESS_GATE_IDS]
+
+        for c in access_checks:
+            r = scorers.run_static(c, page)
+            result = {**_base(c), **r}
+            results.append(result)
+            completed += 1
+            yield "data: " + json.dumps({
+                "type": "check", "id": c["id"], "title": c["title"],
+                "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                "layer": "access", "progress": f"{completed}/{total_checks}",
+            }) + "\n\n"
+
+        # Check gate
+        access_blocked = any(r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"
+                             for r in results)
+
+        if access_blocked:
+            gate_failures = [r.get("title") for r in results
+                             if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"]
+            gate_reason = ("Skipped: site blocks agent access "
+                           f"({'; '.join(gate_failures)}). "
+                           "Fix access first.")
+            yield "data: " + json.dumps({
+                "type": "gate_blocked",
+                "message": f"ACCESS BLOCKED — {'; '.join(gate_failures)}",
+                "skipped": len(other_static) + len(browser_checks) + len(shopper_checks),
+            }) + "\n\n"
+
+            # Mark remaining checks as gated
+            for c in other_static + browser_checks + shopper_checks:
+                results.append({**_base(c), "verdict": "FAIL", "detail": gate_reason,
+                                "pass_fraction": 0.0, "gated": True})
+                completed += 1
+        else:
+            yield "data: " + json.dumps({
+                "type": "gate_passed", "message": "Access OK — continuing scan..."
+            }) + "\n\n"
+
+            # --- Data + Security (remaining static) ---
+            current_layer = None
+            for c in other_static:
+                layer = _check_layer(c.get("id", ""))
+                if layer != current_layer:
+                    current_layer = layer
+                    labels = {"data": "Layer 1: Data", "security": "Layer 3: Security"}
+                    yield "data: " + json.dumps({
+                        "type": "layer", "layer": layer,
+                        "label": labels.get(layer, f"Layer: {layer}"),
+                    }) + "\n\n"
+
+                r = scorers.run_static(c, page)
+                result = {**_base(c), **r}
+                results.append(result)
+                completed += 1
+                yield "data: " + json.dumps({
+                    "type": "check", "id": c["id"], "title": c["title"],
+                    "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                    "layer": layer, "progress": f"{completed}/{total_checks}",
+                }) + "\n\n"
+
+            # --- Extraction (shopper checks) ---
+            if shopper_checks:
+                yield "data: " + json.dumps({
+                    "type": "layer", "layer": "extraction",
+                    "label": "Layer 2: Extraction",
+                }) + "\n\n"
+
+                tasks = {c["id"]: c["task"] for c in shopper_checks}
+                with ThreadPoolExecutor(max_workers=n) as pool:
+                    batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
+                answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+
+                for c in shopper_checks:
+                    answers = answers_by_check[c["id"]]
+                    g = scorers.grade_shopper(c, page, answers)
+                    result = {**_base(c), **g, "sample_answers": answers[:3]}
+                    results.append(result)
+                    completed += 1
+                    yield "data: " + json.dumps({
+                        "type": "check", "id": c["id"], "title": c["title"],
+                        "verdict": g["verdict"], "detail": g.get("detail", "")[:120],
+                        "layer": "extraction", "progress": f"{completed}/{total_checks}",
+                    }) + "\n\n"
+
+            # --- Interaction (browser checks, parallel) ---
+            if browser_checks:
+                from concurrent.futures import as_completed as _as_completed
+
+                yield "data: " + json.dumps({
+                    "type": "layer", "layer": "interaction",
+                    "label": "Layer 3: Interaction",
+                }) + "\n\n"
+
+                for c in browser_checks:
+                    yield "data: " + json.dumps({
+                        "type": "check_running", "id": c["id"], "title": c["title"],
+                        "layer": "interaction",
+                    }) + "\n\n"
+
+                with ThreadPoolExecutor(max_workers=len(browser_checks)) as pool:
+                    future_to_check = {
+                        pool.submit(scorers.run_browser, c, page): c
+                        for c in browser_checks
+                    }
+                    for future in _as_completed(future_to_check):
+                        c = future_to_check[future]
+                        try:
+                            r = future.result()
+                        except Exception as exc:
+                            r = {"verdict": "UNKNOWN",
+                                 "detail": f"Browser check error: {exc}",
+                                 "pass_fraction": None}
+                        result = {**_base(c), **r}
+                        results.append(result)
+                        completed += 1
+                        yield "data: " + json.dumps({
+                            "type": "check", "id": c["id"], "title": c["title"],
+                            "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                            "layer": "interaction", "progress": f"{completed}/{total_checks}",
+                        }) + "\n\n"
+
+        # --- Final score ---
+        results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
+
+        for r in results:
+            recipe = fixesmod.generate_fix(r, page)
+            if recipe:
+                r["fix_recipe"] = recipe
+
+        num = den = 0.0
+        for r in results:
+            pf = r.get("pass_fraction")
+            if pf is None:
+                continue
+            w = r.get("weight", 0) or 0
+            num += w * pf
+            den += w
+        readiness_score = round(100 * num / den, 1) if den else None
+
+        now = datetime.datetime.now()
+        scan_id = hashlib.sha256(
+            f"{url}:{now.isoformat()}".encode()
+        ).hexdigest()[:12]
+
+        from scan import confidence_band
+        margin = confidence_band(results, n)
+        impact_est = impactmod.estimate(results)
+        _elapsed = round(t.time() - _t0, 1)
+
+        payload = {
+            "scan_id": scan_id,
+            "meta": {
+                "target": url, "pack": pack, "version": version,
+                "n": n, "shopper": os.environ.get("SHOPPER", "mock"),
+                "timestamp": now.isoformat(timespec="seconds"),
+                "page_status": page.get("status"),
+                "duration_seconds": _elapsed,
+            },
+            "readiness_score": readiness_score,
+            "confidence_margin": margin,
+            "headline": _headline(results),
+            "results": results,
+            "impact": impact_est,
+            "intel": intelmod.analyze(page, page.get("llms_txt_content")),
+        }
+        (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload, indent=2))
+
+        yield "data: " + json.dumps({
+            "type": "done",
+            "score": readiness_score,
+            "headline": payload["headline"],
+            "scan_id": scan_id,
+            "duration": _elapsed,
+            "impact": impact_est.get("estimated_monthly_loss", {}),
+        }) + "\n\n"
+
+    return Response(generate(), content_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.route("/results/<scan_id>")

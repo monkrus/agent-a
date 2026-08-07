@@ -29,16 +29,124 @@
         </div>
       </form>
 
-      <div id="loading" style="display:none; text-align:center; padding:1.5rem 0;">
-        <div class="spinner"></div>
-        <p style="color:#8b8b96; margin-top:0.75rem;">Scanning page with AI agent (this takes 15-30 seconds)...</p>
+      <div id="stream-results" style="display:none; padding:1.5rem 0;">
+        <div id="stream-log" style="font-family:monospace; font-size:0.85rem; line-height:1.8; color:#c8c8d0;"></div>
+        <div id="stream-score" style="display:none; text-align:center; margin-top:1.5rem;"></div>
       </div>
 
       <script>
-        document.getElementById('scan-form').addEventListener('submit', function() {
+        document.getElementById('scan-form').addEventListener('submit', function(e) {
+          e.preventDefault();
+          const url = document.getElementById('url').value.trim();
+          if (!url) return;
+
           document.getElementById('scan-btn').disabled = true;
           document.getElementById('scan-btn').textContent = 'Scanning...';
-          document.getElementById('loading').style.display = 'block';
+          document.getElementById('stream-results').style.display = 'block';
+
+          // Add elapsed timer next to button
+          let timerSpan = document.getElementById('scan-timer');
+          if (!timerSpan) {
+            timerSpan = document.createElement('span');
+            timerSpan.id = 'scan-timer';
+            timerSpan.style.cssText = 'color:#8b8b96;font-size:0.85rem;margin-left:0.75rem;';
+            document.getElementById('scan-btn').parentNode.appendChild(timerSpan);
+          }
+          timerSpan.textContent = '0s';
+
+          const log = document.getElementById('stream-log');
+          const scoreDiv = document.getElementById('stream-score');
+          log.innerHTML = '';
+
+          const scanStart = Date.now();
+          const timerInterval = setInterval(function() {
+            const elapsed = Math.floor((Date.now() - scanStart) / 1000);
+            const m = Math.floor(elapsed / 60);
+            const s = elapsed % 60;
+            const ts = m > 0 ? m + ':' + (s < 10 ? '0' : '') + s : s + 's';
+            timerSpan.textContent = ts;
+          }, 1000);
+
+          const es = new EventSource('/scan-stream?url=' + encodeURIComponent(url));
+
+          function addLine(html) {
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            log.appendChild(div);
+            div.scrollIntoView({behavior: 'smooth', block: 'end'});
+          }
+
+          es.onmessage = function(event) {
+            const d = JSON.parse(event.data);
+
+            if (d.type === 'status') {
+              addLine('<span style="color:#8b8b96;">⟳ ' + d.message + '</span>');
+            }
+            else if (d.type === 'layer') {
+              const estimates = {
+                'access': '~5s',
+                'data': '~10s',
+                'extraction': '~15s',
+                'interaction': '~2–3 min',
+                'security': '~5s',
+              };
+              const est = estimates[d.layer] ? ' <span style="color:#555;font-size:0.8rem;">(est. ' + estimates[d.layer] + ')</span>' : '';
+              addLine('<br><strong style="color:#e0e0e8;">' + d.label + '</strong>' + est);
+            }
+            else if (d.type === 'check') {
+              const icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">✓</span>'
+                         : d.verdict === 'FAIL' ? '<span style="color:#f87171;">✗</span>'
+                         : '<span style="color:#facc15;">?</span>';
+              const detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.75rem;">— ' + d.detail.substring(0, 80) + '</span>' : '';
+              addLine('&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + detail
+                + ' <span style="color:#555;">[' + d.progress + ']</span>');
+            }
+            else if (d.type === 'check_running') {
+              addLine('&nbsp;&nbsp;<span style="color:#60a5fa;">⟳</span> <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + ' <span style="color:#60a5fa;">running...</span>');
+            }
+            else if (d.type === 'gate_blocked') {
+              addLine('<br><span style="color:#f87171;font-size:1.1rem;font-weight:bold;">⛔ ' + d.message + '</span>');
+              addLine('<span style="color:#f87171;">&nbsp;&nbsp;' + d.skipped + ' checks skipped. Fix access first.</span>');
+            }
+            else if (d.type === 'gate_passed') {
+              addLine('&nbsp;&nbsp;<span style="color:#4ade80;">✓ ' + d.message + '</span>');
+            }
+            else if (d.type === 'done') {
+              es.close();
+              clearInterval(timerInterval);
+              const elapsed = Math.floor((Date.now() - scanStart) / 1000);
+              const em = Math.floor(elapsed / 60);
+              const es2 = elapsed % 60;
+              const finalTime = em > 0 ? em + 'm ' + es2 + 's' : es2 + 's';
+              timerSpan.textContent = finalTime;
+              addLine('<br><span style="color:#4ade80;font-weight:bold;">Scan complete — ' + finalTime + '</span>');
+              const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
+              scoreDiv.style.display = 'block';
+              scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
+                + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
+                + (d.impact && d.impact.low ? '<div style="color:#8b8b96;font-size:0.85rem;">Est. revenue at risk: $' + d.impact.low.toLocaleString() + ' – $' + d.impact.high.toLocaleString() + '/mo</div>' : '')
+                + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report →</a></div>';
+              document.getElementById('scan-btn').disabled = false;
+              document.getElementById('scan-btn').textContent = 'Scan';
+            }
+            else if (d.type === 'error') {
+              es.close();
+              clearInterval(timerInterval);
+              timerSpan.textContent = '';
+              addLine('<span style="color:#f87171;">Error: ' + d.message + '</span>');
+              document.getElementById('scan-btn').disabled = false;
+              document.getElementById('scan-btn').textContent = 'Scan';
+            }
+          };
+
+          es.onerror = function() {
+            es.close();
+            clearInterval(timerInterval);
+            timerSpan.textContent = '';
+            addLine('<span style="color:#f87171;">Connection lost. Please try again.</span>');
+            document.getElementById('scan-btn').disabled = false;
+            document.getElementById('scan-btn').textContent = 'Scan';
+          };
         });
       </script>
 
