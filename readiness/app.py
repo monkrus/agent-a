@@ -377,29 +377,40 @@ def scan_stream():
                 "type": "gate_passed", "message": "Access OK — continuing scan..."
             }) + "\n\n"
 
-            # --- Data + Security (remaining static) ---
-            current_layer = None
-            for c in other_static:
-                layer = _check_layer(c.get("id", ""))
-                if layer != current_layer:
-                    current_layer = layer
-                    labels = {"data": "Layer 1: Data", "security": "Layer 3: Security"}
+            # --- Split static checks by layer ---
+            LAYER_LABELS = {
+                "data": "Layer 1: Data",
+                "extraction": "Layer 2: Extraction",
+                "interaction": "Layer 3: Interaction",
+                "security": "Layer 4: Security",
+            }
+            data_static = [c for c in other_static if _check_layer(c.get("id", "")) == "data"]
+            interaction_static = [c for c in other_static if _check_layer(c.get("id", "")) == "interaction"]
+            security_static = [c for c in other_static if _check_layer(c.get("id", "")) == "security"]
+
+            def _run_static_batch(label_key, checks_list):
+                nonlocal completed
+                if not checks_list:
+                    return
+                yield "data: " + json.dumps({
+                    "type": "layer", "layer": label_key,
+                    "label": LAYER_LABELS[label_key],
+                }) + "\n\n"
+                for c in checks_list:
+                    r = scorers.run_static(c, page)
+                    result = {**_base(c), **r}
+                    results.append(result)
+                    completed += 1
                     yield "data: " + json.dumps({
-                        "type": "layer", "layer": layer,
-                        "label": labels.get(layer, f"Layer: {layer}"),
+                        "type": "check", "id": c["id"], "title": c["title"],
+                        "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                        "layer": label_key, "progress": f"{completed}/{total_checks}",
                     }) + "\n\n"
 
-                r = scorers.run_static(c, page)
-                result = {**_base(c), **r}
-                results.append(result)
-                completed += 1
-                yield "data: " + json.dumps({
-                    "type": "check", "id": c["id"], "title": c["title"],
-                    "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
-                    "layer": layer, "progress": f"{completed}/{total_checks}",
-                }) + "\n\n"
+            # Layer 1: Data (static)
+            yield from _run_static_batch("data", data_static)
 
-            # --- Extraction (shopper checks) ---
+            # Layer 2: Extraction (shopper checks)
             if shopper_checks:
                 yield "data: " + json.dumps({
                     "type": "layer", "layer": "extraction",
@@ -423,8 +434,9 @@ def scan_stream():
                         "layer": "extraction", "progress": f"{completed}/{total_checks}",
                     }) + "\n\n"
 
-            # --- Interaction (browser checks, parallel) ---
-            if browser_checks:
+            # Layer 3: Interaction (static + browser in parallel)
+            has_interaction = interaction_static or browser_checks
+            if has_interaction:
                 from concurrent.futures import as_completed as _as_completed
 
                 yield "data: " + json.dumps({
@@ -432,6 +444,19 @@ def scan_stream():
                     "label": "Layer 3: Interaction",
                 }) + "\n\n"
 
+                # Static interaction checks first
+                for c in interaction_static:
+                    r = scorers.run_static(c, page)
+                    result = {**_base(c), **r}
+                    results.append(result)
+                    completed += 1
+                    yield "data: " + json.dumps({
+                        "type": "check", "id": c["id"], "title": c["title"],
+                        "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                        "layer": "interaction", "progress": f"{completed}/{total_checks}",
+                    }) + "\n\n"
+
+                # Browser interaction checks in parallel
                 for c in browser_checks:
                     yield "data: " + json.dumps({
                         "type": "check_running", "id": c["id"], "title": c["title"],
@@ -459,6 +484,9 @@ def scan_stream():
                             "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
                             "layer": "interaction", "progress": f"{completed}/{total_checks}",
                         }) + "\n\n"
+
+            # Layer 4: Security (static)
+            yield from _run_static_batch("security", security_static)
 
         # --- Final score ---
         results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))

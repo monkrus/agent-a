@@ -97,12 +97,25 @@
               const icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">✓</span>'
                          : d.verdict === 'FAIL' ? '<span style="color:#f87171;">✗</span>'
                          : '<span style="color:#facc15;">?</span>';
-              const detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.75rem;">— ' + d.detail.substring(0, 80) + '</span>' : '';
-              addLine('&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + detail
-                + ' <span style="color:#555;">[' + d.progress + ']</span>');
+              const detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.75rem;">— ' + d.detail.substring(0, 120) + '</span>' : '';
+              const html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + detail
+                + ' <span style="color:#555;">[' + d.progress + ']</span>';
+              // Replace "running..." line if it exists
+              const existing = document.getElementById('running-' + d.id);
+              if (existing) {
+                existing.innerHTML = html;
+                existing.removeAttribute('id');
+              } else {
+                addLine(html);
+              }
             }
             else if (d.type === 'check_running') {
-              addLine('&nbsp;&nbsp;<span style="color:#60a5fa;">⟳</span> <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + ' <span style="color:#60a5fa;">running...</span>');
+              const rid = 'running-' + d.id;
+              const div = document.createElement('div');
+              div.id = rid;
+              div.innerHTML = '&nbsp;&nbsp;<span style="color:#60a5fa;">⟳</span> <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + ' <span style="color:#60a5fa;">running...</span>';
+              log.appendChild(div);
+              div.scrollIntoView({behavior: 'smooth', block: 'end'});
             }
             else if (d.type === 'gate_blocked') {
               addLine('<br><span style="color:#f87171;font-size:1.1rem;font-weight:bold;">⛔ ' + d.message + '</span>');
@@ -150,7 +163,7 @@
         });
       </script>
 
-      <p class="note">Free scan: readiness score + headline findings. Full per-check breakdown, evidence, and fixes available in the paid report.</p>
+      <p class="note">Free scan: readiness score + headline findings. Full per-check breakdown, evidence, and fixes available in the paid report. Full scan takes ~3 minutes.</p>
     </div>
 
     <div class="how-it-works">

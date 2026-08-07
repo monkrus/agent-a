@@ -685,25 +685,39 @@ def run_browser(check, page):
         for s in result.get("steps", [])
     )
 
+    FLOW_LABELS = {
+        "add_to_cart_flow": ("add product to cart", "Added to cart"),
+        "search_discovery": ("find product via site search", "Found via search"),
+        "checkout_reachable": ("reach the checkout page", "Reached checkout"),
+        "homepage_to_product": ("navigate from homepage to product", "Navigated to product"),
+        "compare_products": ("find and navigate to a related product", "Found related product"),
+    }
+    fail_label, pass_label = FLOW_LABELS.get(detect, ("complete the flow", "Flow completed"))
+
     if successes >= (max_attempts + 1) // 2:
         verified = result.get("cart_verified", False)
-        detail = (f"Agent added product to cart in {result['total_steps']} steps "
+        detail = (f"{pass_label} in {result['total_steps']} steps "
                   f"({successes}/{attempts} attempts succeeded). "
-                  f"Cart verified: {'yes' if verified else 'not confirmed'}. "
                   f"Steps: {steps_summary}")
-        if verified:
-            return {"verdict": "PASS", "detail": detail, "pass_fraction": 1.0,
+        if detect == "add_to_cart_flow":
+            detail = (f"{pass_label} in {result['total_steps']} steps "
+                      f"({successes}/{attempts} attempts succeeded). "
+                      f"Cart verified: {'yes' if verified else 'not confirmed'}. "
+                      f"Steps: {steps_summary}")
+            if verified:
+                return {"verdict": "PASS", "detail": detail, "pass_fraction": 1.0,
+                        "browser_result": result, "browser_attempts": attempts,
+                        "browser_successes": successes}
+            return {"verdict": "UNKNOWN", "detail": detail, "pass_fraction": None,
                     "browser_result": result, "browser_attempts": attempts,
-                    "browser_successes": successes}
-        # Agent reported success but cart not confirmed — disclose as UNKNOWN
-        return {"verdict": "UNKNOWN", "detail": detail, "pass_fraction": None,
+                    "browser_successes": successes, "cart_verified": False}
+        return {"verdict": "PASS", "detail": detail, "pass_fraction": 1.0,
                 "browser_result": result, "browser_attempts": attempts,
-                "browser_successes": successes, "cart_verified": False}
+                "browser_successes": successes}
 
-    detail = (f"Agent failed to add product to cart after {result['total_steps']} steps "
-              f"({successes}/{attempts} attempts succeeded). "
-              f"Reason: {result.get('final_reason', 'unknown')}. "
-              f"Steps: {steps_summary}")
+    detail = (f"Agent failed to {fail_label} after {result['total_steps']} steps "
+              f"({successes}/{attempts} attempts). "
+              f"Reason: {result.get('final_reason', 'unknown')}.")
 
     # Surface element-level diagnostics if available
     diag = result.get("diagnostics")
