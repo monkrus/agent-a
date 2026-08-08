@@ -803,8 +803,18 @@ def _ground_truth(kind, page):
             gt = _jsonld_availability({"jsonld": page["rendered_jsonld"]})
         return gt
     if kind == "product_name":
+        # Prefer JSON-LD name (clean product name) over HTML title
+        # (which often includes "Brand | Product | Category")
+        obj, _ = _jsonld_offers(page)
+        if obj and obj.get("name"):
+            return obj["name"]
+        # Fall back to rendered JSON-LD
+        if page.get("rendered_jsonld"):
+            obj2, _ = _jsonld_offers({"jsonld": page["rendered_jsonld"]})
+            if obj2 and obj2.get("name"):
+                return obj2["name"]
+        # Last resort: HTML title
         title = page.get("title") or None
-        # If raw title looks broken, try rendered title
         if (not title or "not found" in title.lower()) and page.get("rendered_title"):
             title = page["rendered_title"]
         return title

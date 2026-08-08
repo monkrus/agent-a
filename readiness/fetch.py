@@ -23,8 +23,14 @@ from __future__ import annotations
 import json
 import re
 import sys
+import time
 from html.parser import HTMLParser
 from urllib.parse import urlparse, urljoin
+
+
+# ---- Per-domain fetch cache (prevents rate-limit garbage on rapid rescans) ---
+_fetch_cache: dict[str, tuple[float, dict]] = {}  # domain -> (timestamp, page)
+CACHE_TTL = 120  # seconds
 
 
 # ---- minimal HTML -> text + meta + jsonld --------------------------------
@@ -136,6 +142,19 @@ def fetch(target: str, timeout: int = 30) -> dict:
     render = os.environ.get("RENDER", "").lower() == "playwright"
 
     if re.match(r"^https?://", target):
+        # Check cache — prevent garbage results from rapid repeated scans
+        domain = urlparse(target).netloc
+        cached = _fetch_cache.get(domain)
+        if cached:
+            ts, cached_page = cached
+            if time.time() - ts < CACHE_TTL:
+                # Return cached page with updated URL
+                page = dict(cached_page)
+                page["url"] = target
+                page["_cached"] = True
+                return page
+            else:
+                del _fetch_cache[domain]
         import requests  # local import so offline/file mode needs no network dep
         headers = {"User-Agent": "agent-a-readiness-scanner/0.1 (+contact)"}
         try:
@@ -214,6 +233,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["rendered_jsonld"] = rendered["jsonld"]
                 page["rendered_links"] = rendered["links"]
                 page["rendered_meta"] = rendered["meta"]
+        # Cache successful fetch for this domain
+        if page.get("status") == 200:
+            _fetch_cache[domain] = (time.time(), page)
     else:
         with open(target, "r", encoding="utf-8") as f:
             html = f.read()

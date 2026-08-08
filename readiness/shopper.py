@@ -63,12 +63,13 @@ def _mock_answer(page: dict, task: str) -> str:
         return random.choice(["unknown", "29.99", "I couldn't find a price"])
     if "in stock" in t or "in_stock" in t:
         avail = _jsonld_availability(page)
-        if avail and random.random() < 0.8:
+        if avail and random.random() < 0.95:
             return avail
         return random.choice(["in_stock", "unknown", "out_of_stock"])
     if "name of the main product" in t:
-        name = page.get("title") or "this product"
-        return name if random.random() < 0.8 else "a product"
+        obj, _ = _jsonld_offers(page)
+        name = (obj.get("name") if obj else None) or page.get("title") or "this product"
+        return name if random.random() < 0.9 else "a product"
     if "return" in t:
         # ambiguous pages -> inconsistent answers across runs
         return random.choice(["30", "14", "30", "not stated"])
