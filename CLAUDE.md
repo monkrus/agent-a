@@ -27,6 +27,31 @@ separate private repo (`agent-a-private/`).
 4. **Scan results stay local.** `readiness/.scans/` is gitignored. Never commit
    scan output.
 
+5. **Never assert a root cause you did not observe.** A FAIL verdict tells you
+   *what* failed, never *why*. Before writing any causal explanation (in fix
+   text, reports, commit messages, or comments), quote the specific evidence:
+   the page substring, the log line, the payload field. If you don't have the
+   evidence in front of you, write "cause not yet determined — candidates: X, Y"
+   and list what would distinguish them. A plausible explanation stated
+   confidently is worse than no explanation.
+   *Origin: RDY-007 was blamed on JSON-LD when the page's visible "Out stock"
+   text was the actual cause. The fix text was wrong in a client report.*
+6. **Never type a number — copy it or compute it.** Every figure in any
+   document (report, README, commit message, comment) must come from one of:
+   (a) verbatim copy from tool/scan output visible in your context,
+   (b) a calculation you show inline, or (c) an explicitly labeled estimate
+   ("~", "assumed"). If you find yourself writing a number from memory of what
+   it "should be," stop and re-read the source. Revenue figures in reports come
+   only from `format_impact()` output — its "Derivation" block exists precisely
+   so you can copy verbatim.
+   *Origin: the Lola Luna docx stated 280,000 visits / 51% fail / $86K–$515K
+   annual. The payload said 296,800 / 44% / $45K–$272K. Only one of four
+   numbers was copied; three were invented.*
+7. **Run the validator before calling any report final.**
+   `python readiness/validate_report.py <payload.json> --report <report>` must
+   exit 0. This is a gate, not a suggestion — same status as the test suite.
+   If the validator flags a number, fix the report, never the payload.
+
 **Intentionally public:** Check YAML (IDs, weights, descriptions), scoring
 logic in `scorers.py`, prompt-injection detection patterns, and the scanner
 framework code. These are portfolio-value open source.
@@ -45,6 +70,7 @@ readiness/
   batch.py             Batch scan CLI (python -m readiness.batch targets.txt)
   leaderboard.py       Leaderboard export (python -m readiness.leaderboard)
   og_image.py          OG image generator for shareable results
+  validate_report.py   Report-vs-payload validator (gate for client reports)
   checks/
     shopify-v1.yaml    Check pack (weights sum to 100)
   templates/           Flask HTML templates
@@ -87,6 +113,41 @@ Every check maps to one layer of agent readiness:
 - **Generate leaderboard:** `python -m readiness.leaderboard`
 - **Add a check:** add scorer in `scorers.py`, entry in `shopify-v1.yaml` (rebalance weights to 100), fix recipe in `agent-a-private/fixes.py`
 - **Enable rendered DOM:** `pip install playwright && playwright install chromium`, then set `RENDER=playwright`
+
+## Review discipline (when asked to check or double-check work)
+
+A review that reads the document and nods is worthless — you share priors with
+whoever wrote it, so what looks plausible to them looks plausible to you.
+Reviews must be procedural:
+
+- **Recompute every derived number.** Annual vs monthly×12, percentages vs
+  their numerators, totals vs their parts. Use the bash tool and actually run
+  the arithmetic; never eyeball it.
+- **Diff against the source, not your memory.** If the document claims to
+  reflect a scan, a page, or a file, open that artifact and compare
+  claim-by-claim. If the source isn't available, say so explicitly and list
+  which claims are therefore unchecked — do not silently treat them as fine.
+- **Fetch independent evidence for causal claims.** For any "X happened
+  because Y" statement, find the observation that supports Y. If the check
+  data doesn't record which signal drove the result, the causal claim is
+  unverifiable — flag it, don't confirm it.
+- **Assume at least one error exists and hunt for it.** "Looks good" is not a
+  finding. A completed review names either the errors found or the specific
+  checks performed that came back clean.
+- **End every review with a two-column list:** VERIFIED (with method) and
+  NOT VERIFIED (with what it would take). Anything not in the first column
+  belongs in the second — there is no third column.
+
+## Report-writing pipeline (client-facing documents)
+
+1. Generate scan payload via `scan.py` — this is the single source of truth.
+2. Write prose around the payload. Quote numbers per rule 6. For every
+   diagnosis, cite the evidence per rule 5; anything unobserved goes in an
+   explicit "Not verified" section, never in fix text as fact.
+3. Gate: `validate_report.py --report` exits 0.
+4. Gate: the review discipline above, as a separate pass with fresh context
+   (new session or subagent — do not review in the same context that wrote it).
+5. Only then is the document deliverable.
 
 ## When in doubt
 
