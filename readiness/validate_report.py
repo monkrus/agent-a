@@ -54,11 +54,6 @@ def extract_report_text(path: str) -> str:
         return p.read_text(encoding="utf-8")
 
 
-def find_numbers(text: str) -> list[str]:
-    """Extract all number-like strings from text."""
-    return re.findall(r"\$?[\d,]+(?:\.\d+)?%?", text)
-
-
 def validate(payload: dict, report_text: str) -> list[str]:
     """Return list of error strings. Empty = all good."""
     errors = []

@@ -338,7 +338,9 @@ def main():
         counts[r.get("verdict")] = counts.get(r.get("verdict"), 0) + 1
     print(f"  checks: {counts}")
     loss = impact_est["estimated_monthly_loss"]
-    print(f"  est. monthly revenue at risk: ${loss['low']:,} - ${loss['high']:,}")
+    visits = impact_est["monthly_visits_assumed"]
+    print(f"  est. monthly revenue at risk: ${loss['low']:,} – ${loss['high']:,}"
+          f"  (assumes {visits:,} monthly visits — plug in real traffic for accuracy)")
     if args.compare and "comparison" in payload:
         comp = payload["comparison"]
         delta = comp["delta"]

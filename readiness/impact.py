@@ -113,12 +113,12 @@ def _categorize_failures(results: list[dict]) -> dict:
     impacts = {}
 
     for r in results:
-        if r.get("verdict") not in ("FAIL", "UNKNOWN"):
+        if r.get("verdict") != "FAIL":
             continue
 
         cat = r.get("category", "")
         title = r.get("title", "")
-        sev = r.get("severity_if_fail", "medium")
+        sev = r.get("severity_if_fail") or "medium"
         frac = r.get("pass_fraction")
 
         # Discovery: can agents find and identify the product?
@@ -225,7 +225,10 @@ def format_impact(impact: dict) -> str:
             lines.append(f"    - {issue['title']}")
 
     lines.append("")
-    lines.append("Assumptions (plug in your own numbers for a tighter estimate):")
+    lines.append("⚠ CAVEAT: Traffic volume is estimated from product price, not measured.")
+    lines.append("  Plug in your real monthly visits for an accurate figure.")
+    lines.append("")
+    lines.append("Assumptions:")
     for a in impact["assumptions"]:
         lines.append(f"  - {a}")
 

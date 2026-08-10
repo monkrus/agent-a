@@ -254,14 +254,33 @@ def fetch(target: str, timeout: int = 30) -> dict:
 
 
 def _probe_as_agent(url: str, timeout: int) -> int | None:
-    """Probe the URL with a bot-like user-agent and return the HTTP status."""
+    """Probe the URL with a bot-like user-agent, 2-of-3 vote to reduce flakiness.
+
+    A single transient 403/429 can collapse the score by tens of points via the
+    access gate. Voting smooths out WAF flakiness and CDN edge inconsistencies.
+    """
     try:
         import requests
-        r = requests.get(url, timeout=timeout,
-                         headers={"User-Agent": "GPTBot/1.0"})
-        return r.status_code
-    except Exception:
+    except ImportError:
         return None
+
+    statuses = []
+    for _ in range(3):
+        try:
+            r = requests.get(url, timeout=timeout,
+                             headers={"User-Agent": "GPTBot/1.0"})
+            statuses.append(r.status_code)
+        except Exception:
+            statuses.append(None)
+        if len(statuses) >= 2 and statuses.count(statuses[0]) >= 2:
+            break  # early exit on agreement
+
+    # Majority vote: pick the most common status
+    valid = [s for s in statuses if s is not None]
+    if not valid:
+        return None
+    from collections import Counter
+    return Counter(valid).most_common(1)[0][0]
 
 
 def _probe_ok(url: str, timeout: int) -> bool:

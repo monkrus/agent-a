@@ -41,11 +41,27 @@ def static_price_in_html(page):
     html = page.get("html", "") or ""
     # strip script bodies so a JS-embedded price doesn't count as server-rendered
     visible = re.sub(r"<script.*?</script>", " ", html, flags=re.I | re.S)
-    if re.search(r"[$£€]\s?\d[\d,]*\.?\d*", visible):
-        return "PASS", "Currency-formatted price present in server HTML."
-    if _jsonld_price(page) is not None:
-        return "FAIL", "Price only in structured data, not in visible server HTML."
-    return "FAIL", "No price string in server HTML (likely JS-rendered only)."
+    matches = re.findall(r"[$£€]\s?(\d[\d,]*\.?\d*)", visible)
+    if not matches:
+        if _jsonld_price(page) is not None:
+            return "FAIL", "Price only in structured data, not in visible server HTML."
+        return "FAIL", "No price string in server HTML (likely JS-rendered only)."
+
+    # If we know the product price from JSON-LD, check it specifically appears
+    # in visible HTML — avoids false PASS from "$5 shipping" on a $200 product
+    gt_price = _jsonld_price(page)
+    if gt_price is not None:
+        for m in matches:
+            try:
+                v = float(m.replace(",", ""))
+                if abs(v - gt_price) < 0.01:
+                    return "PASS", f"Product price ${gt_price:.2f} found in visible server HTML."
+            except ValueError:
+                continue
+        return "FAIL", (f"Currency strings found in HTML but none match product price "
+                        f"${gt_price:.2f} — visible price may be JS-rendered.")
+
+    return "PASS", "Currency-formatted price present in server HTML."
 
 
 def static_robots_allows_agents(page):
@@ -184,20 +200,11 @@ def static_js_render_ratio(page):
         if gap > 200:
             detail += f" Rendered DOM has {gap} more chars of text — JS hides content from text-mode agents."
 
-    # Key insight: JSON-LD is inside <script type="application/ld+json"> tags,
-    # which IS server-rendered structured data requiring NO JS execution.
-    # If JSON-LD has price+availability, the page's key content is accessible
-    # without JavaScript — that's what this check measures.
-    has_structured_data = _jsonld_price(page) is not None
-
-    if has_structured_data:
-        # Structured data present: agents can extract product info from raw HTML.
-        # Pass — other checks (RDY-002, RDY-014) cover visible-text and interaction gaps.
-        return "PASS", f"Structured data provides agent-readable content despite JS ratio. {detail}"
-
-    # Without structured data: agents have no machine-readable fallback
+    # Evaluate JS render ratio on its own merits.
+    # JSON-LD coverage is handled by RDY-001/RDY-012 — this check measures
+    # whether the *visible page content* is server-rendered or JS-gated.
     if script_ratio > 60 and text_ratio < 8:
-        return "FAIL", f"High JS dependency with no structured data fallback. {detail}"
+        return "FAIL", f"High JS dependency — most visible content requires JS execution. {detail}"
     if script_ratio > 50 and text_ratio < 5 and non_script_text_len < 500:
         return "FAIL", f"Page is heavily JS-rendered — agents see very little content. {detail}"
     return "PASS", f"Acceptable text-to-script ratio for agents. {detail}"
@@ -264,6 +271,10 @@ def static_variant_selectors(page):
 def static_prompt_injection(page):
     html = page.get("html", "") or ""
     import re as _re
+    import html as _html_mod
+
+    # Decode HTML entities so &#105;gnore / &lt;system&gt; patterns are caught
+    html_decoded = _html_mod.unescape(html)
 
     # Injection phrases that could hijack an agent's context
     INJECTION_PATTERNS = [
@@ -285,8 +296,8 @@ def static_prompt_injection(page):
 
     findings = []
 
-    # 1. Check HTML comments for injection
-    comments = _re.findall(r"<!--(.*?)-->", html, _re.S | _re.I)
+    # 1. Check HTML comments for injection (use decoded to catch entity-encoded payloads)
+    comments = _re.findall(r"<!--(.*?)-->", html_decoded, _re.S | _re.I)
     for c in comments:
         if _re.search(pattern, c, _re.I):
             findings.append("HTML comment contains agent-hijacking text")
@@ -297,7 +308,7 @@ def static_prompt_injection(page):
         r'<[^>]*(display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0'
         r'|font-size\s*:\s*0|height\s*:\s*0|width\s*:\s*0'
         r'|aria-hidden\s*=\s*["\']true["\'])[^>]*>(.*?)</[^>]+>',
-        html, _re.I | _re.S)
+        html_decoded, _re.I | _re.S)
     for _, content in hidden_blocks:
         if _re.search(pattern, content, _re.I):
             findings.append("Hidden element contains agent-hijacking text")
@@ -307,7 +318,7 @@ def static_prompt_injection(page):
     # Look for style with color:#fff or color:white on non-body elements
     stealth_blocks = _re.findall(
         r'<[^>]*(color\s*:\s*(?:white|#fff(?:fff)?|rgba?\(\s*255))[^>]*>(.*?)</[^>]+>',
-        html, _re.I | _re.S)
+        html_decoded, _re.I | _re.S)
     for _, content in stealth_blocks:
         if _re.search(pattern, content, _re.I):
             findings.append("Invisible text (color trick) contains agent-hijacking text")
@@ -868,7 +879,17 @@ def grade_shopper(check, page, answers):
                     hits += 1
                     alt_hits += 1
             else:
-                hits += (_norm(gt) in _norm(a) or _norm(a) in _norm(gt)) and _norm(a) not in ("", "unknown")
+                na, ng = _norm(a), _norm(gt)
+                if na in ("", "unknown"):
+                    pass  # not a hit
+                elif na == ng:
+                    hits += 1
+                elif na in ng or ng in na:
+                    # Substring match only counts if the shorter covers ≥50%
+                    # of the longer — prevents "bikini" matching "Lola Luna Bikini Top Black"
+                    shorter, longer = sorted([len(na), len(ng)])
+                    if shorter / longer >= 0.5:
+                        hits += 1
         frac = hits / n if n else None
         detail = f"{hits}/{n} runs matched ground truth ({gt})."
         if alt_hits:
