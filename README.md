@@ -45,9 +45,18 @@ results across four layers:
 ### Layer 3 — Can agents ACT on the page? (Interaction)
 - Add-to-Cart button is semantic and identifiable
 - Variant selectors (size/color) use accessible HTML
+- Agent can complete Add-to-Cart flow (browser)
+- Agent can reach checkout (browser)
+- Guest checkout available (no login wall)
+- Programmatic cart API endpoint available
 
 ### Layer 4 — Is the page SAFE? (Security)
 - No hidden prompt injection in page content
+
+### Discovery & Resilience
+- Sitemap.xml exists and lists products
+- Page responds within agent timeout threshold
+- Site does not block agent-like traffic
 
 ### Intel section
 - Platform detection (Shopify, WooCommerce, etc.)
@@ -59,7 +68,7 @@ results across four layers:
 ## How it works
 
 1. Fetches the product page (raw HTML + optional Playwright rendered DOM)
-2. Runs 21 checks — 11 static probes + 5 shopper simulations + 5 browser agent flows
+2. Runs 26 checks — 16 static probes + 5 shopper simulations + 5 browser agent flows
 3. Shopper checks run N times (default 5) to report **pass rates**, not binary
 4. Computes a weighted readiness score (0–100)
 5. Generates platform-specific copy-paste fix recipes for every failure
@@ -130,9 +139,10 @@ runners/                   Scenario runner + adapters
 
 ## Cost
 
-- ~$0.15/scan with Claude Sonnet
-- ~$0.03–0.05/scan with Claude Haiku
-- Free with SHOPPER=mock (offline, deterministic-ish)
+- **Mock scan** (SHOPPER=mock): free, offline, instant
+- **Shopper-only scan** (SHOPPER=anthropic, no browser): ~$0.05/scan
+- **Full scan with browser checks**: ~$0.50–1.00/scan (browser vision calls are ~90% of cost)
+- Cost varies by page size and number of browser steps
 
 ## Open-core model
 

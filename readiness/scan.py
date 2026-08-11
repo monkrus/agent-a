@@ -117,18 +117,19 @@ def score(results):
 
 
 def confidence_band(results, n):
-    """Estimate +/- confidence interval for the score.
+    """Estimate +/- confidence margin for the score (heuristic, not exact).
 
     Sources of variance:
-    - Shopper checks: N runs with stochastic LLM -> binomial uncertainty
-    - Browser checks: non-deterministic (modal timing, popups)
+    - Shopper checks: N runs with stochastic LLM -> binomial SE
+    - Browser checks: non-deterministic (modal timing, popups) -> empirical heuristic
     - Static checks: deterministic (zero variance)
 
-    Returns (low, high) bounds as absolute score points, or None.
-    Uses Wilson interval per shopper check, propagated through weights.
+    Returns margin as absolute score points, or None.
+    Shopper: normal approximation to binomial SE (not Wilson — adequate for N>=5).
+    Browser: heuristic SE = 0.3/sqrt(attempts), calibrated from observed variance.
     """
     import math
-    z = 1.96  # 95% CI
+    z = 1.96  # 95% CI (normal approximation)
 
     den = 0.0
     variance_sum = 0.0
@@ -187,7 +188,6 @@ def report_data(results, page):
         "identity-extraction": "Product name",
         "agent-interaction": "Add to cart",
     }
-    has_rendered = bool(page.get("rendered_text"))
     for r in results:
         cat = r.get("category", "")
         if cat in feature_map:
@@ -266,13 +266,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--checks", required=True)
     ap.add_argument("--target", required=True, help="URL or local .html file")
-    ap.add_argument("--n", type=int, default=10, help="shopper runs per check")
+    ap.add_argument("--n", type=int, default=10, help="shopper runs per check (1-50)")
     ap.add_argument("--out",
                     default=str(pathlib.Path(__file__).resolve().parent / ".scans" / "cli"),
                     type=pathlib.Path)
     ap.add_argument("--compare", default=None,
                     help="Competitor URL to scan for side-by-side comparison")
     args = ap.parse_args()
+
+    if args.n < 1 or args.n > 50:
+        print(f"  ERROR: --n must be between 1 and 50 (got {args.n})")
+        sys.exit(1)
 
     import time as _time
     _t0 = _time.time()
@@ -303,6 +307,7 @@ def main():
         "meta": {
             "target": args.target, "pack": pack, "version": version,
             "n": args.n, "shopper": __import__("os").environ.get("SHOPPER", "mock"),
+            "model": __import__("os").environ.get("SHOPPER_MODEL", "claude-sonnet-4-6"),
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
             "page_status": page.get("status"),
         },

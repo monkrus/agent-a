@@ -304,12 +304,16 @@ def static_prompt_injection(page):
             break
 
     # 2. Check hidden elements (display:none, visibility:hidden, opacity:0, aria-hidden)
+    # Skip legitimate accessibility classes (sr-only, visually-hidden, etc.)
+    SR_ONLY = _re.compile(r'class=["\'][^"\']*(?:sr-only|visually-hidden|screen-reader)[^"\']*["\']', _re.I)
     hidden_blocks = _re.findall(
-        r'<[^>]*(display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0'
+        r'(<[^>]*(display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0'
         r'|font-size\s*:\s*0|height\s*:\s*0|width\s*:\s*0'
-        r'|aria-hidden\s*=\s*["\']true["\'])[^>]*>(.*?)</[^>]+>',
+        r'|aria-hidden\s*=\s*["\']true["\'])[^>]*>(.*?)</[^>]+>)',
         html_decoded, _re.I | _re.S)
-    for _, content in hidden_blocks:
+    for full_tag, _, content in hidden_blocks:
+        if SR_ONLY.search(full_tag):
+            continue  # legitimate accessibility content
         if _re.search(pattern, content, _re.I):
             findings.append("Hidden element contains agent-hijacking text")
             break
