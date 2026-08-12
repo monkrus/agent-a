@@ -586,17 +586,27 @@ def static_rate_limiting(page):
     if probe_status is None:
         return "UNKNOWN", "Agent probe not performed (local file mode)."
 
+    # Note: we probe with a self-asserted GPTBot UA string. This shows how the
+    # site treats the claimed identity, not necessarily verified vendor traffic
+    # (which may be allowlisted by reverse DNS or IP range).
+    detail = page.get("agent_probe_detail", {})
+    challenge = detail.get("challenge", False)
+    words = detail.get("readable_words", 0)
+    ua_note = " (self-asserted UA, not verified vendor IP)"
+
     if probe_status == 200:
-        return "PASS", "Site responds 200 to agent-like requests (GPTBot user-agent) — agents are not blocked."
+        if challenge:
+            return "FAIL", f"Site responds 200 but serves a bot challenge page ({words} words){ua_note}."
+        return "PASS", f"Site responds 200 to GPTBot UA string — not blocking agent-like requests{ua_note}."
     if probe_status == 403:
-        return "FAIL", f"Site returns HTTP 403 to agent user-agent — agents are actively blocked."
+        return "FAIL", f"Site returns 403 to GPTBot UA string — likely blocking agent-like traffic{ua_note}."
     if probe_status == 429:
-        return "FAIL", f"Site returns HTTP 429 to agent user-agent — agents are rate-limited."
+        return "FAIL", f"Site returns 429 to GPTBot UA string — rate-limiting agent-like traffic{ua_note}."
     if 400 <= probe_status < 500:
-        return "FAIL", f"Site returns HTTP {probe_status} to agent user-agent — agents may be blocked."
+        return "FAIL", f"Site returns {probe_status} to GPTBot UA string — may be blocking agent-like traffic{ua_note}."
     if probe_status >= 500:
-        return "UNKNOWN", f"Site returns HTTP {probe_status} to agent user-agent — server error (may be transient)."
-    return "PASS", f"Site responds HTTP {probe_status} to agent-like requests."
+        return "UNKNOWN", f"Site returns {probe_status} to GPTBot UA string — server error (may be transient)."
+    return "PASS", f"Site responds {probe_status} to GPTBot UA string{ua_note}."
 
 
 STATIC = {

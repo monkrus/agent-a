@@ -207,7 +207,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["homepage_html"] = _get_text(origin + "/", timeout)
         page["sitemap_xml"] = _get_text(urljoin(origin, "/sitemap.xml"), timeout)
         page["fetch_time_ms"] = int(r.elapsed.total_seconds() * 1000)
-        page["agent_probe_status"] = _probe_as_agent(target, timeout)
+        probe = _probe_as_agent(target, timeout)
+        page["agent_probe_status"] = probe["status"]
+        page["agent_probe_detail"] = probe
 
         # Rendered DOM: Playwright fetch for JS-heavy sites
         # Auto-enable if Playwright is installed and page looks JS-heavy,
@@ -253,23 +255,35 @@ def fetch(target: str, timeout: int = 30) -> dict:
     return page
 
 
-def _probe_as_agent(url: str, timeout: int) -> int | None:
-    """Probe the URL with a bot-like user-agent, 2-of-3 vote to reduce flakiness.
+def _probe_as_agent(url: str, timeout: int) -> dict:
+    """Probe the URL with a self-asserted bot UA, 2-of-3 vote to reduce flakiness.
+
+    Returns a dict with:
+      status: HTTP status code (majority vote) or None
+      readable_words: word count of response body (0 = challenge/empty)
+      challenge: True if response looks like a WAF/bot challenge page
+      inconclusive: True if all attempts timed out or failed
+      note: 'self-asserted UA, not verified vendor IP'
 
     A single transient 403/429 can collapse the score by tens of points via the
     access gate. Voting smooths out WAF flakiness and CDN edge inconsistencies.
     """
+    result = {"status": None, "readable_words": 0, "challenge": False,
+              "inconclusive": False, "note": "self-asserted UA, not verified vendor IP"}
     try:
         import requests
     except ImportError:
-        return None
+        result["inconclusive"] = True
+        return result
 
     statuses = []
+    last_response = None
     for _ in range(3):
         try:
             r = requests.get(url, timeout=timeout,
                              headers={"User-Agent": "GPTBot/1.0"})
             statuses.append(r.status_code)
+            last_response = r
         except Exception:
             statuses.append(None)
         if len(statuses) >= 2 and statuses.count(statuses[0]) >= 2:
@@ -278,9 +292,30 @@ def _probe_as_agent(url: str, timeout: int) -> int | None:
     # Majority vote: pick the most common status
     valid = [s for s in statuses if s is not None]
     if not valid:
-        return None
+        result["inconclusive"] = True
+        return result
+
     from collections import Counter
-    return Counter(valid).most_common(1)[0][0]
+    result["status"] = Counter(valid).most_common(1)[0][0]
+
+    # Analyze response body for challenge signatures and readable content
+    if last_response is not None:
+        body = last_response.text or ""
+        import re
+        # Strip tags for word count
+        text = re.sub(r"<[^>]+>", " ", body)
+        words = len(text.split())
+        result["readable_words"] = words
+
+        # Detect common WAF/bot challenge pages
+        bl = body.lower()
+        challenge_sigs = ("cf-challenge", "challenge-platform", "captcha",
+                          "checking your browser", "please verify",
+                          "access denied", "bot detection", "ddos protection")
+        if any(sig in bl for sig in challenge_sigs):
+            result["challenge"] = True
+
+    return result
 
 
 def _probe_ok(url: str, timeout: int) -> bool:
