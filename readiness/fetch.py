@@ -164,7 +164,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
                     "jsonld": [], "meta": {}, "title": "", "links": [],
                     "llms_txt": False, "llms_txt_content": None, "robots": None,
                     "cart_api": None, "checkout_html": None, "homepage_html": None,
-                    "sitemap_xml": None, "fetch_time_ms": None,
+                    "sitemap_xml": None, "mcp_json": None,
+                    "oauth_discovery": None, "markdown_negotiation": None,
+                    "fetch_time_ms": None,
                     "agent_probe_status": None, "_fetch_error": str(e)}
         # If rate-limited (429), fall back to Playwright (real browser UA)
         if r.status_code == 429:
@@ -189,6 +191,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["checkout_html"] = _get_text(urljoin(origin, "/checkout"), timeout)
                 page["homepage_html"] = _get_text(origin + "/", timeout)
                 page["sitemap_xml"] = _get_text(urljoin(origin, "/sitemap.xml"), timeout)
+                page["mcp_json"] = _get_json(urljoin(origin, "/.well-known/mcp.json"), timeout)
+                page["oauth_discovery"] = _get_json(urljoin(origin, "/.well-known/oauth-authorization-server"), timeout)
+                page["markdown_negotiation"] = _probe_markdown_negotiation(target, timeout)
                 page["fetch_time_ms"] = None  # not measurable after 429 recovery
                 page["agent_probe_status"] = 429  # we already know it rate-limits
                 return page
@@ -206,6 +211,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["checkout_html"] = _get_text(urljoin(origin, "/checkout"), timeout)
         page["homepage_html"] = _get_text(origin + "/", timeout)
         page["sitemap_xml"] = _get_text(urljoin(origin, "/sitemap.xml"), timeout)
+        page["mcp_json"] = _get_json(urljoin(origin, "/.well-known/mcp.json"), timeout)
+        page["oauth_discovery"] = _get_json(urljoin(origin, "/.well-known/oauth-authorization-server"), timeout)
+        page["markdown_negotiation"] = _probe_markdown_negotiation(target, timeout)
         page["fetch_time_ms"] = int(r.elapsed.total_seconds() * 1000)
         probe = _probe_as_agent(target, timeout)
         page["agent_probe_status"] = probe["status"]
@@ -250,6 +258,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["checkout_html"] = None
         page["homepage_html"] = None
         page["sitemap_xml"] = None
+        page["mcp_json"] = None
+        page["oauth_discovery"] = None
+        page["markdown_negotiation"] = None
         page["fetch_time_ms"] = None
         page["agent_probe_status"] = None
     return page
@@ -333,6 +344,37 @@ def _get_text(url: str, timeout: int):
         return r.text if r.status_code == 200 else None
     except Exception:
         return None
+
+
+def _probe_markdown_negotiation(url: str, timeout: int) -> dict | None:
+    """Probe whether the server supports content negotiation for markdown."""
+    try:
+        import requests
+        r = requests.get(url, timeout=timeout,
+                         headers={"Accept": "text/markdown",
+                                  "User-Agent": "agent-a-readiness-scanner/0.1"})
+        ct = r.headers.get("Content-Type", "")
+        return {
+            "status": r.status_code,
+            "content_type": ct,
+            "supports_markdown": "markdown" in ct.lower(),
+            "body_length": len(r.text) if r.status_code == 200 else 0,
+        }
+    except Exception:
+        return None
+
+
+def _get_json(url: str, timeout: int) -> dict | None:
+    """Fetch a URL and parse as JSON. Returns parsed dict or None."""
+    try:
+        import requests
+        r = requests.get(url, timeout=timeout,
+                         headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
 
 
 def is_dead_page(page: dict) -> str | None:

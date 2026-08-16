@@ -68,6 +68,7 @@ def analyze(page: dict, llms_txt_content: str | None = None) -> dict:
         "chat_agents": _detect_chat_agents(page),
         "structured_data": _analyze_structured_data(page),
         "agent_commerce": _detect_agent_commerce(page, llms_txt_content),
+        "agent_protocols": _detect_agent_protocols(page),
         "meta_directives": _analyze_meta_robots(page),
     }
     intel["summary"] = _build_summary(intel)
@@ -227,6 +228,62 @@ def _detect_agent_commerce(page: dict, llms_txt_content: str | None) -> list[dic
     return protocols
 
 
+def _detect_agent_protocols(page: dict) -> list[dict]:
+    """Detect emerging agent infrastructure protocols (MCP, OAuth, x402, markdown negotiation)."""
+    protocols = []
+
+    # MCP Server Card — /.well-known/mcp.json
+    mcp = page.get("mcp_json")
+    if mcp is None:
+        pass  # not probed (local file mode)
+    elif mcp:
+        protocols.append({
+            "protocol": "MCP",
+            "name": "Model Context Protocol Server Card",
+            "status": "active",
+            "detail": "MCP server card found at /.well-known/mcp.json — agents can discover available tools.",
+        })
+
+    # OAuth discovery — /.well-known/oauth-authorization-server
+    oauth = page.get("oauth_discovery")
+    if oauth is None:
+        pass
+    elif oauth:
+        issuer = oauth.get("issuer", "")
+        protocols.append({
+            "protocol": "OAuth",
+            "name": "OAuth Authorization Server Discovery",
+            "status": "active",
+            "detail": f"OAuth discovery endpoint found — agents can authenticate via standard OAuth flow{' (issuer: ' + issuer + ')' if issuer else ''}.",
+        })
+
+    # Markdown content negotiation — Accept: text/markdown
+    md = page.get("markdown_negotiation")
+    if md is None:
+        pass
+    elif md and md.get("supports_markdown"):
+        protocols.append({
+            "protocol": "Markdown",
+            "name": "Markdown Content Negotiation",
+            "status": "active",
+            "detail": "Site serves markdown when requested (Accept: text/markdown) — agents get clean, parseable content.",
+        })
+
+    # x402 / payment protocol signals — check HTML and llms.txt for references
+    html = (page.get("html", "") or "").lower()
+    llms = (page.get("llms_txt_content") or "").lower()
+    has_x402 = "x402" in html or "x402" in llms or "402-receipt" in html
+    if has_x402:
+        protocols.append({
+            "protocol": "x402",
+            "name": "x402 Payment Protocol",
+            "status": "referenced",
+            "detail": "x402 payment protocol references found — site may support agent micropayments.",
+        })
+
+    return protocols
+
+
 def _analyze_meta_robots(page: dict) -> dict:
     meta = page.get("meta", {})
     robots_meta = meta.get("robots", "")
@@ -272,6 +329,11 @@ def _build_summary(intel: dict) -> list[str]:
     if commerce:
         names = ", ".join(c["protocol"] for c in commerce)
         points.append(f"Agent commerce enabled: {names}")
+
+    ap = intel.get("agent_protocols", [])
+    if ap:
+        names = ", ".join(p["protocol"] for p in ap)
+        points.append(f"Agent infrastructure protocols: {names}")
 
     chat = intel.get("chat_agents", [])
     if chat:
