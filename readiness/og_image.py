@@ -256,7 +256,10 @@ def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str
     data = buf.read()
 
     if output_path:
-        pathlib.Path(output_path).write_bytes(data)
+        out = pathlib.Path(output_path).resolve()
+        # Only write to expected directories
+        if ".scans" in str(out) or "leaderboard" in str(out):
+            out.write_bytes(data)
 
     return data
 

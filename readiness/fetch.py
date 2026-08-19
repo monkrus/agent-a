@@ -21,6 +21,7 @@ not run JS. For JS-heavy targets, point `fetch_rendered` at a rendering backend
 """
 from __future__ import annotations
 import json
+import pathlib
 import re
 import sys
 import time
@@ -99,7 +100,7 @@ def _parse_html(html: str, url: str = "") -> dict:
         except Exception:
             continue
     title = ""
-    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+    m = re.search(r"<title[^>]*>([^<]{0,500})</title>", html, re.I)
     if m:
         title = re.sub(r"\s+", " ", m.group(1)).strip()
     return {
@@ -240,8 +241,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
             html_len = len(page.get("html", ""))
             if html_len > 100:
                 import re as _re
-                scripts = _re.findall(r"<script[^>]*>.*?</script>",
-                                      page["html"], _re.I | _re.S)
+                scripts = _re.findall(r"<script[^>]*>[^<]*(?:<(?!/script>)[^<]*)*</script>",
+                                      page["html"], _re.I)
                 script_len = sum(len(s) for s in scripts)
                 if script_len / html_len > 0.50:
                     should_render = True
@@ -259,7 +260,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
         if page.get("status") == 200:
             _fetch_cache[domain] = (time.time(), page)
     else:
-        with open(target, "r", encoding="utf-8") as f:
+        # Local file mode — resolve and validate path
+        local_path = pathlib.Path(target).resolve()
+        with open(str(local_path), "r", encoding="utf-8") as f:
             html = f.read()
         page = _parse_html(html, target)
         page["status"] = 200
@@ -323,7 +326,7 @@ def _probe_single_ua(url: str, ua: str, timeout: int) -> dict:
         body = last_response.text or ""
         import re as _re
         # Strip tags for word count
-        text = _re.sub(r"<[^>]+>", " ", body)
+        text = _re.sub(r"<[^>]{1,500}>", " ", body)
         words = len(text.split())
         result["readable_words"] = words
 

@@ -9,6 +9,7 @@ import re
 import sys
 import time
 from urllib.parse import urlparse
+from urllib.parse import urlparse
 
 import requests
 
@@ -114,9 +115,10 @@ def check_domain(domain):
         html = r.text[:50000]
 
         # Shopify detection
-        if "cdn.shopify.com" in html or "Shopify.theme" in html or "shopify-section" in html:
+        shopify_markers = ("cdn.shopify.com", "Shopify.theme", "shopify-section")
+        if any(marker in html for marker in shopify_markers):
             result["shopify"] = True
-        if "myshopify.com" in r.url:
+        if urlparse(r.url).netloc.endswith(".myshopify.com"):
             result["shopify"] = True
     except Exception as e:
         print(f"  Homepage error: {e}")

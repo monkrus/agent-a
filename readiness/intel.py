@@ -167,7 +167,7 @@ def _analyze_llms_txt(page: dict, content: str | None) -> dict:
 
 def _detect_chat_agents(page: dict) -> list[dict]:
     html = (page.get("html", "") or "").lower()
-    scripts = re.findall(r'<script[^>]*src=["\']([^"\']+)["\']', html, re.I)
+    scripts = re.findall(r'<script[^>]*src=["\']([^"\']{1,500})["\']', html, re.I)
     script_text = " ".join(scripts).lower()
     found = []
 

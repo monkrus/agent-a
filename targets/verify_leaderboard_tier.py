@@ -147,7 +147,7 @@ def check_domain(domain):
                 result["live"] = True
                 html = r.text[:80000]
                 # Platform detection
-                if "cdn.shopify.com" in html or "Shopify.theme" in html:
+                if "cdn.shopify.com" in html or "Shopify.theme" in html:  # noqa: CodeQL — platform detection on fetched HTML, not URL validation
                     result["platform"] = "Shopify"
                 elif "bigcommerce" in html.lower():
                     result["platform"] = "BigCommerce"

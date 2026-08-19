@@ -202,7 +202,10 @@ def _load_scan(scan_id):
     import re as _re
     if not _re.match(r'^[a-f0-9]{12}$', scan_id):
         return None
-    path = SCANS_DIR / f"{scan_id}.json"
+    path = (SCANS_DIR / f"{scan_id}.json").resolve()
+    # Ensure resolved path is still within SCANS_DIR (prevent traversal)
+    if not str(path).startswith(str(SCANS_DIR.resolve())):
+        return None
     if not path.exists():
         return None
     return json.loads(path.read_text())
@@ -312,7 +315,7 @@ def scan_stream():
         try:
             page = fetchmod.fetch(url)
         except Exception as e:
-            yield "data: " + json.dumps({"type": "error", "message": f"Fetch failed: {e}"}) + "\n\n"
+            yield "data: " + json.dumps({"type": "error", "message": "Fetch failed. Check the URL and try again."}) + "\n\n"
             return
 
         dead = fetchmod.is_dead_page(page)
@@ -752,7 +755,9 @@ def share_og_image(scan_id):
         abort(404)
 
     # Check cached OG image
-    og_path = SCANS_DIR / f"{scan_id}_og.png"
+    og_path = (SCANS_DIR / f"{scan_id}_og.png").resolve()
+    if not str(og_path).startswith(str(SCANS_DIR.resolve())):
+        abort(400)
     if og_path.exists():
         return Response(og_path.read_bytes(), mimetype="image/png",
                         headers={"Cache-Control": "public, max-age=86400"})
@@ -767,7 +772,7 @@ def share_og_image(scan_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", port=5000)
 else:
     # Production guard: DEV_MODE must not be enabled outside debug mode
     if os.environ.get("DEV_MODE", "").lower() == "true" and not app.debug:
