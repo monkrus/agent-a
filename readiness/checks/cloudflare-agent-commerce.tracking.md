@@ -1,51 +1,84 @@
 # Cloudflare Agent Commerce — Spec Tracking for New Checks
 # Created: 2026-08-13
-# Status: WATCHING — specs not final, no checks to implement yet
+# Updated: 2026-08-18 — specs now public, RDY-032 implemented
+# Status: PARTIALLY IMPLEMENTED — x402 signal check live (RDY-032), deeper checks pending GA
 
 ## Context
 
-Cloudflare announced (Aug 2026) two primitives for agentic commerce:
-1. **Agent Identity** — stable web-addressable ID per agent, tied to a CF account
-2. **Agent Wallet** — stablecoins, spending caps, merchant whitelisting, tx limits
-3. **Monetization Gateway** — two-sided marketplace connecting agent wallets to merchant endpoints
+Cloudflare announced (Aug 4, 2026) three primitives for agentic commerce:
+1. **Agent Identity** — stable web-addressable ID per agent via Web Bot Auth keypairs + cloudflare.pay handles
+2. **Agent Wallet** — two-tier: Account Wallets (human-funded) → Virtual Wallets (per-agent, capped). Stablecoins (USDC) on Base, Ethereum, Polygon, Solana, etc.
+3. **Monetization Gateway** — seller-side product: charge per-request for APIs, pages, MCP tools via x402/MPP
 
-Source: cloudflare.com/press/press-releases/2026/cloudflare-gives-ai-agents-an-identity-and-a-wallet/
+Sources:
+- blog.cloudflare.com/wallets/
+- blog.cloudflare.com/monetization-gateway/
+- blog.cloudflare.com/x402/
+- developers.cloudflare.com/agents/tools/payments/x402/
+- developers.cloudflare.com/agents/tools/payments/mpp/
 
-## Candidate checks to add when specs ship
+## Protocol specs (now public)
+
+### x402 protocol (HTTP 402 Payment Required)
+1. Client requests resource → server returns **HTTP 402** with `PAYMENT-REQUIRED` header (base64: price, token, network, merchant address)
+2. Client signs payment → retries with `PAYMENT-SIGNATURE` header
+3. Server verifies via facilitator (`POST /verify`, `POST /settle`) → returns resource + `PAYMENT-RESPONSE` header
+4. Merchant never holds funds; facilitator processes on-chain settlement
+
+### MPP (Machine Payments Protocol)
+- Backwards-compatible with x402
+- Extends to support Stripe cards + custom payment methods alongside stablecoins
+- Supports charge, session, and subscription payment models
+- Same HTTP 402 flow with payment challenges in auth headers
+
+### Seller-side integration
+- **Monetization Gateway**: configure rules via CF dashboard, API, or Terraform
+- **x402-proxy Worker template**: sits in front of HTTP backend, handles payment verification
+- **x402-hono middleware**: `paymentMiddleware("0xAddr", {"/premium": {price: "$0.10", network: "base-sepolia"}})`
+- **Config**: `wrangler.jsonc` with `PAY_TO`, `NETWORK`, `PROTECTED_PATTERNS`
+
+## Current status (Aug 2026)
+
+| Component | Status |
+|---|---|
+| x402 protocol spec | Public, x402.org |
+| x402 Foundation | Launched with Coinbase |
+| Monetization Gateway | Waitlist / early access |
+| Cloudflare Wallets | Announced, cloudflare.pay handles claimable, wallets not yet funded |
+| Shopify integration | Not announced |
+
+## Implemented checks
+
+### RDY-032: x402 / agent wallet compatibility (LIVE)
+- **Layer**: Interaction (agent-checkout)
+- **Type**: static, weight 2, severity medium
+- **Detects**: x402 references, PAYMENT-REQUIRED/PAYMENT-SIGNATURE headers, MPP signals, Monetization Gateway markers, cloudflare.pay, .well-known/agent-verification
+- **Current reality**: ~0% of Shopify stores will pass (protocol is too new). Forward-looking signal.
+- **Fetch probe**: .well-known/agent-verification added to fetch.py
+
+## Candidate checks (pending GA adoption)
 
 ### CHECK 1: Agent identity verification endpoint
 - **Layer**: Data (agent-access)
-- **What to detect**: Does the site publish a `.well-known/agent-verification` or similar manifest that tells agents how to present identity?
-- **Signal**: HTTP GET to `.well-known/` path, or `<meta>` tag, or response header (e.g., `CF-Agent-Auth: supported`)
-- **Severity**: medium (early adopter advantage, not yet critical)
-- **Watch for**: Cloudflare docs on "Monetization Gateway" merchant setup — the merchant-side config will reveal the discoverable format
-- **Blocked on**: Cloudflare hasn't published the spec yet
-
-### CHECK 2: Agent-compatible payment flow
-- **Layer**: Interaction (agent-checkout)
-- **What to detect**: Can an agent complete a purchase without a full browser session? Does the checkout accept programmatic payment (API-based, not form-fill)?
-- **Signal**: Presence of checkout API endpoints, headless-compatible payment forms, or CF Monetization Gateway integration
-- **Severity**: high (agents with wallets can't spend if checkout requires manual form-fill)
-- **Existing coverage**: RDY-019 (checkout reachable), RDY-022 (guest checkout), RDY-023 (cart API) partially cover this. New check would test the payment step specifically.
-- **Watch for**: CF wallet integration SDK/docs for merchants
-- **Blocked on**: Wallet payment flow spec not public
-
-### CHECK 3: Verified-agent access policy
-- **Layer**: Data (agent-access)
-- **What to detect**: Does the site distinguish between verified agents (with CF identity) and anonymous bots? Does robots.txt or a new manifest grant different access to authenticated agents?
-- **Signal**: New robots.txt directives, `.well-known/agents.json`, or CF-specific headers
+- **What to detect**: Does the site publish a `.well-known/agent-verification` or Web Bot Auth manifest?
+- **Signal**: HTTP GET to `.well-known/agent-verification`, or CF-Agent-Auth header
 - **Severity**: medium
-- **Existing coverage**: RDY-003 (robots.txt), RDY-031 (rate limiting) test anonymous access. New check would test whether verified agents get better access.
-- **Watch for**: robots.txt extensions or new standards for agent auth
-- **Blocked on**: No standard exists yet
+- **Status**: Fetch probe added (returns JSON or None). Promote to scored check when adoption > 5%.
 
-### CHECK 4: Monetization Gateway integration
+### CHECK 2: Verified-agent access policy
+- **Layer**: Data (agent-access)
+- **What to detect**: Does the site grant different access to verified agents vs anonymous bots?
+- **Signal**: robots.txt extensions, `.well-known/agents.json`, or CF-specific headers
+- **Severity**: medium
+- **Existing coverage**: RDY-003 (robots.txt), RDY-031 (rate limiting) test anonymous access
+- **Blocked on**: No standard for agent auth in robots.txt yet
+
+### CHECK 3: Active Monetization Gateway integration
 - **Layer**: Interaction
-- **What to detect**: Is the site connected to Cloudflare's Monetization Gateway (or similar agent commerce gateway)?
-- **Signal**: CF script tags, response headers, DNS records pointing to CF gateway
-- **Severity**: low initially, rising as adoption grows
-- **Watch for**: CF dashboard docs, merchant onboarding flow
-- **Blocked on**: Gateway not yet generally available
+- **What to detect**: Is the site actively using Monetization Gateway (returning 402s with payment terms)?
+- **Signal**: HTTP 402 responses to specific paths, x402 headers in responses
+- **Severity**: low → medium as adoption grows
+- **Note**: Would require an active probe (send request, check for 402) — more invasive than current static checks
 
 ## How to monitor
 
@@ -65,7 +98,7 @@ verified agent when probing sites. Benefits:
 
 ## Timeline estimate
 
-- **Now**: Track specs, reference in outreach (positioning only)
-- **When CF publishes merchant SDK**: Prototype CHECK 1 (identity endpoint detection)
-- **When wallets go live**: Prototype CHECK 2 (payment flow compatibility)
-- **When adoption hits ~10% of Shopify stores**: Promote checks to scored (weighted in YAML)
+- **Done**: RDY-032 x402 signal check + .well-known/agent-verification probe
+- **When Monetization Gateway goes GA**: Promote CHECK 3 (active 402 probe)
+- **When Shopify announces CF wallet integration**: Add Shopify-specific x402 check
+- **When adoption hits ~10% of Shopify stores**: Increase RDY-032 weight, promote CHECK 1 + 2 to scored

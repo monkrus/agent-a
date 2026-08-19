@@ -1,0 +1,8 @@
+.scans/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+tests/
+record_demo.py
+cloudflare-agent-commerce.tracking.md

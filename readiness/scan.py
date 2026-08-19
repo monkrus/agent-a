@@ -90,15 +90,16 @@ def scan(checks, page, n):
         # Shopper checks: batched — all tasks in one API call per run
         if shopper_checks:
             tasks = {c["id"]: c["task"] for c in shopper_checks}
-            # N batched calls in parallel (each call asks all shopper questions)
-            with ThreadPoolExecutor(max_workers=n) as pool:
+            # N batched calls in parallel (capped at 10 workers to avoid rate limits)
+            workers = min(n, 10)
+            with ThreadPoolExecutor(max_workers=workers) as pool:
                 batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
             # Transpose: {check_id: [answer_run1, answer_run2, ...]}
             answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
             for c in shopper_checks:
                 answers = answers_by_check[c["id"]]
                 g = scorers.grade_shopper(c, page, answers)
-                results.append({**_base(c), **g, "sample_answers": answers[:5]})
+                results.append({**_base(c), **g, "sample_answers": answers})
 
     return results
 

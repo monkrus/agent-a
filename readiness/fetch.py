@@ -166,6 +166,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
                     "cart_api": None, "checkout_html": None, "homepage_html": None,
                     "sitemap_xml": None, "mcp_json": None,
                     "oauth_discovery": None, "markdown_negotiation": None,
+                    "agent_verification": None, "a2a_agent_card": None,
+                    "auth_md": None, "link_headers": None, "dns_aid": None,
                     "fetch_time_ms": None,
                     "agent_probe_status": None, "_fetch_error": str(e)}
         # If rate-limited (429), fall back to Playwright (real browser UA)
@@ -194,6 +196,11 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["mcp_json"] = _get_json(urljoin(origin, "/.well-known/mcp.json"), timeout)
                 page["oauth_discovery"] = _get_json(urljoin(origin, "/.well-known/oauth-authorization-server"), timeout)
                 page["markdown_negotiation"] = _probe_markdown_negotiation(target, timeout)
+                page["agent_verification"] = _get_json(urljoin(origin, "/.well-known/agent-verification"), timeout)
+                page["a2a_agent_card"] = _get_json(urljoin(origin, "/.well-known/agent.json"), timeout)
+                page["auth_md"] = _get_text(urljoin(origin, "/auth.md"), timeout)
+                page["link_headers"] = _probe_link_headers(target, timeout)
+                page["dns_aid"] = _probe_dns_aid(urlparse(final_url).netloc)
                 page["fetch_time_ms"] = None  # not measurable after 429 recovery
                 page["agent_probe_status"] = 429  # we already know it rate-limits
                 return page
@@ -214,6 +221,11 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["mcp_json"] = _get_json(urljoin(origin, "/.well-known/mcp.json"), timeout)
         page["oauth_discovery"] = _get_json(urljoin(origin, "/.well-known/oauth-authorization-server"), timeout)
         page["markdown_negotiation"] = _probe_markdown_negotiation(target, timeout)
+        page["agent_verification"] = _get_json(urljoin(origin, "/.well-known/agent-verification"), timeout)
+        page["a2a_agent_card"] = _get_json(urljoin(origin, "/.well-known/agent.json"), timeout)
+        page["auth_md"] = _get_text(urljoin(origin, "/auth.md"), timeout)
+        page["link_headers"] = _probe_link_headers(target, timeout)
+        page["dns_aid"] = _probe_dns_aid(urlparse(final_url).netloc)
         page["fetch_time_ms"] = int(r.elapsed.total_seconds() * 1000)
         probe = _probe_as_agent(target, timeout)
         page["agent_probe_status"] = probe["status"]
@@ -261,38 +273,35 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["mcp_json"] = None
         page["oauth_discovery"] = None
         page["markdown_negotiation"] = None
+        page["agent_verification"] = None
+        page["a2a_agent_card"] = None
+        page["auth_md"] = None
+        page["link_headers"] = None
+        page["dns_aid"] = None
         page["fetch_time_ms"] = None
         page["agent_probe_status"] = None
     return page
 
 
-def _probe_as_agent(url: str, timeout: int) -> dict:
-    """Probe the URL with a self-asserted bot UA, 2-of-3 vote to reduce flakiness.
+def _probe_single_ua(url: str, ua: str, timeout: int) -> dict:
+    """Probe the URL with a single bot UA, 2-of-3 vote to reduce flakiness.
 
     Returns a dict with:
       status: HTTP status code (majority vote) or None
       readable_words: word count of response body (0 = challenge/empty)
       challenge: True if response looks like a WAF/bot challenge page
       inconclusive: True if all attempts timed out or failed
-      note: 'self-asserted UA, not verified vendor IP'
-
-    A single transient 403/429 can collapse the score by tens of points via the
-    access gate. Voting smooths out WAF flakiness and CDN edge inconsistencies.
     """
+    import requests as _requests
     result = {"status": None, "readable_words": 0, "challenge": False,
-              "inconclusive": False, "note": "self-asserted UA, not verified vendor IP"}
-    try:
-        import requests
-    except ImportError:
-        result["inconclusive"] = True
-        return result
+              "inconclusive": False}
 
     statuses = []
     last_response = None
     for _ in range(3):
         try:
-            r = requests.get(url, timeout=timeout,
-                             headers={"User-Agent": "GPTBot/1.0"})
+            r = _requests.get(url, timeout=timeout,
+                              headers={"User-Agent": ua})
             statuses.append(r.status_code)
             last_response = r
         except Exception:
@@ -312,9 +321,9 @@ def _probe_as_agent(url: str, timeout: int) -> dict:
     # Analyze response body for challenge signatures and readable content
     if last_response is not None:
         body = last_response.text or ""
-        import re
+        import re as _re
         # Strip tags for word count
-        text = re.sub(r"<[^>]+>", " ", body)
+        text = _re.sub(r"<[^>]+>", " ", body)
         words = len(text.split())
         result["readable_words"] = words
 
@@ -325,6 +334,74 @@ def _probe_as_agent(url: str, timeout: int) -> dict:
                           "access denied", "bot detection", "ddos protection")
         if any(sig in bl for sig in challenge_sigs):
             result["challenge"] = True
+
+    return result
+
+
+# The four AI crawler user-agents to probe
+_AGENT_UAS = [
+    ("GPTBot", "GPTBot/1.0"),
+    ("ClaudeBot", "ClaudeBot/1.0"),
+    ("PerplexityBot", "PerplexityBot/1.0"),
+    ("OAI-SearchBot", "OAI-SearchBot/1.0"),
+]
+
+
+def _probe_as_agent(url: str, timeout: int) -> dict:
+    """Probe the URL with multiple AI crawler UAs, 2-of-3 vote per UA.
+
+    Probes four user-agents sequentially (to avoid triggering rate limits):
+    GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot.
+
+    Returns a dict with:
+      status: HTTP status from GPTBot (backwards compat)
+      readable_words: word count from GPTBot response
+      challenge: True if GPTBot response looks like a WAF/bot challenge
+      inconclusive: True if GPTBot probe was inconclusive
+      note: 'self-asserted UA, not verified vendor IP'
+      per_ua: dict mapping UA name to {status, readable_words, challenge}
+      blocked_uas: list of UA names that got 403/429/challenge
+      allowed_uas: list of UA names that got 200 without challenge
+    """
+    result = {"status": None, "readable_words": 0, "challenge": False,
+              "inconclusive": False, "note": "self-asserted UA, not verified vendor IP",
+              "per_ua": {}, "blocked_uas": [], "allowed_uas": []}
+    try:
+        import requests  # noqa: F401 — ensure requests is importable
+    except ImportError:
+        result["inconclusive"] = True
+        return result
+
+    blocked = []
+    allowed = []
+
+    for ua_name, ua_string in _AGENT_UAS:
+        probe = _probe_single_ua(url, ua_string, timeout)
+        result["per_ua"][ua_name] = {
+            "status": probe["status"],
+            "readable_words": probe["readable_words"],
+            "challenge": probe["challenge"],
+        }
+
+        # Classify: blocked if 403, 429, or challenge detected
+        status = probe["status"]
+        if probe["challenge"] or status in (403, 429):
+            blocked.append(ua_name)
+        elif status == 200:
+            allowed.append(ua_name)
+        # Other statuses (None/inconclusive, 5xx, etc.) go in neither list
+
+    result["blocked_uas"] = blocked
+    result["allowed_uas"] = allowed
+
+    # Backwards compat: top-level fields use GPTBot result
+    gpt_probe = result["per_ua"].get("GPTBot", {})
+    result["status"] = gpt_probe.get("status")
+    result["readable_words"] = gpt_probe.get("readable_words", 0)
+    result["challenge"] = gpt_probe.get("challenge", False)
+    # inconclusive only if GPTBot itself was inconclusive
+    if gpt_probe.get("status") is None:
+        result["inconclusive"] = True
 
     return result
 
@@ -375,6 +452,38 @@ def _get_json(url: str, timeout: int) -> dict | None:
     except Exception:
         pass
     return None
+
+
+def _probe_link_headers(url: str, timeout: int) -> dict | None:
+    """Check response headers for Link rel=describedby, rel=api-catalog, etc."""
+    try:
+        import requests
+        r = requests.head(url, timeout=timeout, allow_redirects=True,
+                          headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+        link_header = r.headers.get("Link", "")
+        return {
+            "link_header": link_header or None,
+            "has_describedby": "describedby" in link_header.lower(),
+            "has_api_catalog": "api-catalog" in link_header.lower() or "api-description" in link_header.lower(),
+            "has_search": 'rel="search"' in link_header.lower(),
+        } if link_header else {"link_header": None, "has_describedby": False,
+                                "has_api_catalog": False, "has_search": False}
+    except Exception:
+        return None
+
+
+def _probe_dns_aid(domain: str) -> dict | None:
+    """Check DNS TXT records for AI Discovery (DNS-AID) entries."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["nslookup", "-type=TXT", f"_ai.{domain}"],
+            capture_output=True, text=True, timeout=10)
+        output = result.stdout + result.stderr
+        has_aid = "_ai." in output and "text" in output.lower()
+        return {"has_dns_aid": has_aid, "raw": output[:500] if has_aid else None}
+    except Exception:
+        return {"has_dns_aid": False, "raw": None}
 
 
 def is_dead_page(page: dict) -> str | None:

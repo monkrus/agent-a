@@ -1,0 +1,28 @@
+# Render.com deployment config
+# https://render.com/docs/deploy-flask
+services:
+  - type: web
+    name: agent-readiness-scanner
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SHOPPER
+        value: anthropic
+      - key: ANTHROPIC_API_KEY
+        sync: false  # set manually in Render dashboard
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: SCAN_N
+        value: "5"
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false

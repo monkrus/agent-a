@@ -85,6 +85,16 @@ def estimate(results: list[dict], product_price: float | None = None,
             f"Agent conversion rate: {conv_rate_low:.0%}–{conv_rate_high:.0%} (when working)",
             "Sources: Gartner AI in Commerce 2026, Forrester Channel Mix",
         ],
+        "derivation": {
+            "price_source": ("provided" if product_price != 50.0
+                             else "fallback ($50 default — plug in real AOV for accuracy)"),
+            "visits_source": ("provided" if monthly_visits is not None
+                              else f"estimated from AOV (formula: 320k - AOV×800, clamped 80k–300k)"),
+            "ai_share_source": "Gartner AI in Commerce 2026 (5–15% range)",
+            "conv_rate_source": "Forrester Channel Mix — organic search analog (2–4%)",
+            "formula": ("monthly_loss = monthly_visits × ai_share × agent_fail_rate "
+                        "× conv_rate × product_price"),
+        },
     }
 
 

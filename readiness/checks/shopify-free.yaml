@@ -1,6 +1,6 @@
 # Free agentic-readiness check pack — static-only, no API calls.
 #
-# 18 checks: the 13 original static checks + 5 static proxies for the
+# 31 checks: static checks + static proxies for the
 # browser-agent flows. Produces a meaningful score at zero cost.
 #
 # For full accuracy on interaction/extraction, use shopify-v1.yaml with
@@ -12,7 +12,7 @@ version: 2026Q3.1-free
 pack: shopify-readiness-free
 
 checks:
-  # ---- DATA LAYER (7 checks, 37 points) ----
+  # ---- DATA LAYER (8 checks, 37 points) ----
   - id: RDY-001
     type: static
     category: structured-data
@@ -20,7 +20,7 @@ checks:
     detect: jsonld_product
     expect: A schema.org/Product JSON-LD block with offers.price and availability.
     fail_if: No Product JSON-LD, or price/availability missing.
-    weight: 9
+    weight: 7
     severity_if_fail: critical
     fix: Emit schema.org/Product JSON-LD including offers.price, priceCurrency, and availability.
 
@@ -31,7 +31,7 @@ checks:
     detect: price_in_html
     expect: A currency-formatted price string is present in the raw HTML response.
     fail_if: No price string in the server HTML (price injected by client-side JS only).
-    weight: 9
+    weight: 7
     severity_if_fail: critical
     fix: Server-render the price into HTML; agents and crawlers often do not execute JS.
 
@@ -53,7 +53,7 @@ checks:
     detect: policy_text_present
     expect: A return or refund policy is linked and served as readable text.
     fail_if: No discoverable return/refund policy text (missing, or PDF/image only).
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Publish return & shipping policies as plain HTML text with clear, linkable URLs.
 
@@ -90,6 +90,17 @@ checks:
     severity_if_fail: high
     fix: Add schema.org/Product JSON-LD with price and availability, or server-render key product content.
 
+  - id: RDY-033
+    type: static
+    category: availability-extraction
+    title: Availability signals are consistent across page
+    detect: contradictory_availability
+    expect: JSON-LD availability matches visible text (no "InStock" in markup with "Sold Out" on page).
+    fail_if: JSON-LD and visible text give contradictory availability signals.
+    weight: 2
+    severity_if_fail: high
+    fix: Ensure JSON-LD availability matches the visible page state.
+
   # ---- INTERACTION LAYER (8 checks, 45 points) ----
   - id: RDY-014
     type: static
@@ -98,7 +109,7 @@ checks:
     detect: cart_semantic
     expect: A form or button with cart/purchase semantics exists in server HTML.
     fail_if: No identifiable Add-to-Cart action in the DOM.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Use a semantic form with action and a button with clear name/aria-label for Add to Cart.
 
@@ -109,7 +120,7 @@ checks:
     detect: variant_selectors
     expect: Size and color options use select, radio inputs, or labeled fieldsets.
     fail_if: Variant selection requires interacting with opaque JS widgets.
-    weight: 5
+    weight: 4
     severity_if_fail: medium
     fix: Use select elements or radio inputs with labels for size/color.
 
@@ -142,7 +153,7 @@ checks:
     detect: atc_flow_proxy
     expect: Product page has semantic ATC button, proper variant selectors, and cart API — agents can likely complete a purchase.
     fail_if: Multiple interaction barriers detected (missing ATC form, JS-only selectors, no cart API).
-    weight: 7
+    weight: 6
     severity_if_fail: high
     fix: Use semantic HTML for Add-to-Cart form, standard select elements for variants, and enable /cart/add.js.
 
@@ -153,7 +164,7 @@ checks:
     detect: search_accessible
     expect: Homepage has a search form, search input, or search landmark that agents can use.
     fail_if: No search form or input found on homepage.
-    weight: 5
+    weight: 4
     severity_if_fail: medium
     fix: Add a standard HTML search form or input[type=search] to the homepage.
 
@@ -175,7 +186,7 @@ checks:
     detect: nav_accessible
     expect: Homepage has navigation elements with links to products or collections.
     fail_if: No navigation with product or collection links found on homepage.
-    weight: 5
+    weight: 4
     severity_if_fail: medium
     fix: Use clear nav elements with links to product collections.
 
@@ -198,7 +209,7 @@ checks:
     detect: related_products
     expect: Page has a related/recommended products section with clickable links.
     fail_if: No related products section or product links for comparison.
-    weight: 5
+    weight: 4
     severity_if_fail: medium
     fix: Add a "You may also like" or "Related products" section with product links.
 
@@ -233,7 +244,7 @@ checks:
     detect: page_load_time
     expect: Product page responds in under 5 seconds.
     fail_if: Page takes more than 5 seconds to respond — agents with short timeouts will abandon the request.
-    weight: 2
+    weight: 1
     severity_if_fail: medium
     fix: Optimize server response time — reduce blocking resources, enable caching, and consider a CDN.
 
@@ -247,3 +258,103 @@ checks:
     weight: 3
     severity_if_fail: high
     fix: Allow AI agent user-agents in your WAF/CDN rules. Blocking agents blocks revenue from AI-referred traffic.
+
+  - id: RDY-032
+    type: static
+    category: agent-checkout
+    title: x402 / agent wallet compatibility signals present
+    detect: wallet_compatibility
+    expect: Site references x402 protocol, Cloudflare agent wallet, or exposes programmatic payment endpoints for agent commerce.
+    fail_if: No x402 or agent-wallet signals — site cannot accept payments from agents with Cloudflare wallets.
+    weight: 2
+    severity_if_fail: medium
+    fix: Prepare for agent wallet payments by exposing programmatic payment endpoints and monitoring the x402 / Cloudflare Monetization Gateway spec for merchant integration.
+
+  # ---- PROTOCOL DISCOVERY (8) ----
+  - id: RDY-034
+    type: static
+    category: agent-protocol
+    title: MCP Server Card published
+    detect: mcp_server_card
+    expect: A Model Context Protocol server card exists at /.well-known/mcp.json.
+    fail_if: No MCP server card — agents cannot discover available tools via MCP.
+    weight: 1
+    severity_if_fail: low
+    fix: Publish a /.well-known/mcp.json server card listing available tools for AI agents.
+
+  - id: RDY-035
+    type: static
+    category: agent-protocol
+    title: OAuth Authorization Server discovery
+    detect: oauth_discovery
+    expect: OAuth discovery endpoint exists at /.well-known/oauth-authorization-server.
+    fail_if: No OAuth discovery — agents cannot authenticate programmatically.
+    weight: 1
+    severity_if_fail: low
+    fix: Publish an OAuth authorization server metadata document at /.well-known/oauth-authorization-server.
+
+  - id: RDY-036
+    type: static
+    category: agent-protocol
+    title: Markdown content negotiation supported
+    detect: markdown_negotiation
+    expect: Site serves markdown when requested with Accept text/markdown header.
+    fail_if: No markdown negotiation — agents must parse HTML instead of clean text.
+    weight: 1
+    severity_if_fail: low
+    fix: Support Accept text/markdown content negotiation so agents can request clean, parseable content.
+
+  - id: RDY-037
+    type: static
+    category: agent-protocol
+    title: A2A Agent Card published (Google protocol)
+    detect: a2a_agent_card
+    expect: An Agent-to-Agent card exists at /.well-known/agent.json.
+    fail_if: No A2A agent card — agents cannot discover capabilities via Google A2A protocol.
+    weight: 1
+    severity_if_fail: low
+    fix: Publish a /.well-known/agent.json describing your agent's capabilities per the Google A2A spec.
+
+  - id: RDY-038
+    type: static
+    category: agent-protocol
+    title: Auth.md authentication documentation present
+    detect: auth_md
+    expect: An auth.md file exists at the site root with machine-readable auth docs.
+    fail_if: No auth.md — agents have no authentication documentation.
+    weight: 1
+    severity_if_fail: low
+    fix: Add an auth.md at your site root documenting authentication methods for agents.
+
+  - id: RDY-039
+    type: static
+    category: agent-discovery
+    title: Link response headers for agent discovery
+    detect: link_headers
+    expect: HTTP response includes Link headers with rel=describedby, api-catalog, or search.
+    fail_if: No Link response headers — agents cannot discover related resources or API descriptions.
+    weight: 1
+    severity_if_fail: low
+    fix: Add Link response headers (rel=describedby, rel=search) to help agents discover related resources.
+
+  - id: RDY-040
+    type: static
+    category: agent-discovery
+    title: DNS for AI Discovery (DNS-AID) records
+    detect: dns_aid
+    expect: DNS TXT record at _ai subdomain advertises AI agent capabilities.
+    fail_if: No DNS-AID record — agents cannot discover site capabilities via DNS.
+    weight: 1
+    severity_if_fail: low
+    fix: Add a DNS TXT record at _ai.yourdomain.com to advertise AI agent discovery information.
+
+  - id: RDY-041
+    type: static
+    category: agent-protocol
+    title: Agent commerce protocols (Skills, WebMCP, UCP, ACP)
+    detect: agent_skills
+    expect: Site references Agent Skills, WebMCP, UCP, or ACP for structured agent commerce.
+    fail_if: No agent commerce protocol signals — agents have no structured way to interact beyond HTML.
+    weight: 1
+    severity_if_fail: low
+    fix: Integrate agent commerce protocols (Agent Skills, WebMCP, UCP, or ACP) to let agents interact with your store programmatically.

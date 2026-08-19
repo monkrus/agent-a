@@ -580,33 +580,262 @@ def static_page_load_time(page):
     return "FAIL", f"Page took {ms}ms to respond — most agents will timeout before loading this page."
 
 
+def static_wallet_compatibility(page):
+    """RDY-032: Does the site show x402 / Cloudflare agent-wallet readiness signals?
+
+    x402 protocol: HTTP 402 + PAYMENT-REQUIRED/PAYMENT-SIGNATURE headers.
+    MPP (Machine Payments Protocol) is backwards-compatible with x402.
+    Cloudflare Monetization Gateway is the seller-side product.
+    Cloudflare Wallets + cloudflare.pay are the buyer-side (agent) product.
+    Status as of Aug 2026: waitlist / early access, not GA.
+    """
+    html = (page.get("html", "") or "").lower()
+    llms = (page.get("llms_txt_content") or "").lower()
+    checkout_html = (page.get("checkout_html") or "").lower()
+    combined = html + " " + llms + " " + checkout_html
+
+    signals = []
+
+    # x402 protocol references (HTTP 402 Payment Required for agents)
+    if any(s in combined for s in ("x402", "402-receipt", "payment-required",
+                                    "payment-signature", "x402-hono")):
+        signals.append("x402 protocol")
+
+    # MPP (Machine Payments Protocol — backwards-compatible with x402)
+    if "machine-payment" in combined or "mpp-payment" in combined:
+        signals.append("MPP (Machine Payments Protocol)")
+
+    # Cloudflare Monetization Gateway / agent commerce
+    if any(s in combined for s in ("monetization-gateway", "cloudflare.pay",
+                                    "cf-agent-auth", "cloudflare-agent")):
+        signals.append("Cloudflare Monetization Gateway")
+
+    # .well-known/agent-verification endpoint (CF agent identity)
+    agent_verify = page.get("agent_verification")
+    if agent_verify:
+        signals.append("agent-verification endpoint")
+
+    if page.get("agent_probe_status") is None and not signals:
+        return "UNKNOWN", "Site not probed (local file mode) — cannot check x402 signals."
+
+    if signals:
+        return "PASS", f"Agent wallet signals detected: {', '.join(signals)} — site supports x402/MPP agent payments."
+    return "FAIL", "No x402 or agent-wallet signals detected — site cannot accept payments from AI agents with Cloudflare wallets."
+
+
+def static_contradictory_availability(page):
+    """Detect contradictory availability signals between JSON-LD and visible text."""
+    jsonld_avail = _jsonld_availability(page)
+    if jsonld_avail is None:
+        return "UNKNOWN", "No JSON-LD availability found — cannot check for contradictions."
+
+    text = (page.get("text", "") or "").lower()
+    html = page.get("html", "") or ""
+    # Strip script bodies so JS string literals don't count as visible text
+    visible = re.sub(r"<script.*?</script>", " ", html, flags=re.I | re.S).lower()
+
+    # Out-of-stock signals in visible text
+    oos_phrases = ("out of stock", "sold out", "unavailable", "out stock")
+    visible_oos = any(phrase in text for phrase in oos_phrases)
+
+    # In-stock / purchasable signals in visible text
+    in_stock_phrases = ("in stock", "add to cart", "add to bag", "buy now")
+    visible_in_stock = any(phrase in text for phrase in in_stock_phrases)
+
+    # Contradictory button state: both ATC and Sold Out text present in HTML
+    has_atc_button = bool(re.search(
+        r"add.to.cart|add.to.bag|buy.now", visible))
+    has_soldout_button = bool(re.search(
+        r"sold\s*out|out\s*of\s*stock", visible))
+    contradictory_buttons = has_atc_button and has_soldout_button
+
+    if jsonld_avail == "in_stock" and visible_oos:
+        return "FAIL", (
+            "JSON-LD says InStock but visible text contains out-of-stock language "
+            f"(found: {next(p for p in oos_phrases if p in text)!r}). "
+            "Agents may extract conflicting availability."
+        )
+
+    if jsonld_avail == "out_of_stock" and visible_in_stock:
+        return "FAIL", (
+            "JSON-LD says OutOfStock but visible text contains in-stock language "
+            f"(found: {next(p for p in in_stock_phrases if p in text)!r}). "
+            "Agents may extract conflicting availability."
+        )
+
+    if contradictory_buttons:
+        return "FAIL", (
+            "Page contains both Add-to-Cart and Sold Out text — "
+            "agents may not determine the true availability."
+        )
+
+    return "PASS", (
+        f"Availability signals are consistent (JSON-LD: {jsonld_avail.replace('_', ' ')}, "
+        "no contradictory visible text)."
+    )
+
+
 def static_rate_limiting(page):
-    """RDY-031: Does the site block or rate-limit agent-like traffic?"""
+    """RDY-031: Does the site block or rate-limit agent-like traffic?
+
+    T9: three-state — blocked / reachable-but-useless / accessible.
+    T10: multi-UA — reports per-crawler access posture.
+    """
     probe_status = page.get("agent_probe_status")
     if probe_status is None:
         return "UNKNOWN", "Agent probe not performed (local file mode)."
 
-    # Note: we probe with a self-asserted GPTBot UA string. This shows how the
-    # site treats the claimed identity, not necessarily verified vendor traffic
-    # (which may be allowlisted by reverse DNS or IP range).
     detail = page.get("agent_probe_detail", {})
     challenge = detail.get("challenge", False)
     words = detail.get("readable_words", 0)
     ua_note = " (self-asserted UA, not verified vendor IP)"
 
+    # T10: multi-UA summary
+    blocked_uas = detail.get("blocked_uas", [])
+    allowed_uas = detail.get("allowed_uas", [])
+    ua_summary = ""
+    if blocked_uas or allowed_uas:
+        parts = []
+        if blocked_uas:
+            parts.append(f"blocked: {', '.join(blocked_uas)}")
+        if allowed_uas:
+            parts.append(f"allowed: {', '.join(allowed_uas)}")
+        ua_summary = f" [{'; '.join(parts)}]"
+
     if probe_status == 200:
         if challenge:
-            return "FAIL", f"Site responds 200 but serves a bot challenge page ({words} words){ua_note}."
-        return "PASS", f"Site responds 200 to GPTBot UA string — not blocking agent-like requests{ua_note}."
+            return "FAIL", f"Site responds 200 but serves a bot challenge page ({words} words){ua_note}.{ua_summary}"
+        # T9: "200 but useless" — empty/near-empty body
+        if words < 50:
+            return "FAIL", (f"Site responds 200 but body has only {words} words — "
+                            f"agents get an empty or stub page{ua_note}.{ua_summary}")
+        # T10: partial blocking — some UAs allowed, some blocked
+        if blocked_uas and allowed_uas:
+            return "PASS", (f"Site allows some agent UAs but blocks others{ua_note}.{ua_summary}")
+        return "PASS", f"Site responds 200 to agent UA strings — not blocking agent-like requests{ua_note}.{ua_summary}"
     if probe_status == 403:
-        return "FAIL", f"Site returns 403 to GPTBot UA string — likely blocking agent-like traffic{ua_note}."
+        return "FAIL", f"Site returns 403 to GPTBot — likely blocking agent-like traffic{ua_note}.{ua_summary}"
     if probe_status == 429:
-        return "FAIL", f"Site returns 429 to GPTBot UA string — rate-limiting agent-like traffic{ua_note}."
+        return "FAIL", f"Site returns 429 to GPTBot — rate-limiting agent-like traffic{ua_note}.{ua_summary}"
     if 400 <= probe_status < 500:
-        return "FAIL", f"Site returns {probe_status} to GPTBot UA string — may be blocking agent-like traffic{ua_note}."
+        return "FAIL", f"Site returns {probe_status} to GPTBot — may be blocking agent-like traffic{ua_note}.{ua_summary}"
     if probe_status >= 500:
-        return "UNKNOWN", f"Site returns {probe_status} to GPTBot UA string — server error (may be transient)."
-    return "PASS", f"Site responds {probe_status} to GPTBot UA string{ua_note}."
+        return "UNKNOWN", f"Site returns {probe_status} to GPTBot — server error (may be transient).{ua_summary}"
+    return "PASS", f"Site responds {probe_status} to agent UA strings{ua_note}.{ua_summary}"
+
+
+# ---- PROTOCOL DISCOVERY probes -----------------------------------------------
+
+def static_mcp_server_card(page):
+    """RDY-034: MCP Server Card at /.well-known/mcp.json."""
+    mcp = page.get("mcp_json")
+    if mcp is None:
+        return "UNKNOWN", "MCP endpoint not probed (local file mode)."
+    if mcp:
+        name = mcp.get("name", "unnamed")
+        tools = len(mcp.get("tools", []))
+        return "PASS", f"MCP server card found (name: {name}, {tools} tool(s)) — agents can discover available tools."
+    return "FAIL", "No MCP server card at /.well-known/mcp.json — agents cannot discover tools via Model Context Protocol."
+
+
+def static_oauth_discovery(page):
+    """RDY-035: OAuth Authorization Server Discovery."""
+    oauth = page.get("oauth_discovery")
+    if oauth is None:
+        return "UNKNOWN", "OAuth endpoint not probed (local file mode)."
+    if oauth:
+        issuer = oauth.get("issuer", "")
+        detail = f" (issuer: {issuer})" if issuer else ""
+        return "PASS", f"OAuth discovery endpoint found{detail} — agents can authenticate via standard OAuth flow."
+    return "FAIL", "No OAuth discovery at /.well-known/oauth-authorization-server — agents cannot authenticate programmatically."
+
+
+def static_markdown_negotiation(page):
+    """RDY-036: Markdown content negotiation (Accept: text/markdown)."""
+    md = page.get("markdown_negotiation")
+    if md is None:
+        return "UNKNOWN", "Markdown negotiation not probed (local file mode)."
+    if md and md.get("supports_markdown"):
+        return "PASS", "Site serves markdown when requested (Accept: text/markdown) — agents get clean, parseable content."
+    return "FAIL", "Site does not support markdown content negotiation — agents must parse HTML instead of clean text."
+
+
+def static_a2a_agent_card(page):
+    """RDY-037: A2A Agent Card at /.well-known/agent.json (Google A2A protocol)."""
+    a2a = page.get("a2a_agent_card")
+    if a2a is None:
+        return "UNKNOWN", "A2A endpoint not probed (local file mode)."
+    if a2a:
+        name = a2a.get("name", a2a.get("agent_name", ""))
+        detail = f" (name: {name})" if name else ""
+        return "PASS", f"A2A agent card found at /.well-known/agent.json{detail} — supports Google Agent-to-Agent protocol."
+    return "FAIL", "No A2A agent card at /.well-known/agent.json — agents cannot discover capabilities via Google A2A protocol."
+
+
+def static_auth_md(page):
+    """RDY-038: Auth.md authentication documentation."""
+    auth = page.get("auth_md")
+    if auth is None:
+        return "UNKNOWN", "Auth.md not probed (local file mode)."
+    if auth:
+        return "PASS", "auth.md found — agents have machine-readable authentication documentation."
+    return "FAIL", "No auth.md at site root — agents have no authentication documentation."
+
+
+def static_link_headers(page):
+    """RDY-039: Link response headers for agent discovery."""
+    lh = page.get("link_headers")
+    if lh is None:
+        return "UNKNOWN", "Link headers not probed (local file mode)."
+    signals = []
+    if lh.get("has_describedby"):
+        signals.append("describedby")
+    if lh.get("has_api_catalog"):
+        signals.append("api-catalog")
+    if lh.get("has_search"):
+        signals.append("search")
+    if signals:
+        return "PASS", f"Link response headers found: rel={', '.join(signals)} — agents can discover related resources."
+    return "FAIL", "No Link response headers for agent discovery (rel=describedby, api-catalog, search)."
+
+
+def static_dns_aid(page):
+    """RDY-040: DNS for AI Discovery (DNS-AID) TXT records."""
+    dns = page.get("dns_aid")
+    if dns is None:
+        return "UNKNOWN", "DNS-AID not probed (local file mode)."
+    if dns.get("has_dns_aid"):
+        return "PASS", "DNS-AID TXT record found at _ai subdomain — agents can discover site capabilities via DNS."
+    return "FAIL", "No DNS-AID TXT record at _ai subdomain — agents cannot discover capabilities via DNS."
+
+
+def static_agent_skills(page):
+    """RDY-041: Agent Skills / WebMCP discovery in HTML or llms.txt."""
+    html = (page.get("html", "") or "").lower()
+    llms = (page.get("llms_txt_content") or "").lower()
+    combined = html + " " + llms
+
+    signals = []
+    if any(s in combined for s in ("agent-skill", "agentskill", "agent_skill")):
+        signals.append("Agent Skills")
+    if any(s in combined for s in ("webmcp", "web-mcp", "web_mcp")):
+        signals.append("WebMCP")
+    if any(s in combined for s in ("ucp", "unified-commerce-protocol", "universal-checkout")):
+        signals.append("UCP")
+    if any(s in combined for s in ("acp", "agent-commerce-protocol")):
+        signals.append("ACP")
+
+    # Also check for .well-known/skills or similar
+    mcp = page.get("mcp_json")
+    if mcp and mcp.get("tools"):
+        signals.append(f"MCP tools ({len(mcp['tools'])})")
+
+    if page.get("agent_probe_status") is None and not signals:
+        return "UNKNOWN", "Site not probed (local file mode)."
+
+    if signals:
+        return "PASS", f"Agent commerce protocols detected: {', '.join(signals)} — agents can interact via structured protocols."
+    return "FAIL", "No agent skills, WebMCP, UCP, or ACP signals detected — agents have no structured commerce protocols."
 
 
 STATIC = {
@@ -631,6 +860,16 @@ STATIC = {
     "sitemap_xml": static_sitemap_xml,
     "page_load_time": static_page_load_time,
     "rate_limiting": static_rate_limiting,
+    "wallet_compatibility": static_wallet_compatibility,
+    "contradictory_availability": static_contradictory_availability,
+    "mcp_server_card": static_mcp_server_card,
+    "oauth_discovery": static_oauth_discovery,
+    "markdown_negotiation": static_markdown_negotiation,
+    "a2a_agent_card": static_a2a_agent_card,
+    "auth_md": static_auth_md,
+    "link_headers": static_link_headers,
+    "dns_aid": static_dns_aid,
+    "agent_skills": static_agent_skills,
 }
 
 
