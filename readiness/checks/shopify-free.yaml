@@ -42,7 +42,7 @@ checks:
     detect: robots_allows_agents
     expect: robots.txt does not Disallow known shopping/agent user-agents from product pages.
     fail_if: robots.txt blocks GPTBot / OAI-SearchBot / Google-Extended / PerplexityBot from this path.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Allow agent user-agents to read product and policy pages in robots.txt.
 
@@ -75,7 +75,7 @@ checks:
     detect: jsonld_quality
     expect: JSON-LD includes name, image, brand, description, price, currency, and schema.org availability URL.
     fail_if: JSON-LD is missing fields that agents need for accurate product comparison.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Add missing fields to JSON-LD Product markup (name, image, brand, description, priceCurrency, availability URL).
 
@@ -86,7 +86,7 @@ checks:
     detect: js_render_ratio
     expect: Product price and availability are available in server-rendered HTML or structured data without JS execution.
     fail_if: No structured data fallback and page is heavily JS-rendered.
-    weight: 4
+    weight: 3
     severity_if_fail: high
     fix: Add schema.org/Product JSON-LD with price and availability, or server-render key product content.
 
@@ -175,7 +175,7 @@ checks:
     detect: checkout_proxy
     expect: Checkout page responds and cart/checkout links exist on the product page.
     fail_if: No checkout or cart links found and /checkout not reachable.
-    weight: 5
+    weight: 4
     severity_if_fail: high
     fix: Ensure cart and checkout links are visible in the page HTML.
 
@@ -358,3 +358,48 @@ checks:
     weight: 1
     severity_if_fail: low
     fix: Integrate agent commerce protocols (Agent Skills, WebMCP, UCP, or ACP) to let agents interact with your store programmatically.
+
+  # ---- SECURITY & TRUST (4) ----
+  - id: RDY-042
+    type: static
+    category: security
+    title: No prompt injection in user-generated content
+    detect: ugc_injection
+    expect: No agent-hijacking text in reviews or comments.
+    fail_if: Prompt injection in UGC.
+    weight: 1
+    severity_if_fail: high
+    fix: Add content moderation filters on review submissions.
+
+  - id: RDY-043
+    type: static
+    category: security
+    title: Cart API has rate limiting protection
+    detect: cart_rate_protection
+    expect: Cart API rate-limits rapid requests.
+    fail_if: Cart API accepts unlimited rapid requests.
+    weight: 1
+    severity_if_fail: medium
+    fix: Add rate limiting to /cart/add.js.
+
+  - id: RDY-044
+    type: static
+    category: security
+    title: Checkout has bot challenge protection
+    detect: checkout_bot_challenge
+    expect: Checkout has CAPTCHA or bot challenge.
+    fail_if: No bot challenge on checkout.
+    weight: 1
+    severity_if_fail: high
+    fix: Enable bot protection on checkout.
+
+  - id: RDY-045
+    type: static
+    category: security
+    title: Admin and API paths are not exposed
+    detect: admin_exposure
+    expect: Admin paths require auth.
+    fail_if: Admin or API paths accessible without auth.
+    weight: 1
+    severity_if_fail: critical
+    fix: Block public access to /admin, /staff, /.env, and API endpoints.

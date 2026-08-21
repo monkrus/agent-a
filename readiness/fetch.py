@@ -169,6 +169,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
                     "oauth_discovery": None, "markdown_negotiation": None,
                     "agent_verification": None, "a2a_agent_card": None,
                     "auth_md": None, "link_headers": None, "dns_aid": None,
+                    "cart_rate_test": None, "admin_exposure": None,
                     "fetch_time_ms": None,
                     "agent_probe_status": None, "_fetch_error": str(e)}
         # If rate-limited (429), fall back to Playwright (real browser UA)
@@ -202,6 +203,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["auth_md"] = _get_text(urljoin(origin, "/auth.md"), timeout)
                 page["link_headers"] = _probe_link_headers(target, timeout)
                 page["dns_aid"] = _probe_dns_aid(urlparse(final_url).netloc)
+                page["cart_rate_test"] = _probe_cart_rate(urljoin(origin, "/cart/add.js"), timeout)
+                page["admin_exposure"] = _probe_admin_paths(origin, timeout)
                 page["fetch_time_ms"] = None  # not measurable after 429 recovery
                 page["agent_probe_status"] = 429  # we already know it rate-limits
                 return page
@@ -227,6 +230,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["auth_md"] = _get_text(urljoin(origin, "/auth.md"), timeout)
         page["link_headers"] = _probe_link_headers(target, timeout)
         page["dns_aid"] = _probe_dns_aid(urlparse(final_url).netloc)
+        page["cart_rate_test"] = _probe_cart_rate(urljoin(origin, "/cart/add.js"), timeout)
+        page["admin_exposure"] = _probe_admin_paths(origin, timeout)
         page["fetch_time_ms"] = int(r.elapsed.total_seconds() * 1000)
         probe = _probe_as_agent(target, timeout)
         page["agent_probe_status"] = probe["status"]
@@ -281,6 +286,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["auth_md"] = None
         page["link_headers"] = None
         page["dns_aid"] = None
+        page["cart_rate_test"] = None
+        page["admin_exposure"] = None
         page["fetch_time_ms"] = None
         page["agent_probe_status"] = None
     return page
@@ -487,6 +494,52 @@ def _probe_dns_aid(domain: str) -> dict | None:
         return {"has_dns_aid": has_aid, "raw": output[:500] if has_aid else None}
     except Exception:
         return {"has_dns_aid": False, "raw": None}
+
+
+def _probe_cart_rate(cart_url: str, timeout: int) -> dict | None:
+    """Probe cart API endpoint multiple times rapidly to test rate limiting."""
+    try:
+        import requests
+        statuses = []
+        for _ in range(5):
+            try:
+                r = requests.post(cart_url, timeout=timeout,
+                                  headers={"User-Agent": "agent-a-readiness-scanner/0.1",
+                                           "Content-Type": "application/json"},
+                                  json={"id": 0, "quantity": 1})
+                statuses.append(r.status_code)
+            except Exception:
+                statuses.append(None)
+        rate_limited = any(s == 429 for s in statuses if s)
+        all_ok = all(s in (200, 422, 400) for s in statuses if s)  # 422/400 = invalid product, but endpoint responded
+        return {
+            "statuses": statuses,
+            "rate_limited": rate_limited,
+            "all_accepted": all_ok and not rate_limited,
+            "endpoint_exists": any(s and s != 404 for s in statuses),
+        }
+    except Exception:
+        return None
+
+
+def _probe_admin_paths(origin: str, timeout: int) -> dict | None:
+    """Check if admin/staff/API paths are exposed without auth."""
+    try:
+        import requests
+        paths = ["/admin", "/admin/api", "/staff", "/.env", "/api/products.json"]
+        exposed = []
+        for p in paths:
+            try:
+                r = requests.get(origin + p, timeout=timeout, allow_redirects=False,
+                                 headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+                # 200 with content = exposed; 301/302 to login = properly gated
+                if r.status_code == 200 and len(r.text) > 200:
+                    exposed.append({"path": p, "status": r.status_code})
+            except Exception:
+                continue
+        return {"exposed_paths": exposed, "checked": len(paths)}
+    except Exception:
+        return None
 
 
 def is_dead_page(page: dict) -> str | None:

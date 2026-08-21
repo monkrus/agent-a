@@ -64,7 +64,7 @@ checks:
     detect: policy_text_present
     expect: A return or refund policy is linked and served as readable text.
     fail_if: No discoverable return/refund policy text (missing, or PDF/image only).
-    weight: 4
+    weight: 3
     severity_if_fail: high
     fix: Publish return & shipping policies as plain HTML text with clear, linkable URLs.
 
@@ -175,7 +175,7 @@ checks:
     detect: checkout_reachable
     expect: After adding to cart, an AI agent can navigate to the checkout page.
     fail_if: Agent cannot reach checkout — blocked by popups, login walls, or broken navigation.
-    weight: 4
+    weight: 3
     severity_if_fail: high
     fix: Ensure the cart-to-checkout flow uses clear links and buttons; avoid requiring login before checkout; keep the path to checkout under 3 clicks from cart.
 
@@ -208,7 +208,7 @@ checks:
     detect: guest_checkout
     expect: Checkout does not require account creation or login — agents can purchase as guests.
     fail_if: Checkout requires login or account creation, blocking agents without credentials.
-    weight: 3
+    weight: 2
     severity_if_fail: high
     fix: Enable guest checkout so agents (and customers) can buy without creating an account.
 
@@ -294,7 +294,7 @@ checks:
     grade: consistency
     expect: Agent gives a stable shipping answer across runs.
     fail_if: Agent's shipping answer varies run to run (ambiguous or absent shipping info).
-    weight: 4
+    weight: 3
     severity_if_fail: high
     fix: Publish shipping cost/conditions as explicit text; avoid burying it in checkout-only steps.
 
@@ -431,3 +431,48 @@ checks:
     weight: 1
     severity_if_fail: low
     fix: Integrate agent commerce protocols (Agent Skills, WebMCP, UCP, or ACP) to let agents interact with your store programmatically.
+
+  # ---- SECURITY & TRUST (4) ----
+  - id: RDY-042
+    type: static
+    category: security
+    title: No prompt injection in user-generated content
+    detect: ugc_injection
+    expect: Reviews, comments, and Q&A sections contain no hidden agent-hijacking text.
+    fail_if: Prompt injection patterns found in UGC — agents reading reviews could be manipulated.
+    weight: 1
+    severity_if_fail: high
+    fix: Add content moderation filters on review/comment submissions to block prompt injection patterns.
+
+  - id: RDY-043
+    type: static
+    category: security
+    title: Cart API has rate limiting protection
+    detect: cart_rate_protection
+    expect: Cart API endpoint rate-limits rapid requests to prevent inventory manipulation.
+    fail_if: Cart API accepts unlimited rapid requests — agents could squat inventory at scale.
+    weight: 1
+    severity_if_fail: medium
+    fix: Add rate limiting to /cart/add.js — limit to 10 requests per minute per IP.
+
+  - id: RDY-044
+    type: static
+    category: security
+    title: Checkout has bot challenge protection
+    detect: checkout_bot_challenge
+    expect: Checkout page includes CAPTCHA, Turnstile, or other bot challenge.
+    fail_if: No bot challenge on checkout — agents could automate fraudulent purchases.
+    weight: 1
+    severity_if_fail: high
+    fix: Enable bot protection on checkout (Shopify Bot Protection, Cloudflare Turnstile, or reCAPTCHA).
+
+  - id: RDY-045
+    type: static
+    category: security
+    title: Admin and API paths are not exposed
+    detect: admin_exposure
+    expect: Admin, staff, and internal API paths require authentication or return 401/403.
+    fail_if: Admin or API paths accessible without auth — agents could access internal resources.
+    weight: 1
+    severity_if_fail: critical
+    fix: Ensure /admin, /staff, /.env, and API endpoints require authentication. Block public access via WAF rules.

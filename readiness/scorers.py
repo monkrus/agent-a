@@ -838,6 +838,111 @@ def static_agent_skills(page):
     return "FAIL", "No agent skills, WebMCP, UCP, or ACP signals detected — agents have no structured commerce protocols."
 
 
+# ---- SECURITY & TRUST probes -------------------------------------------------
+
+def static_ugc_injection(page):
+    """RDY-042: Prompt injection in user-generated content (reviews, Q&A)."""
+    html = page.get("html", "") or ""
+    import html as _html_mod
+    html_decoded = _html_mod.unescape(html)
+    hl = html_decoded.lower()
+
+    INJECTION_PATTERNS = [
+        r"ignore\s+(all\s+)?previous\s+instructions",
+        r"ignore\s+(all\s+)?above",
+        r"disregard\s+(all\s+)?(previous|above|prior)",
+        r"you\s+are\s+now\s+a",
+        r"system\s*:\s*override",
+        r"new\s+instructions?\s*:",
+        r"forget\s+(everything|all|your)",
+    ]
+    pattern = "|".join(f"({p})" for p in INJECTION_PATTERNS)
+
+    # Identify UGC sections: reviews, comments, Q&A
+    ugc_markers = [
+        (r'class=["\'][^"\']*(?:review|comment|ugc|user-content|qa-|question|answer)[^"\']*["\']',
+         "review/comment section"),
+        (r'(?:customer\s+reviews|product\s+reviews|ratings?\s+and\s+reviews)',
+         "reviews heading"),
+        (r'data-(?:review|comment|testimonial)',
+         "review data attributes"),
+    ]
+
+    ugc_found = False
+    for marker_re, _ in ugc_markers:
+        if re.search(marker_re, hl):
+            ugc_found = True
+            break
+
+    if not ugc_found:
+        # No UGC sections detected — not applicable
+        return "PASS", "No user-generated content sections detected (reviews, Q&A) — no UGC injection risk."
+
+    # Extract text from UGC sections (rough: everything after review markers)
+    ugc_text = ""
+    for marker_re, label in ugc_markers:
+        m = re.search(marker_re, hl)
+        if m:
+            # Take up to 10000 chars after the marker
+            start = m.start()
+            ugc_text += hl[start:start + 10000] + " "
+
+    if re.search(pattern, ugc_text, re.I):
+        return "FAIL", "Prompt injection detected in user-generated content (reviews/comments) — agents reading this page may be hijacked."
+    return "PASS", "User-generated content sections found but no prompt injection patterns detected."
+
+
+def static_cart_rate_protection(page):
+    """RDY-043: Does the cart API have rate limiting protection?"""
+    cart_test = page.get("cart_rate_test")
+    if cart_test is None:
+        return "UNKNOWN", "Cart rate test not performed (local file mode)."
+    if not cart_test.get("endpoint_exists"):
+        return "UNKNOWN", "No cart API endpoint found — rate test not applicable."
+    if cart_test.get("rate_limited"):
+        return "PASS", "Cart API rate-limits rapid requests — protected against inventory manipulation by agents."
+    if cart_test.get("all_accepted"):
+        return "FAIL", "Cart API accepted 5 rapid requests with no rate limiting — agents could manipulate inventory at scale."
+    return "PASS", "Cart API responded to rapid requests with mixed results (some protection in place)."
+
+
+def static_checkout_bot_challenge(page):
+    """RDY-044: Does checkout have bot detection/challenge?"""
+    checkout_html = page.get("checkout_html")
+    if checkout_html is None:
+        return "UNKNOWN", "Checkout page not probed (local file mode)."
+    if not checkout_html:
+        return "UNKNOWN", "Checkout page not reachable."
+
+    cl = checkout_html.lower()
+
+    # Bot challenge signals
+    challenge_signals = (
+        "captcha", "recaptcha", "hcaptcha", "turnstile",
+        "cf-challenge", "challenge-platform", "bot-detection",
+        "g-recaptcha", "data-sitekey", "cf-turnstile",
+        "arkose", "funcaptcha",
+    )
+    has_challenge = any(sig in cl for sig in challenge_signals)
+
+    if has_challenge:
+        detected = [sig for sig in challenge_signals if sig in cl]
+        return "PASS", f"Checkout has bot challenge protection ({detected[0]}) — agents cannot complete purchases without verification."
+    return "FAIL", "No bot challenge (CAPTCHA, Turnstile) detected on checkout — agents could automate fraudulent purchases."
+
+
+def static_admin_exposure(page):
+    """RDY-045: Are admin/staff/API paths exposed without authentication?"""
+    admin = page.get("admin_exposure")
+    if admin is None:
+        return "UNKNOWN", "Admin paths not probed (local file mode)."
+    exposed = admin.get("exposed_paths", [])
+    if exposed:
+        paths = ", ".join(e["path"] for e in exposed)
+        return "FAIL", f"Exposed admin/API paths without auth: {paths} — agents could access internal resources."
+    return "PASS", f"No admin or API paths exposed ({admin.get('checked', 0)} paths checked) — internal resources are properly gated."
+
+
 STATIC = {
     "jsonld_product": static_jsonld_product,
     "price_in_html": static_price_in_html,
@@ -870,6 +975,10 @@ STATIC = {
     "link_headers": static_link_headers,
     "dns_aid": static_dns_aid,
     "agent_skills": static_agent_skills,
+    "ugc_injection": static_ugc_injection,
+    "cart_rate_protection": static_cart_rate_protection,
+    "checkout_bot_challenge": static_checkout_bot_challenge,
+    "admin_exposure": static_admin_exposure,
 }
 
 
