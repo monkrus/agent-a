@@ -12,12 +12,14 @@ A few months ago I started watching how AI shopping agents — ChatGPT, Claude, 
 
 They fail constantly. And nobody notices, because agents fail silently. No abandoned cart metric. No error page. No customer complaint. The agent just leaves and tries the next store.
 
-I couldn't find a tool that tested this systematically, so I built one. agent-a is an open-source scanner that runs 26 checks across four layers of agent readiness:
+I couldn't find a tool that tested this systematically, so I built one. agent-a is an open-source scanner that runs 40 checks across six categories of agent readiness:
 
 1. **Data** — can agents find and read the page? (JSON-LD, server-rendered prices, robots.txt, llms.txt, sitemap)
 2. **Extraction** — can agents extract correctly? (price, availability, product name, return policy, shipping — 10 runs each to measure consistency, not just one-shot accuracy)
 3. **Interaction** — can agents act on the page? (Add-to-Cart flow, checkout, site search, navigation, variant selectors, cart API)
-4. **Security** — is the page safe from agent manipulation? (hidden prompt injection detection)
+4. **Security** — is the page safe? (prompt injection, UGC injection, cart rate limiting, checkout bot challenge, admin exposure)
+5. **Resilience** — does it hold up under agent traffic? (page load time, multi-UA blocking)
+6. **Protocol Discovery** — does it speak agent protocols? (MCP, A2A, OAuth, Auth.md, DNS-AID)
 
 Most people aren't thinking about this yet. Out of 28 brands I've scanned, zero had ever tested their site from an AI agent's perspective. The concept of "agent readiness" doesn't exist in their vocabulary — they optimize for Google, for mobile, for page speed. Not for the AI that's trying to buy their product.
 
@@ -62,11 +64,13 @@ Three months ago I noticed something: AI shopping agents — ChatGPT, Claude, Pe
 
 I couldn't find a tool that tested this, so I built one.
 
-agent-a runs 26 checks across 4 layers:
+agent-a runs 40 checks across 6 categories:
 → Data: can agents find and read the page?
 → Extraction: do they get the price and product right?
 → Interaction: can they pick a size and buy?
-→ Security: is anyone trying to manipulate agents?
+→ Security: is it safe from injection and abuse?
+→ Resilience: does it hold up under agent traffic?
+→ Protocols: does it speak MCP, A2A, OAuth?
 
 I've scanned 28 DTC brands. The finding I didn't expect: agency-level patterns.
 
@@ -93,7 +97,7 @@ Is your agency checking for this?
 
 3 months ago I noticed AI shopping agents fail silently on e-commerce sites. No error, no abandoned cart — they just leave. Nobody was testing for this.
 
-So I built an open-source scanner. 26 checks across 4 layers: data, extraction, interaction, security.
+So I built an open-source scanner. 40 checks across 6 categories: data, extraction, interaction, security, resilience, protocol discovery.
 
 28 brands scanned. The surprise: I found 4 clients of the same Shopify Plus agency — all 4 return 403 to AI agents. Same WAF config. One setting blocking ChatGPT, Claude, and Perplexity from every client site.
 
@@ -110,12 +114,14 @@ A few months ago I started watching how AI agents (ChatGPT, Claude, Perplexity) 
 
 They fail. A lot. And you'd never know because there's no error, no abandoned cart metric, no bounce tracked. The agent just leaves and tries your competitor.
 
-I couldn't find a tool that tested this from the agent's perspective, so I built one. It runs 26 checks across 4 layers:
+I couldn't find a tool that tested this from the agent's perspective, so I built one. It runs 40 checks across 6 categories:
 
 1. **Data** — can agents find the page? (JSON-LD structured data, server-rendered prices, robots.txt, llms.txt, sitemap)
 2. **Extraction** — can they read it correctly? (price, availability, product name, return policy, shipping — each tested 10 times for consistency)
 3. **Interaction** — can they buy from it? (Add-to-Cart flow, checkout, search, navigation, variant selectors, cart API)
-4. **Security** — is anyone injecting hidden prompts to manipulate agents?
+4. **Security** — is it safe from injection, UGC manipulation, cart abuse, and admin exposure?
+5. **Resilience** — does it hold up under agent traffic across multiple AI crawlers?
+6. **Protocols** — does it speak MCP, A2A, OAuth, and other agent discovery protocols?
 
 **28 brands scanned. What I found:**
 

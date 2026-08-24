@@ -39,4 +39,4 @@ The brands that figure this out first won't build anything new. They'll just sto
 
 ---
 
-*21 brands scanned with [agent-a](https://github.com/monkrus/agent-a). 26 checks across data, extraction, interaction, and security. Open source at [github.com/monkrus/agent-a](https://github.com/monkrus/agent-a). Built by [Sergei Stadnik](https://github.com/monkrus).*
+*21 brands scanned with [agent-a](https://github.com/monkrus/agent-a). 40 checks across data, extraction, interaction, security, resilience, and protocol discovery. Open source at [github.com/monkrus/agent-a](https://github.com/monkrus/agent-a). Built by [Sergei Stadnik](https://github.com/monkrus).*

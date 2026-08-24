@@ -77,14 +77,16 @@ readiness/
   .scans/              Scan results (gitignored)
 ```
 
-## The four check layers
+## The six check categories
 
-Every check maps to one layer of agent readiness:
+Every check maps to one category of agent readiness (40 checks total: 30 static + 5 shopper + 5 browser):
 
-1. **Data** — can agents read and find the page? (JSON-LD, price in HTML, llms.txt, robots.txt, search discovery, cross-page navigation)
-2. **Extraction** — can agents extract correctly? (shopper simulation, N runs, pass rates, product comparison)
-3. **Interaction** — can agents act on the page? (Add-to-Cart semantics, variant selectors, ATC flow, checkout flow)
-4. **Security** — is the page safe from agent manipulation? (prompt injection scan)
+1. **Data** — can agents read and find the page? (JSON-LD, price in HTML, llms.txt, robots.txt, policy, JS ratio, sitemap, contradictory availability)
+2. **Extraction** — can agents extract correctly? (shopper simulation, N runs, pass rates — price, availability, product name, return window, shipping)
+3. **Interaction** — can agents act on the page? (ATC semantics, variant selectors, browser flows, checkout, guest checkout, cart API, x402 wallet)
+4. **Security & Trust** — is the page safe from agent manipulation? (prompt injection, UGC injection, cart rate limiting, checkout bot challenge, admin exposure)
+5. **Resilience** — does the page hold up under agent traffic? (page load time, multi-UA agent blocking)
+6. **Protocol Discovery** — does the site advertise agent capabilities? (MCP, OAuth, markdown negotiation, A2A, Auth.md, Link headers, DNS-AID, Agent Skills/WebMCP/UCP/ACP)
 
 ## Check IDs and conventions
 

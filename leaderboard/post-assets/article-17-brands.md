@@ -96,7 +96,7 @@ The average score of 79.4 means most brands are readable to agents but not shopp
 ## Methodology
 
 - **Scanner:** [agent-a](https://github.com/monkrus/agent-a) (open source)
-- **Checks:** 17 checks across 4 layers — data (can agents find the page?), extraction (can they read it correctly?), interaction (can they act on it?), security (is it safe from manipulation?)
+- **Checks:** 40 checks across 6 categories — data (can agents find the page?), extraction (can they read it correctly?), interaction (can they act on it?), security (is it safe?), resilience (does it hold up?), protocol discovery (does it speak agent protocols?)
 - **Extraction model:** Claude claude-sonnet-4-6, 10 runs per check
 - **Scope:** One product page per brand (not full-site audit)
 - **Date:** July 2026

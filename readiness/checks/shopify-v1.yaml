@@ -23,7 +23,7 @@ version: 2026Q3.1
 pack: shopify-readiness
 
 checks:
-  # ---- STATIC (26) ----
+  # ---- STATIC (30) ----
   - id: RDY-001
     type: static
     category: structured-data

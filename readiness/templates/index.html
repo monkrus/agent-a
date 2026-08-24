@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Agent Readiness Scanner — Is your store ready for AI shoppers?</title>
-  <meta name="description" content="Free scan: find out if ChatGPT, Gemini, and AI shopping agents can read, extract from, and buy on your product pages. 28 checks, instant results.">
+  <meta name="description" content="Free scan: find out if ChatGPT, Gemini, and AI shopping agents can read, extract from, and buy on your product pages. 40 checks across 6 categories, instant results.">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -184,8 +184,8 @@
       <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">5-15% of your product page traffic now comes from AI agents. When an agent can't read your price, parse your policies, or add to cart, the customer never sees your product. There's no error page. No bounce in analytics. The sale just doesn't happen.</p>
       <div class="stat-row">
         <div class="stat-item">
-          <span class="stat-number">28</span>
-          <span class="stat-label">checks across 4 layers</span>
+          <span class="stat-number">40</span>
+          <span class="stat-label">checks across 6 categories</span>
         </div>
         <div class="stat-item">
           <span class="stat-number">4</span>
@@ -198,10 +198,10 @@
       </div>
     </div>
 
-    <!-- 4 LAYERS -->
+    <!-- 6 CATEGORIES -->
     <div class="how-it-works">
       <h2>What we check</h2>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Every check maps to one layer of agent readiness. A failure in any layer can silently kill a sale.</p>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Every check maps to one category of agent readiness. A failure in any category can silently kill a sale.</p>
       <div class="check-grid">
         <div class="check-item">
           <strong>1. Can agents read it?</strong>
@@ -216,8 +216,16 @@
           <span>Add-to-Cart semantics, variant selectors, guest checkout, cart API, checkout reachability, x402 wallet compatibility. Browser agent walks through the real flow.</span>
         </div>
         <div class="check-item">
-          <strong>4. Is it safe from manipulation?</strong>
-          <span>Hidden prompt injection scan: checks for invisible text in comments, hidden elements, and color tricks designed to hijack agent behavior.</span>
+          <strong>4. Is it safe &amp; trustworthy?</strong>
+          <span>Prompt injection in page content and UGC, cart rate limiting, checkout bot challenge, admin/API path exposure.</span>
+        </div>
+        <div class="check-item">
+          <strong>5. Does it hold up under traffic?</strong>
+          <span>Page load time under agent timeout, multi-UA blocking detection across 4 AI crawlers.</span>
+        </div>
+        <div class="check-item">
+          <strong>6. Does it speak agent protocols?</strong>
+          <span>MCP, OAuth, A2A, Auth.md, markdown negotiation, Link headers, DNS-AID, Agent Skills / WebMCP / UCP / ACP.</span>
         </div>
       </div>
     </div>
@@ -236,7 +244,7 @@
         <div class="step">
           <span class="step-num">2</span>
           <div>
-            <strong>We run 28 checks in real time</strong>
+            <strong>We run 40 checks in real time</strong>
             <p>Static probes, simulated shopping agent, and browser-based interaction tests. Watch results stream in live.</p>
           </div>
         </div>

@@ -4,7 +4,7 @@
 Find out if AI shopping agents can buy from your store
 
 ## Description (260 chars max)
-Free scanner that checks if ChatGPT, Gemini, and AI shopping agents can read, extract, and buy from your product pages. 28 checks across 4 layers: data, extraction, interaction, security. Paste a URL, get a score in 30 seconds.
+Free scanner that checks if ChatGPT, Gemini, and AI shopping agents can read, extract, and buy from your product pages. 40 checks across 6 categories: data, extraction, interaction, security, resilience, protocol discovery. Paste a URL, get a score in 30 seconds.
 
 ## Maker Comment (first comment on the post)
 
@@ -14,11 +14,13 @@ The answer was always: you don't, until you lose the sale.
 
 AI shopping agents (ChatGPT, Gemini, Perplexity) are reading product pages right now. But most stores fail invisibly: JS-only prices that agents can't see, missing structured data, policies agents can't parse, checkout flows they can't navigate.
 
-This scanner runs 28 checks across 4 layers:
+This scanner runs 40 checks across 6 categories:
 - **Read**: Can agents find your page and parse the data?
 - **Extract**: Do they get the right price, availability, product name?
 - **Act**: Can they add to cart and reach checkout?
-- **Safe**: Is your page protected from prompt injection?
+- **Safe**: Is your page protected from prompt injection and UGC manipulation?
+- **Resilient**: Does it hold up under agent traffic across multiple AI crawlers?
+- **Protocol-ready**: Does it speak MCP, A2A, OAuth, and other agent protocols?
 
 We actually send a real AI agent to your page multiple times and grade its accuracy. Not just static analysis.
 
@@ -34,7 +36,7 @@ Built with Claude, deployed on Render. Would love feedback on what checks to add
 - SaaS
 
 ## Thumbnail / Logo direction
-Dark background, score circle (like a Lighthouse score), "28 checks / 4 layers" text. Use the OG image style already in the app.
+Dark background, score circle (like a Lighthouse score), "40 checks / 6 categories" text. Use the OG image style already in the app.
 
 ## Gallery screenshots needed
 1. Landing page with scan form

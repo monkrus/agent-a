@@ -2,20 +2,32 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+| Version    | Supported          |
+| ---------- | ------------------ |
+| 2026Q3.1   | :white_check_mark: |
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+We support the latest release only. The check pack version is in `readiness/checks/shopify-v1.yaml`.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Email **sergeigodev@gmail.com** with:
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+- Description of the vulnerability
+- Steps to reproduce
+- Impact assessment
+
+We will acknowledge within 48 hours and aim to patch critical issues within 7 days.
+
+**Do not open public issues for security vulnerabilities.**
+
+## Security Measures
+
+This scanner includes 5 security checks (RDY-016, RDY-042–045) that detect:
+
+- Hidden prompt injection in page content
+- Prompt injection in user-generated content (reviews, Q&A)
+- Cart API rate limiting gaps
+- Missing checkout bot challenges
+- Exposed admin/API paths
+
+The codebase is scanned by CodeQL on every push.

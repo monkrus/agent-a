@@ -2,7 +2,7 @@
 
 ---
 
-*Scanned July 2026 with [agent-a](https://github.com/monkrus/agent-a). 26 checks, real Claude extraction, 10 runs per check.*
+*Scanned July 2026 with [agent-a](https://github.com/monkrus/agent-a). 40 checks across 6 categories, real Claude extraction, 10 runs per check.*
 
 ---
 
@@ -48,4 +48,4 @@ Combined revenue at risk: **$47,000 to $289,000 per month.**
 
 ---
 
-*Scanner: [agent-a](https://github.com/monkrus/agent-a) (open source). 26 checks — 16 static, 5 shopper (Claude Sonnet), 5 browser (Playwright). One product page per brand, July 31 2026. Built by [Sergei Stadnik](https://github.com/monkrus).*
+*Scanner: [agent-a](https://github.com/monkrus/agent-a) (open source). 40 checks — 30 static, 5 shopper (Claude Sonnet), 5 browser (Playwright). One product page per brand, July 31 2026. Built by [Sergei Stadnik](https://github.com/monkrus).*

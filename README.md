@@ -25,7 +25,7 @@ them copy-paste fixes.
 ## What it does
 
 Paste a product page URL → get a readiness score (0–100) with per-check
-results across four layers:
+results across six categories:
 
 ### Layer 1 — Can agents READ the page? (Data)
 - Product structured data (JSON-LD) present and complete
@@ -50,13 +50,28 @@ results across four layers:
 - Guest checkout available (no login wall)
 - Programmatic cart API endpoint available
 
-### Layer 4 — Is the page SAFE? (Security)
+### Layer 4 — Is the page SAFE? (Security & Trust)
 - No hidden prompt injection in page content
+- No prompt injection in user-generated content (reviews, Q&A)
+- Cart API has rate limiting protection
+- Checkout has bot challenge protection
+- Admin and API paths are not exposed
 
 ### Discovery & Resilience
 - Sitemap.xml exists and lists products
 - Page responds within agent timeout threshold
-- Site does not block agent-like traffic
+- Site does not block agent-like traffic (multi-UA: GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot)
+- x402 / agent wallet compatibility signals present
+
+### Protocol Discovery
+- MCP Server Card (/.well-known/mcp.json)
+- OAuth Authorization Server discovery
+- Markdown content negotiation (Accept: text/markdown)
+- A2A Agent Card (Google protocol, /.well-known/agent.json)
+- Auth.md authentication documentation
+- Link response headers for agent discovery
+- DNS for AI Discovery (DNS-AID) records
+- Agent commerce protocols (Skills, WebMCP, UCP, ACP)
 
 ### Intel section
 - Platform detection (Shopify, WooCommerce, etc.)
@@ -68,7 +83,7 @@ results across four layers:
 ## How it works
 
 1. Fetches the product page (raw HTML + optional Playwright rendered DOM)
-2. Runs 26 checks — 16 static probes + 5 shopper simulations + 5 browser agent flows
+2. Runs 40 checks — 30 static probes + 5 shopper simulations + 5 browser agent flows
 3. Shopper checks run N times (default 5) to report **pass rates**, not binary
 4. Computes a weighted readiness score (0–100)
 5. Generates platform-specific copy-paste fix recipes for every failure

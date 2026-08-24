@@ -1,6 +1,6 @@
 # Free agentic-readiness check pack — static-only, no API calls.
 #
-# 31 checks: static checks + static proxies for the
+# 35 checks: static checks + static proxies for the
 # browser-agent flows. Produces a meaningful score at zero cost.
 #
 # For full accuracy on interaction/extraction, use shopify-v1.yaml with
