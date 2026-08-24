@@ -766,17 +766,16 @@ def share_og_image(scan_id):
     if not _re.fullmatch(r'[a-f0-9]{12}', scan_id):
         abort(400)
     safe_name = os.path.basename(scan_id) + "_og.png"
-    og_fpath = os.path.realpath(os.path.join(str(SCANS_DIR), safe_name))
-    if not og_fpath.startswith(os.path.realpath(str(SCANS_DIR))):
-        abort(400)
-    if os.path.isfile(og_fpath):
+    scans_real = os.path.realpath(str(SCANS_DIR))
+    og_fpath = os.path.realpath(os.path.join(scans_real, safe_name))
+    if og_fpath.startswith(scans_real) and os.path.isfile(og_fpath):
         with open(og_fpath, 'rb') as f:
             return Response(f.read(), mimetype="image/png",
                             headers={"Cache-Control": "public, max-age=86400"})
 
     try:
         import og_image
-        png_bytes = og_image.generate(data, str(og_path))
+        png_bytes = og_image.generate(data, og_fpath)
         return Response(png_bytes, mimetype="image/png",
                         headers={"Cache-Control": "public, max-age=86400"})
     except ImportError:
