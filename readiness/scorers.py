@@ -40,7 +40,7 @@ def static_jsonld_product(page):
 def static_price_in_html(page):
     html = page.get("html", "") or ""
     # strip script bodies so a JS-embedded price doesn't count as server-rendered
-    visible = re.sub(r"<script[^>]*>[^<]*(?:<(?!/script>)[^<]*)*</script>", " ", html, flags=re.I)
+    visible = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.I | re.DOTALL)
     matches = re.findall(r"[$£€]\s?(\d[\d,]*\.?\d*)", visible)
     if not matches:
         if _jsonld_price(page) is not None:
@@ -177,13 +177,13 @@ def static_js_render_ratio(page):
         return "UNKNOWN", "Page too small to evaluate rendering ratio."
 
     # Script content size (exclude external scripts with src= and empty body)
-    scripts = _re.findall(r"<script[^>]*>[^<]*(?:<(?!/script>)[^<]*)*</script>", html, _re.I)
+    scripts = _re.findall(r"<script[^>]*>.*?</script>", html, _re.I | _re.DOTALL)
     script_len = sum(len(s) for s in scripts)
 
     # Visible text vs total page (strip tags for non-script content)
     text_len = len(text)
     # More robust: measure text outside scripts
-    non_script_html = _re.sub(r"<script[^>]*>[^<]*(?:<(?!/script>)[^<]*)*</script>", "", html, flags=_re.I)
+    non_script_html = _re.sub(r"<script[^>]*>.*?</script>", "", html, flags=_re.I | _re.DOTALL)
     non_script_text = _re.sub(r"<[^>]{1,500}>", " ", non_script_html)
     non_script_text_len = len(non_script_text.strip())
 
@@ -632,7 +632,7 @@ def static_contradictory_availability(page):
     text = (page.get("text", "") or "").lower()
     html = page.get("html", "") or ""
     # Strip script bodies so JS string literals don't count as visible text
-    visible = re.sub(r"<script[^>]*>[^<]*(?:<(?!/script>)[^<]*)*</script>", " ", html, flags=re.I).lower()
+    visible = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.I | re.DOTALL).lower()
 
     # Out-of-stock signals in visible text
     oos_phrases = ("out of stock", "sold out", "unavailable", "out stock")

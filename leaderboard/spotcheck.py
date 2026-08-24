@@ -32,9 +32,9 @@ BRANDS = {
 def strip_tags_visible(raw_html):
     """Extract visible text from HTML, stripping scripts/styles/tags."""
     # Remove script and style blocks
-    text = re.sub(r'<script[^>]*>[^<]*(?:<(?!/script>)[^<]*)*</script>', '', raw_html, flags=re.IGNORECASE)
-    text = re.sub(r'<style[^>]*>[^<]*(?:<(?!/style>)[^<]*)*</style>', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'<!--[^-]*(?:-(?!->)[^-]*)*-->', '', text)
+    text = re.sub(r'<script[^>]*>.*?</script>', '', raw_html, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
     # Remove all tags
     text = re.sub(r'<[^>]{1,500}>', ' ', text)
     # Decode entities
@@ -48,7 +48,7 @@ def strip_tags_visible(raw_html):
 
 def count_script_bytes(raw_html):
     """Count bytes inside <script> tags."""
-    scripts = re.findall(r'<script[^>]*>[^<]*(?:<(?!/script>)[^<]*)*</script>', raw_html, flags=re.IGNORECASE)
+    scripts = re.findall(r'<script[^>]*>.*?</script>', raw_html, flags=re.IGNORECASE | re.DOTALL)
     return sum(len(s.encode('utf-8', errors='replace')) for s in scripts), len(scripts)
 
 

@@ -100,7 +100,7 @@ def _parse_html(html: str, url: str = "") -> dict:
         except Exception:
             continue
     title = ""
-    m = re.search(r"<title[^>]*>([^<]{0,500})</title>", html, re.I)
+    m = re.search(r"<title[^>]{0,500}>([^<]{0,500})</title>", html, re.I)
     if m:
         title = re.sub(r"\s+", " ", m.group(1)).strip()
     return {
@@ -246,8 +246,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
             html_len = len(page.get("html", ""))
             if html_len > 100:
                 import re as _re
-                scripts = _re.findall(r"<script[^>]*>[^<]*(?:<(?!/script>)[^<]*)*</script>",
-                                      page["html"], _re.I)
+                scripts = _re.findall(r"<script[^>]{0,500}>.*?</script>",
+                                      page["html"], _re.I | _re.DOTALL)
                 script_len = sum(len(s) for s in scripts)
                 if script_len / html_len > 0.50:
                     should_render = True
@@ -265,10 +265,13 @@ def fetch(target: str, timeout: int = 30) -> dict:
         if page.get("status") == 200:
             _fetch_cache[domain] = (time.time(), page)
     else:
-        # Local file mode — resolve and validate path
+        # Local file mode — resolve and validate path (CLI only, not web-facing)
         local_path = pathlib.Path(target).resolve()
-        with open(str(local_path), "r", encoding="utf-8") as f:
-            html = f.read()
+        if not local_path.is_file():
+            raise FileNotFoundError(f"Local file not found: {local_path}")
+        if local_path.suffix not in (".html", ".htm", ".txt"):
+            raise ValueError(f"Unsupported file type: {local_path.suffix}")
+        html = local_path.read_text(encoding="utf-8")
         page = _parse_html(html, target)
         page["status"] = 200
         page["llms_txt"] = None   # unknowable from a single local file

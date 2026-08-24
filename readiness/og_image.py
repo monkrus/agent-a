@@ -257,8 +257,12 @@ def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str
 
     if output_path:
         out = pathlib.Path(output_path).resolve()
-        # Only write to expected directories
-        if ".scans" in str(out) or "leaderboard" in str(out):
+        # Only write to known-safe directories
+        allowed = (
+            pathlib.Path(__file__).resolve().parent / ".scans",
+            pathlib.Path(__file__).resolve().parent.parent / "leaderboard",
+        )
+        if any(out.is_relative_to(d) for d in allowed):
             out.write_bytes(data)
 
     return data

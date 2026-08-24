@@ -200,13 +200,12 @@ def _headline(results):
 
 def _load_scan(scan_id):
     import re as _re
-    if not _re.match(r'^[a-f0-9]{12}$', scan_id):
+    m = _re.fullmatch(r'[a-f0-9]{12}', scan_id)
+    if not m:
         return None
-    path = (SCANS_DIR / f"{scan_id}.json").resolve()
-    # Ensure resolved path is still within SCANS_DIR (prevent traversal)
-    if not str(path).startswith(str(SCANS_DIR.resolve())):
-        return None
-    if not path.exists():
+    safe_id = m.group(0)
+    path = SCANS_DIR / f"{safe_id}.json"
+    if not path.is_file():
         return None
     return json.loads(path.read_text())
 
@@ -546,7 +545,13 @@ def scan_stream():
             "impact": impact_est.get("estimated_monthly_loss", {}),
         }) + "\n\n"
 
-    return Response(generate(), content_type="text/event-stream",
+    def safe_generate():
+        try:
+            yield from generate()
+        except Exception:
+            yield "data: " + json.dumps({"type": "error", "message": "Scan failed unexpectedly. Please try again."}) + "\n\n"
+
+    return Response(safe_generate(), content_type="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
@@ -754,11 +759,14 @@ def share_og_image(scan_id):
     if not data:
         abort(404)
 
-    # Check cached OG image
-    og_path = (SCANS_DIR / f"{scan_id}_og.png").resolve()
-    if not str(og_path).startswith(str(SCANS_DIR.resolve())):
+    # Check cached OG image — scan_id already validated by _load_scan above
+    import re as _re
+    m = _re.fullmatch(r'[a-f0-9]{12}', scan_id)
+    if not m:
         abort(400)
-    if og_path.exists():
+    safe_id = m.group(0)
+    og_path = SCANS_DIR / f"{safe_id}_og.png"
+    if og_path.is_file():
         return Response(og_path.read_bytes(), mimetype="image/png",
                         headers={"Cache-Control": "public, max-age=86400"})
 

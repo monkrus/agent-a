@@ -77,7 +77,7 @@ def analyze(page: dict, llms_txt_content: str | None = None) -> dict:
 
 def _detect_platform(page: dict) -> dict | None:
     html = (page.get("html", "") or "").lower()
-    if "shopify" in html or "cdn.shopify.com" in html or "myshopify.com" in html:
+    if re.search(r'\bshopify\b', html) or re.search(r'\bcdn\.shopify\.com\b', html) or re.search(r'\bmyshopify\.com\b', html):
         return {"name": "Shopify", "detail": "Shopify-powered storefront"}
     if "woocommerce" in html or "wp-content" in html:
         return {"name": "WooCommerce", "detail": "WordPress + WooCommerce"}
@@ -167,7 +167,7 @@ def _analyze_llms_txt(page: dict, content: str | None) -> dict:
 
 def _detect_chat_agents(page: dict) -> list[dict]:
     html = (page.get("html", "") or "").lower()
-    scripts = re.findall(r'<script[^>]*src=["\']([^"\']{1,500})["\']', html, re.I)
+    scripts = re.findall(r'<script[^>]{0,500}src=["\']([^"\']{1,500})["\']', html, re.I)
     script_text = " ".join(scripts).lower()
     found = []
 
