@@ -257,15 +257,13 @@ def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str
     data = buf.read()
 
     if output_path:
-        # Sanitize: strip directory components, write to known-safe location
         safe_name = os.path.basename(output_path)
-        scans_dir = pathlib.Path(__file__).resolve().parent / ".scans"
-        lb_dir = pathlib.Path(__file__).resolve().parent.parent / "leaderboard"
-        out = pathlib.Path(output_path).resolve()
-        if out.parent.resolve() == scans_dir.resolve():
-            (scans_dir / safe_name).write_bytes(data)
-        elif out.parent.resolve() == lb_dir.resolve():
-            (lb_dir / safe_name).write_bytes(data)
+        scans_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), ".scans"))
+        lb_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "leaderboard"))
+        fpath = os.path.realpath(os.path.join(os.path.dirname(output_path), safe_name))
+        if fpath.startswith(scans_dir) or fpath.startswith(lb_dir):
+            with open(fpath, 'wb') as wf:
+                wf.write(data)
 
     return data
 

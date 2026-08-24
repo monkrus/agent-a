@@ -268,12 +268,17 @@ def fetch(target: str, timeout: int = 30) -> dict:
     else:
         # Local file mode (CLI only, not web-facing)
         safe_name = os.path.basename(target)
-        local_path = (pathlib.Path(target).parent.resolve() / safe_name)
-        if not local_path.is_file():
-            raise FileNotFoundError(f"Local file not found: {local_path}")
-        if local_path.suffix not in (".html", ".htm", ".txt"):
-            raise ValueError(f"Unsupported file type: {local_path.suffix}")
-        html = local_path.read_text(encoding="utf-8")
+        local_dir = os.path.realpath(os.path.dirname(target) or ".")
+        fpath = os.path.realpath(os.path.join(local_dir, safe_name))
+        if not fpath.startswith(local_dir):
+            raise ValueError(f"Path traversal blocked: {target}")
+        if not os.path.isfile(fpath):
+            raise FileNotFoundError(f"Local file not found: {fpath}")
+        _, ext = os.path.splitext(fpath)
+        if ext not in (".html", ".htm", ".txt"):
+            raise ValueError(f"Unsupported file type: {ext}")
+        with open(fpath, "r", encoding="utf-8") as f:
+            html = f.read()
         page = _parse_html(html, target)
         page["status"] = 200
         page["llms_txt"] = None   # unknowable from a single local file

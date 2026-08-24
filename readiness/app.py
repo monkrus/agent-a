@@ -203,10 +203,13 @@ def _load_scan(scan_id):
     if not _re.fullmatch(r'[a-f0-9]{12}', scan_id):
         return None
     safe_name = os.path.basename(scan_id) + ".json"
-    path = SCANS_DIR / safe_name
-    if not path.is_file():
+    fpath = os.path.realpath(os.path.join(str(SCANS_DIR), safe_name))
+    if not fpath.startswith(os.path.realpath(str(SCANS_DIR))):
         return None
-    return json.loads(path.read_text())
+    if not os.path.isfile(fpath):
+        return None
+    with open(fpath, 'r') as f:
+        return json.load(f)
 
 
 # ---- Routes ----------------------------------------------------------------
@@ -763,10 +766,13 @@ def share_og_image(scan_id):
     if not _re.fullmatch(r'[a-f0-9]{12}', scan_id):
         abort(400)
     safe_name = os.path.basename(scan_id) + "_og.png"
-    og_path = SCANS_DIR / safe_name
-    if og_path.is_file():
-        return Response(og_path.read_bytes(), mimetype="image/png",
-                        headers={"Cache-Control": "public, max-age=86400"})
+    og_fpath = os.path.realpath(os.path.join(str(SCANS_DIR), safe_name))
+    if not og_fpath.startswith(os.path.realpath(str(SCANS_DIR))):
+        abort(400)
+    if os.path.isfile(og_fpath):
+        with open(og_fpath, 'rb') as f:
+            return Response(f.read(), mimetype="image/png",
+                            headers={"Cache-Control": "public, max-age=86400"})
 
     try:
         import og_image

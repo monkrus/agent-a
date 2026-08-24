@@ -30,7 +30,8 @@ def test_skims_productgroup():
     assert off.get("priceCurrency") == "USD"
     from urllib.parse import urlparse
     avail_url = urlparse(str(off.get("availability", "")))
-    assert avail_url.scheme in ("http", "https") and avail_url.hostname and avail_url.hostname.endswith("schema.org")
+    assert avail_url.scheme in ("http", "https")
+    assert avail_url.hostname == "schema.org" or (avail_url.hostname and avail_url.hostname.endswith(".schema.org"))
 
     price = _jsonld_price(page)
     assert price == 64.0, f"SKIMS bra price should be 64.0, got {price}"
