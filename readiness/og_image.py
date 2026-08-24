@@ -10,6 +10,7 @@ Uses Pillow (PIL). Falls back gracefully if not installed.
 from __future__ import annotations
 
 import io
+import os
 import pathlib
 from typing import Optional
 
@@ -256,14 +257,15 @@ def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str
     data = buf.read()
 
     if output_path:
+        # Sanitize: strip directory components, write to known-safe location
+        safe_name = os.path.basename(output_path)
+        scans_dir = pathlib.Path(__file__).resolve().parent / ".scans"
+        lb_dir = pathlib.Path(__file__).resolve().parent.parent / "leaderboard"
         out = pathlib.Path(output_path).resolve()
-        # Only write to known-safe directories
-        allowed = (
-            pathlib.Path(__file__).resolve().parent / ".scans",
-            pathlib.Path(__file__).resolve().parent.parent / "leaderboard",
-        )
-        if any(out.is_relative_to(d) for d in allowed):
-            out.write_bytes(data)
+        if out.parent.resolve() == scans_dir.resolve():
+            (scans_dir / safe_name).write_bytes(data)
+        elif out.parent.resolve() == lb_dir.resolve():
+            (lb_dir / safe_name).write_bytes(data)
 
     return data
 

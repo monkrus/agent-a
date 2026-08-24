@@ -200,11 +200,10 @@ def _headline(results):
 
 def _load_scan(scan_id):
     import re as _re
-    m = _re.fullmatch(r'[a-f0-9]{12}', scan_id)
-    if not m:
+    if not _re.fullmatch(r'[a-f0-9]{12}', scan_id):
         return None
-    safe_id = m.group(0)
-    path = SCANS_DIR / f"{safe_id}.json"
+    safe_name = os.path.basename(scan_id) + ".json"
+    path = SCANS_DIR / safe_name
     if not path.is_file():
         return None
     return json.loads(path.read_text())
@@ -761,11 +760,10 @@ def share_og_image(scan_id):
 
     # Check cached OG image — scan_id already validated by _load_scan above
     import re as _re
-    m = _re.fullmatch(r'[a-f0-9]{12}', scan_id)
-    if not m:
+    if not _re.fullmatch(r'[a-f0-9]{12}', scan_id):
         abort(400)
-    safe_id = m.group(0)
-    og_path = SCANS_DIR / f"{safe_id}_og.png"
+    safe_name = os.path.basename(scan_id) + "_og.png"
+    og_path = SCANS_DIR / safe_name
     if og_path.is_file():
         return Response(og_path.read_bytes(), mimetype="image/png",
                         headers={"Cache-Control": "public, max-age=86400"})

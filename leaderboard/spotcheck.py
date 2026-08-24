@@ -7,7 +7,51 @@ and extract evidence for/against each scanner finding.
 """
 import re
 import html
+from html.parser import HTMLParser as _HTMLParser
 import requests
+
+
+class _TagStripper(_HTMLParser):
+    """Strip script/style content using stdlib parser."""
+    def __init__(self):
+        super().__init__()
+        self._parts = []
+        self._skip = False
+    def handle_starttag(self, tag, attrs):
+        if tag in ('script', 'style'):
+            self._skip = True
+        elif not self._skip:
+            self._parts.append(self.get_starttag_text() or '')
+    def handle_endtag(self, tag):
+        if tag in ('script', 'style'):
+            self._skip = False
+        elif not self._skip:
+            self._parts.append(f'</{tag}>')
+    def handle_data(self, data):
+        if not self._skip:
+            self._parts.append(data)
+    def get_result(self):
+        return ''.join(self._parts)
+
+
+class _ScriptCollector(_HTMLParser):
+    """Collect raw content inside <script> tags."""
+    def __init__(self):
+        super().__init__()
+        self.scripts = []
+        self._in_script = False
+        self._current = []
+    def handle_starttag(self, tag, attrs):
+        if tag == 'script':
+            self._in_script = True
+            self._current = []
+    def handle_endtag(self, tag):
+        if tag == 'script' and self._in_script:
+            self._in_script = False
+            self.scripts.append(''.join(self._current))
+    def handle_data(self, data):
+        if self._in_script:
+            self._current.append(data)
 import pathlib
 import textwrap
 
@@ -31,11 +75,12 @@ BRANDS = {
 
 def strip_tags_visible(raw_html):
     """Extract visible text from HTML, stripping scripts/styles/tags."""
-    # Remove script and style blocks
-    text = re.sub(r'<script[^>]*>.*?</script>', '', raw_html, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    # Remove script and style blocks using stdlib parser
+    s = _TagStripper()
+    s.feed(raw_html)
+    text = s.get_result()
+    # Remove remaining tags and comments
     text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
-    # Remove all tags
     text = re.sub(r'<[^>]{1,500}>', ' ', text)
     # Decode entities
     text = html.unescape(text)
@@ -48,8 +93,9 @@ def strip_tags_visible(raw_html):
 
 def count_script_bytes(raw_html):
     """Count bytes inside <script> tags."""
-    scripts = re.findall(r'<script[^>]*>.*?</script>', raw_html, flags=re.IGNORECASE | re.DOTALL)
-    return sum(len(s.encode('utf-8', errors='replace')) for s in scripts), len(scripts)
+    c = _ScriptCollector()
+    c.feed(raw_html)
+    return sum(len(s.encode('utf-8', errors='replace')) for s in c.scripts), len(c.scripts)
 
 
 def find_jsonld(raw_html):

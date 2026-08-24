@@ -21,6 +21,7 @@ not run JS. For JS-heavy targets, point `fetch_rendered` at a rendering backend
 """
 from __future__ import annotations
 import json
+import os
 import pathlib
 import re
 import sys
@@ -265,8 +266,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
         if page.get("status") == 200:
             _fetch_cache[domain] = (time.time(), page)
     else:
-        # Local file mode — resolve and validate path (CLI only, not web-facing)
-        local_path = pathlib.Path(target).resolve()
+        # Local file mode (CLI only, not web-facing)
+        safe_name = os.path.basename(target)
+        local_path = (pathlib.Path(target).parent.resolve() / safe_name)
         if not local_path.is_file():
             raise FileNotFoundError(f"Local file not found: {local_path}")
         if local_path.suffix not in (".html", ".htm", ".txt"):

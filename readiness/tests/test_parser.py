@@ -28,8 +28,9 @@ def test_skims_productgroup():
     assert off is not None, "Should extract an Offer"
     assert off.get("price") is not None, "Offer should have a price"
     assert off.get("priceCurrency") == "USD"
-    avail_str = str(off.get("availability", "")).lower()
-    assert avail_str.startswith("http") and "schema.org" in avail_str
+    from urllib.parse import urlparse
+    avail_url = urlparse(str(off.get("availability", "")))
+    assert avail_url.scheme in ("http", "https") and avail_url.hostname and avail_url.hostname.endswith("schema.org")
 
     price = _jsonld_price(page)
     assert price == 64.0, f"SKIMS bra price should be 64.0, got {price}"

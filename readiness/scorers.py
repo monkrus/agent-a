@@ -17,6 +17,73 @@ discipline as the audit track's coverage section.
 from __future__ import annotations
 import re
 from collections import Counter
+from html.parser import HTMLParser as _HTMLParser
+
+
+class _ScriptStripper(_HTMLParser):
+    """Strip <script> (and optionally <style>) tag content using stdlib parser."""
+    def __init__(self, strip_styles=False):
+        super().__init__()
+        self._parts = []
+        self._skip = False
+        self._skip_tags = {'script'}
+        if strip_styles:
+            self._skip_tags.add('style')
+    def handle_starttag(self, tag, attrs):
+        if tag in self._skip_tags:
+            self._skip = True
+        elif not self._skip:
+            self._parts.append(self.get_starttag_text() or '')
+    def handle_endtag(self, tag):
+        if tag in self._skip_tags:
+            self._skip = False
+        elif not self._skip:
+            self._parts.append(f'</{tag}>')
+    def handle_data(self, data):
+        if not self._skip:
+            self._parts.append(data)
+    def handle_entityref(self, name):
+        if not self._skip:
+            self._parts.append(f'&{name};')
+    def handle_charref(self, name):
+        if not self._skip:
+            self._parts.append(f'&#{name};')
+    def get_result(self):
+        return ''.join(self._parts)
+
+
+def _strip_scripts(html_str):
+    """Remove <script> tag content from HTML using stdlib parser."""
+    s = _ScriptStripper()
+    s.feed(html_str)
+    return s.get_result()
+
+
+class _ScriptCollector(_HTMLParser):
+    """Collect content inside <script> tags."""
+    def __init__(self):
+        super().__init__()
+        self.scripts = []
+        self._in_script = False
+        self._current = []
+    def handle_starttag(self, tag, attrs):
+        if tag == 'script':
+            self._in_script = True
+            self._current = []
+    def handle_endtag(self, tag):
+        if tag == 'script' and self._in_script:
+            self._in_script = False
+            self.scripts.append(''.join(self._current))
+    def handle_data(self, data):
+        if self._in_script:
+            self._current.append(data)
+
+
+def _script_sizes(html_str):
+    """Return (total_script_bytes, script_count) using stdlib parser."""
+    c = _ScriptCollector()
+    c.feed(html_str)
+    return sum(len(s) for s in c.scripts), len(c.scripts)
 
 from shopper import _jsonld_offers, _jsonld_price, _jsonld_availability
 
@@ -40,7 +107,7 @@ def static_jsonld_product(page):
 def static_price_in_html(page):
     html = page.get("html", "") or ""
     # strip script bodies so a JS-embedded price doesn't count as server-rendered
-    visible = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.I | re.DOTALL)
+    visible = _strip_scripts(html)
     matches = re.findall(r"[$£€]\s?(\d[\d,]*\.?\d*)", visible)
     if not matches:
         if _jsonld_price(page) is not None:
@@ -177,13 +244,12 @@ def static_js_render_ratio(page):
         return "UNKNOWN", "Page too small to evaluate rendering ratio."
 
     # Script content size (exclude external scripts with src= and empty body)
-    scripts = _re.findall(r"<script[^>]*>.*?</script>", html, _re.I | _re.DOTALL)
-    script_len = sum(len(s) for s in scripts)
+    script_len, _ = _script_sizes(html)
 
     # Visible text vs total page (strip tags for non-script content)
     text_len = len(text)
     # More robust: measure text outside scripts
-    non_script_html = _re.sub(r"<script[^>]*>.*?</script>", "", html, flags=_re.I | _re.DOTALL)
+    non_script_html = _strip_scripts(html)
     non_script_text = _re.sub(r"<[^>]{1,500}>", " ", non_script_html)
     non_script_text_len = len(non_script_text.strip())
 
@@ -632,7 +698,7 @@ def static_contradictory_availability(page):
     text = (page.get("text", "") or "").lower()
     html = page.get("html", "") or ""
     # Strip script bodies so JS string literals don't count as visible text
-    visible = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.I | re.DOTALL).lower()
+    visible = _strip_scripts(html).lower()
 
     # Out-of-stock signals in visible text
     oos_phrases = ("out of stock", "sold out", "unavailable", "out stock")
