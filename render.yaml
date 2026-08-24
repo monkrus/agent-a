@@ -1,0 +1,30 @@
+# Render.com deployment blueprint
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: agent-readiness-scanner
+    runtime: docker
+    plan: free
+    rootDir: readiness
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SHOPPER
+        value: mock
+      - key: ANTHROPIC_API_KEY
+        sync: false  # set manually in Render dashboard
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: SCAN_N
+        value: "5"
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
