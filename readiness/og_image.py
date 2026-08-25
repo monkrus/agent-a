@@ -260,10 +260,12 @@ def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str
         safe_name = os.path.basename(output_path)
         scans_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), ".scans"))
         lb_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "leaderboard"))
-        fpath = os.path.realpath(os.path.join(os.path.dirname(output_path), safe_name))
-        if fpath.startswith(scans_dir) or fpath.startswith(lb_dir):
-            with open(fpath, 'wb') as wf:
-                wf.write(data)
+        for allowed_dir in (scans_dir, lb_dir):
+            candidate = os.path.realpath(os.path.join(allowed_dir, safe_name))
+            if candidate.startswith(allowed_dir):
+                with open(candidate, 'wb') as wf:
+                    wf.write(data)
+                break
 
     return data
 
