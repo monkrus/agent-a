@@ -245,8 +245,16 @@ def headline(results):
     if gated:
         gate_sources = [r for r in results
                         if r.get("id") in ("RDY-031", "RDY-003") and r.get("verdict") == "FAIL"]
-        names = "; ".join(r["title"] for r in gate_sources) if gate_sources else "access blocked"
-        return (f"ACCESS BLOCKED — {names}. "
+        reasons = []
+        for r in gate_sources:
+            if r.get("id") == "RDY-031":
+                reasons.append("site blocks agent-like traffic")
+            elif r.get("id") == "RDY-003":
+                reasons.append("robots.txt blocks AI crawlers")
+            else:
+                reasons.append(r["title"])
+        reason_str = "; ".join(reasons) if reasons else "access blocked"
+        return (f"ACCESS BLOCKED — {reason_str}. "
                 f"{len(gated)} checks skipped. Fix access first.")
 
     crits = [r for r in results

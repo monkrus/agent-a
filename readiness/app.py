@@ -181,8 +181,16 @@ def _headline(results):
     if gated:
         gate_sources = [r for r in results
                         if r.get("id") in ("RDY-031", "RDY-003") and r.get("verdict") == "FAIL"]
-        names = "; ".join(r["title"] for r in gate_sources) if gate_sources else "access blocked"
-        return (f"ACCESS BLOCKED — {names}. "
+        reasons = []
+        for r in gate_sources:
+            if r.get("id") == "RDY-031":
+                reasons.append("site blocks agent-like traffic")
+            elif r.get("id") == "RDY-003":
+                reasons.append("robots.txt blocks AI crawlers")
+            else:
+                reasons.append(r["title"])
+        reason_str = "; ".join(reasons) if reasons else "access blocked"
+        return (f"ACCESS BLOCKED — {reason_str}. "
                 f"{len(gated)} checks skipped. Fix access first.")
     crits = [r for r in results
              if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
@@ -360,14 +368,21 @@ def scan_stream():
                              for r in results)
 
         if access_blocked:
-            gate_failures = [r.get("title") for r in results
-                             if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"]
+            gate_reasons = []
+            for r in results:
+                if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL":
+                    if r.get("id") == "RDY-031":
+                        gate_reasons.append("site blocks agent-like traffic")
+                    elif r.get("id") == "RDY-003":
+                        gate_reasons.append("robots.txt blocks AI crawlers")
+                    else:
+                        gate_reasons.append(r.get("title"))
             gate_reason = ("Skipped: site blocks agent access "
-                           f"({'; '.join(gate_failures)}). "
+                           f"({'; '.join(gate_reasons)}). "
                            "Fix access first.")
             yield "data: " + json.dumps({
                 "type": "gate_blocked",
-                "message": f"ACCESS BLOCKED — {'; '.join(gate_failures)}",
+                "message": f"ACCESS BLOCKED — {'; '.join(gate_reasons)}",
                 "skipped": len(other_static) + len(browser_checks) + len(shopper_checks),
             }) + "\n\n"
 
