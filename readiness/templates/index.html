@@ -3,32 +3,42 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agent Readiness Scanner — Is your store ready for AI shoppers?</title>
+  <title>Agent‑A — Is your store ready for AI shoppers?</title>
   <meta name="description" content="Free scan: find out if ChatGPT, Gemini, and AI shopping agents can read, extract from, and buy on your product pages. 40 checks across 6 categories, instant results.">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+  <!-- NAV -->
+  <nav class="top-nav">
+    <div class="nav-inner">
+      <a href="/" class="nav-brand">Agent&#8209;A</a>
+      <div class="nav-links">
+        <a href="#what-we-check">What we check</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#faq">FAQ</a>
+        <a href="#url" class="nav-cta" onclick="document.getElementById('url').focus();">Scan free</a>
+      </div>
+    </div>
+  </nav>
+
   <div class="container">
 
     <!-- HERO -->
     <header>
-      <h1>AI agents are shopping right now. Can they buy from you?</h1>
-      <p class="subtitle">ChatGPT, Perplexity, and Gemini recommend products by reading your pages. If an agent can't extract your price or add to cart, the sale goes to a competitor — silently.</p>
+      <h1>AI agents are shopping.<br>Most stores can't sell to them.</h1>
+      <p class="subtitle">ChatGPT, Perplexity, and Gemini decide what to recommend by reading your product pages. If an agent can't extract your price or find Add to Cart, the sale goes to a competitor — silently, with nothing in your analytics to explain it.</p>
     </header>
 
     <div class="card hero-card">
-      <p class="hero-lead">We've scanned 18+ DTC brands. 96% failed at least one agent-readiness check — averaging 5 failures each. Broken JSON-LD, JS-only prices, policies agents can't parse, checkout flows agents can't navigate. You won't know what's wrong until you scan.</p>
 
       {% if error %}
       <p class="error-msg">{{ error }}</p>
       {% endif %}
 
       <form action="{{ url_for('scan') }}" method="post" class="scan-form" id="scan-form">
-        <label for="url">Paste a product page URL to scan it free</label>
-        <p class="input-hint">Use a specific product URL, not your homepage. On Shopify: <code>your-store.com/products/product-name</code></p>
         <div class="input-row">
-          <input type="text" id="url" name="url" placeholder="https://your-store.com/products/product-name" required>
-          <button type="submit" id="scan-btn">Scan Free</button>
+          <input type="text" id="url" name="url" placeholder="your-store.com/products/product-name" required>
+          <button type="submit" id="scan-btn">Scan free</button>
           <button type="button" id="clear-btn" style="display:none;" onclick="
             document.getElementById('stream-results').style.display='none';
             document.getElementById('stream-log').innerHTML='';
@@ -40,6 +50,8 @@
           ">Clear</button>
         </div>
       </form>
+
+      <p class="note">Use a specific product URL, not your homepage. Free score in under a minute — full report with evidence and fixes is $49.</p>
 
       <div id="stream-results" style="display:none; padding:1.5rem 0;">
         <div id="stream-log" style="font-family:monospace; font-size:0.85rem; line-height:1.8; color:#c8c8d0;"></div>
@@ -150,7 +162,7 @@
                 + (d.impact && d.impact.low ? '<div style="color:#8b8b96;font-size:0.85rem;">Est. revenue at risk: $' + d.impact.low.toLocaleString() + ' &ndash; $' + d.impact.high.toLocaleString() + '/mo</div>' : '')
                 + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report &rarr;</a></div>';
               document.getElementById('scan-btn').disabled = false;
-              document.getElementById('scan-btn').textContent = 'Scan Free';
+              document.getElementById('scan-btn').textContent = 'Scan free';
               document.getElementById('clear-btn').style.display = '';
             }
             else if (d.type === 'error') {
@@ -160,7 +172,7 @@
               addLine('<span style="color:#f87171;">Error: ' + d.message + '</span>');
               document.getElementById('scan-btn').disabled = false;
               document.getElementById('clear-btn').style.display = '';
-              document.getElementById('scan-btn').textContent = 'Scan Free';
+              document.getElementById('scan-btn').textContent = 'Scan free';
             }
           };
 
@@ -170,89 +182,95 @@
             timerSpan.textContent = '';
             addLine('<span style="color:#f87171;">Connection lost. Please try again.</span>');
             document.getElementById('scan-btn').disabled = false;
-            document.getElementById('scan-btn').textContent = 'Scan Free';
+            document.getElementById('scan-btn').textContent = 'Scan free';
           };
         });
       </script>
-
-      <p class="note">Free: readiness score, pass/fail per check, headline findings. Full report ($49): evidence, agent responses, revenue impact, copy-paste fixes.</p>
     </div>
 
-    <!-- PROBLEM -->
+    <!-- STATS -->
     <div class="card">
-      <h2>The problem you can't see in analytics</h2>
-      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">When an AI agent can't read your price, parse your return policy, or click Add to Cart, the customer never sees your product. No error page. No bounce. The sale just vanishes — and your analytics can't tell you why.</p>
       <div class="stat-row">
         <div class="stat-item">
           <span class="stat-number">40</span>
-          <span class="stat-label">checks across 6 categories</span>
+          <span class="stat-label">Checks across 6 categories</span>
         </div>
         <div class="stat-item">
           <span class="stat-number">4</span>
           <span class="stat-label">AI crawlers tested</span>
         </div>
         <div class="stat-item">
+          <span class="stat-number">96%</span>
+          <span class="stat-label">Stores failing at least one check</span>
+        </div>
+        <div class="stat-item">
           <span class="stat-number">18</span>
           <span class="stat-label">DTC brands scanned so far</span>
         </div>
       </div>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem; text-align:center;">Based on scans of Shopify DTC brands including Allbirds, Glossier, Bombas, and Ridge.</p>
     </div>
 
     <!-- 6 CATEGORIES -->
-    <div class="how-it-works">
+    <div id="what-we-check" class="how-it-works">
       <h2>What we check</h2>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Every check maps to one category of agent readiness. A failure in any category can silently kill a sale.</p>
       <div class="check-grid">
         <div class="check-item">
-          <strong>1. Can agents read it?</strong>
-          <span>JSON-LD structured data, price in HTML, llms.txt, robots.txt, sitemap, page load time, crawler access for GPTBot + ClaudeBot + PerplexityBot</span>
+          <span class="check-num">01</span>
+          <strong>Can agents read it?</strong>
+          <span>JSON-LD structured data, price in HTML, llms.txt, robots.txt, sitemap, page load time, and crawler access for GPTBot, ClaudeBot, and PerplexityBot.</span>
         </div>
         <div class="check-item">
-          <strong>2. Can agents extract correctly?</strong>
-          <span>Simulated AI shopper extracts price, availability, product name, return policy, shipping info. Run 10 times to measure accuracy and consistency.</span>
+          <span class="check-num">02</span>
+          <strong>Can agents extract correctly?</strong>
+          <span>A simulated AI shopper pulls price, availability, product name, and return policy ten times, and we grade accuracy and consistency across the runs.</span>
         </div>
         <div class="check-item">
-          <strong>3. Can agents act on it?</strong>
-          <span>Add-to-Cart semantics, variant selectors, guest checkout, cart API, checkout reachability, x402 wallet compatibility. Browser agent walks through the real flow.</span>
+          <span class="check-num">03</span>
+          <strong>Can agents act on it?</strong>
+          <span>Add-to-cart semantics, variant selectors, guest checkout, cart API, checkout reachability, and x402 wallet compatibility, walked through like a real shopper.</span>
         </div>
         <div class="check-item">
-          <strong>4. Is it safe &amp; trustworthy?</strong>
-          <span>Prompt injection in page content and UGC, cart rate limiting, checkout bot challenge, admin/API path exposure.</span>
+          <span class="check-num">04</span>
+          <strong>Is it safe and trustworthy?</strong>
+          <span>Prompt injection in page content and reviews, cart rate limiting, checkout bot challenges, and exposed admin or API paths.</span>
         </div>
         <div class="check-item">
-          <strong>5. Does it hold up under traffic?</strong>
-          <span>Page load time under agent timeout, multi-UA blocking detection across 4 AI crawlers.</span>
+          <span class="check-num">05</span>
+          <strong>Does it hold up under traffic?</strong>
+          <span>Page load time against agent timeouts, and multi-user-agent blocking checked across four AI crawlers.</span>
         </div>
         <div class="check-item">
-          <strong>6. Does it speak agent protocols?</strong>
-          <span>MCP, OAuth, A2A, Auth.md, markdown negotiation, Link headers, DNS-AID, Agent Skills / WebMCP / UCP / ACP.</span>
+          <span class="check-num">06</span>
+          <strong>Does it speak agent protocols?</strong>
+          <span>MCP, OAuth, A2A, Auth.md, markdown negotiation, Link headers, DNS-AID, and Agent Skills, WebMCP, UCP, ACP.</span>
         </div>
       </div>
     </div>
 
     <!-- HOW IT WORKS -->
-    <div class="card">
+    <div id="how-it-works" class="card">
       <h2>How it works</h2>
       <div class="steps">
         <div class="step">
           <span class="step-num">1</span>
           <div>
             <strong>Paste a product URL</strong>
-            <p>Any Shopify product page. We fetch it exactly like an AI agent would.</p>
+            <p>Any Shopify product page. We fetch it exactly the way an AI agent would.</p>
           </div>
         </div>
         <div class="step">
           <span class="step-num">2</span>
           <div>
-            <strong>We run 40 checks in real time</strong>
-            <p>Static probes, simulated shopping agent, and browser-based interaction tests. Watch results stream in live.</p>
+            <strong>We run 40 checks live</strong>
+            <p>Static probes, a simulated shopping agent, and browser-based interaction tests, streamed in as they finish.</p>
           </div>
         </div>
         <div class="step">
           <span class="step-num">3</span>
           <div>
-            <strong>Get your score + fix roadmap</strong>
-            <p>0-100 readiness score, per-check verdicts, revenue impact estimate, and prioritized fixes. Free tier shows the score; full report shows the evidence and copy-paste fixes.</p>
+            <strong>Get your score and fixes</strong>
+            <p>A 0–100 readiness score and prioritized fixes. The full report adds evidence and copy-paste code.</p>
           </div>
         </div>
       </div>
@@ -264,70 +282,45 @@
       <div class="agent-logos">
         <span class="agent-tag">ChatGPT Shopping</span>
         <span class="agent-tag">Gemini</span>
-        <span class="agent-tag">Perplexity Buy</span>
+        <span class="agent-tag">Perplexity</span>
         <span class="agent-tag">Amazon Rufus</span>
         <span class="agent-tag">Shopify Sidekick</span>
         <span class="agent-tag">Shop App</span>
       </div>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:1rem;">When a customer asks "find me a $50 gift for a runner," these agents read your product page to decide whether to recommend you. If your structured data is wrong or your checkout blocks bots, you're silently excluded.</p>
-    </div>
-
-    <!-- SOCIAL PROOF -->
-    <div class="card">
-      <h2>What we find on real stores</h2>
-      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:0.75rem; margin-top:0.5rem;">
-        <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;">
-          <span style="font-size:1.5rem; font-weight:700; color:var(--red);">96%</span>
-          <span style="display:block; font-size:0.8rem; color:var(--text-muted);">of stores failed at least one check</span>
-        </div>
-        <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;">
-          <span style="font-size:1.5rem; font-weight:700; color:var(--yellow);">5</span>
-          <span style="display:block; font-size:0.8rem; color:var(--text-muted);">average failures per store</span>
-        </div>
-        <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;">
-          <span style="font-size:1.5rem; font-weight:700; color:var(--accent);">0</span>
-          <span style="display:block; font-size:0.8rem; color:var(--text-muted);">stores supported any agent protocol</span>
-        </div>
-      </div>
-      <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem;">Based on scans of 18 Shopify DTC brands including Allbirds, Glossier, Bombas, and Ridge.</p>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:1rem;">When a shopper asks one of these agents to find a gift, it reads your product page to decide whether to recommend you. Wrong structured data or a blocked checkout means you're silently excluded.</p>
     </div>
 
     <!-- FAQ -->
-    <div class="card">
+    <div id="faq" class="card">
       <h2>FAQ</h2>
       <div class="faq">
         <details>
           <summary>Is the scan really free?</summary>
-          <p>Yes. The free scan gives you your readiness score, headline findings, and per-check pass/fail verdicts. The full report ($49) adds detailed evidence for every failure, sample AI agent responses, revenue impact estimate, and copy-paste code fixes you can hand to your developer.</p>
+          <p>Yes. The free scan gives you your readiness score, headline findings, and per-check pass/fail verdicts. The full report ($49) adds evidence for every failure, sample agent responses, revenue impact, and copy-paste fixes.</p>
         </details>
         <details>
           <summary>What stores do you support?</summary>
-          <p>Currently optimized for Shopify stores. Most checks work on any e-commerce platform (WooCommerce, BigCommerce, custom). Shopify-specific checks (cart API, dynamic checkout) are clearly labeled.</p>
+          <p>Currently optimized for Shopify. Most checks work on any platform, including WooCommerce and BigCommerce; Shopify-specific checks are clearly labeled.</p>
         </details>
         <details>
           <summary>Do you actually send AI agents to my page?</summary>
-          <p>Yes. We run a real Claude-powered shopping agent against your page multiple times, asking it to extract price, availability, product name, and policies. We grade accuracy and consistency across runs.</p>
+          <p>Yes. A Claude-powered shopping agent runs against your page multiple times, extracting price, availability, and policies. We grade accuracy and consistency across runs.</p>
         </details>
         <details>
           <summary>How long does a scan take?</summary>
-          <p>Static checks: ~10 seconds. With AI extraction: ~30 seconds. Full scan with browser agent flows: 2-3 minutes. You watch results stream in live.</p>
-        </details>
-        <details>
-          <summary>What's the x402 / wallet check?</summary>
-          <p>Cloudflare just launched agent wallets and the x402 payment protocol. When AI agents can pay for products autonomously, stores that support x402 will capture that revenue. We check if your site shows readiness signals.</p>
+          <p>Static checks finish in about 10 seconds. With AI extraction, about 30 seconds. A full scan with browser-agent flows takes 2 to 3 minutes, and you watch results stream in live.</p>
         </details>
       </div>
     </div>
 
     <!-- BOTTOM CTA -->
     <div class="card paywall-card">
-      <h2>Every day without a scan is traffic you can't measure losing</h2>
-      <p>Free. No signup. Results in under a minute.</p>
-      <a href="#url" class="btn-pay" style="display:inline-block; text-decoration:none;" onclick="document.getElementById('url').focus();">Scan Your Store Now</a>
+      <h2>Every day without a scan<br>is revenue you can't measure losing.</h2>
+      <a href="#url" class="btn-pay" style="display:inline-block; text-decoration:none;" onclick="document.getElementById('url').focus();">Scan your store — free</a>
     </div>
 
     <footer>
-      <p>agent-a &middot; built by <a href="https://github.com/monkrus" style="color:var(--text-muted);">Sergei Stadnik</a></p>
+      <p>agent&#8209;a &middot; built by <a href="https://github.com/monkrus" style="color:var(--text-muted);">Sergei Stadnik</a></p>
     </footer>
   </div>
 </body>
