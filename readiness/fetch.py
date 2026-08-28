@@ -353,11 +353,19 @@ def _probe_single_ua(url: str, ua: str, timeout: int) -> dict:
         result["readable_words"] = words
 
         # Detect common WAF/bot challenge pages
+        # Real challenge pages have very little readable content (< 500 words).
+        # Shopify stores include <script id="captcha-bootstrap"> on every page,
+        # so only flag challenges when the page lacks real product content.
         bl = body.lower()
-        challenge_sigs = ("cf-challenge", "challenge-platform", "captcha",
+        challenge_sigs = ("cf-challenge", "challenge-platform",
                           "checking your browser", "please verify",
                           "access denied", "bot detection", "ddos protection")
-        if any(sig in bl for sig in challenge_sigs):
+        # "captcha" only counts if the page is thin — Shopify's captcha-bootstrap
+        # script appears on all legitimate product pages too
+        thin_sigs = ("captcha",)
+        has_strong_sig = any(sig in bl for sig in challenge_sigs)
+        has_thin_sig = any(sig in bl for sig in thin_sigs)
+        if has_strong_sig or (has_thin_sig and words < 500):
             result["challenge"] = True
 
     return result
