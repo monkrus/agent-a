@@ -106,8 +106,11 @@ def static_jsonld_product(page):
 
 def static_price_in_html(page):
     html = page.get("html", "") or ""
-    # strip script bodies so a JS-embedded price doesn't count as server-rendered
-    visible = _strip_scripts(html)
+    # Strip script bodies AND HTML tags (including attributes like
+    # <meta itemprop="price" content="$59">) so only truly visible
+    # text-node prices count as server-rendered.
+    no_scripts = _strip_scripts(html)
+    visible = re.sub(r"<[^>]{1,500}>", " ", no_scripts)
     matches = re.findall(r"[$£€]\s?(\d[\d,]*\.?\d*)", visible)
     if not matches:
         if _jsonld_price(page) is not None:
@@ -135,15 +138,54 @@ def static_robots_allows_agents(page):
     robots = page.get("robots")
     if robots is None:
         return "UNKNOWN", "robots.txt not fetched (local file or unreachable)."
+
     blocked = []
+    catalog_blocked = []
+
+    # Parse robots.txt into per-UA stanzas
     blocks = re.split(r"(?im)^\s*user-agent:", robots)
+    wildcard_disallows = []
+
     for blk in blocks:
         head = blk.strip().lower()
         ua = head.split("\n", 1)[0].strip()
-        if any(a in ua for a in AGENT_UAS) and re.search(r"(?im)^\s*disallow:\s*/\s*$", blk):
-            blocked.append(ua)
+        # Extract all Disallow directives in this stanza
+        disallows = re.findall(r"(?im)^\s*disallow:\s*(.+)", blk)
+        disallows = [d.strip() for d in disallows]
+
+        is_agent_ua = any(a in ua for a in AGENT_UAS)
+        is_wildcard = ua == "*"
+
+        if is_wildcard:
+            wildcard_disallows = disallows
+
+        if is_agent_ua or is_wildcard:
+            for d in disallows:
+                if d == "/":
+                    label = ua if is_agent_ua else "* (all crawlers)"
+                    if label not in blocked:
+                        blocked.append(label)
+                elif d.rstrip("/") in ("/products", "/collections", "/catalog"):
+                    label = ua if is_agent_ua else "* (all crawlers)"
+                    if label not in catalog_blocked:
+                        catalog_blocked.append(label)
+
+    # Agent-specific stanzas that re-allow override the wildcard block
+    # (a more-specific Allow: / for an agent UA cancels a wildcard Disallow: /)
+    for blk in blocks:
+        head = blk.strip().lower()
+        ua = head.split("\n", 1)[0].strip()
+        if any(a in ua for a in AGENT_UAS):
+            allows = re.findall(r"(?im)^\s*allow:\s*(.+)", blk)
+            allows = [a.strip() for a in allows]
+            if "/" in allows:
+                # This agent is explicitly re-allowed — remove wildcard block
+                blocked = [b for b in blocked if b != "* (all crawlers)"]
+
     if blocked:
         return "FAIL", f"robots.txt blocks agent user-agents: {', '.join(blocked)}."
+    if catalog_blocked:
+        return "FAIL", f"robots.txt blocks product catalog paths for: {', '.join(catalog_blocked)}."
     return "PASS", "No agent user-agents fully disallowed in robots.txt."
 
 
@@ -396,8 +438,17 @@ def static_prompt_injection(page):
 
     # 4. Check all page text for injection patterns in obvious places
     text = (page.get("text", "") or "").lower()
-    # Only flag visible text if it's clearly injected (not natural language)
-    for p in INJECTION_PATTERNS[:6]:  # check the most dangerous patterns only
+    # Only flag visible text for unambiguous injection — patterns like
+    # "you are now a" match marketing copy ("You are now a member of our
+    # rewards club"), so require co-occurrence with instruction-target words.
+    VISIBLE_SAFE = [
+        r"ignore\s+(all\s+)?previous\s+instructions",
+        r"ignore\s+(all\s+)?above",
+        r"disregard\s+(all\s+)?(previous|above|prior)",
+        r"system\s*:\s*override",
+        r"system\s*:\s*you\s+are",
+    ]
+    for p in VISIBLE_SAFE:
         if _re.search(p, text, _re.I):
             findings.append("Visible page text contains suspicious agent-override phrasing")
             break
@@ -425,13 +476,15 @@ def static_guest_checkout(page):
         "account required",
     ))
 
-    # Guest checkout indicators
+    # Guest checkout indicators — require explicit guest affordances,
+    # not weak signals like "email address" that appear on login pages too
     guest_ok = any(phrase in cl for phrase in (
         "guest checkout", "continue as guest", "checkout as guest",
-        "without an account", "no account needed", "email address",
-        "contact information", "shipping address",
+        "without an account", "no account needed",
     ))
 
+    # Login wall short-circuits — even if weak guest signals are present,
+    # a login wall dominates unless there's an explicit guest option
     if login_wall and not guest_ok:
         return "FAIL", "Checkout requires login — no guest checkout option found. Agents cannot purchase without credentials."
     if guest_ok:
@@ -482,7 +535,7 @@ def static_search_accessible(page):
     has_search_input = bool(re.search(
         r'<input[^>]*type=["\']search["\']', hl))
     has_search_role = 'role="search"' in hl or "role='search'" in hl
-    has_search_link = bool(re.search(r'href=["\'][^"\']*search[^"\']*["\']', hl))
+    has_search_link = bool(re.search(r'href=["\'][^"\']*/search(/|\?|["\'])', hl))
 
     if has_search_form or has_search_input:
         return "PASS", "Site search form or input found on homepage — agents can search for products."
@@ -532,8 +585,8 @@ def static_related_products(page):
         r'frequently bought together)', hl))
 
     # Count product links in the page (beyond the main product)
-    product_links = re.findall(r'href=["\'][^"\']*/(products)/[^"\']*["\']', hl)
-    distinct_products = len(set(product_links))
+    product_slugs = re.findall(r'href=["\'][^"\']*/products/([^"\'/?#]+)', hl)
+    distinct_products = len(set(product_slugs))
 
     if related_section and distinct_products >= 2:
         return "PASS", f"Related products section found with {distinct_products}+ product links — agents can compare."
@@ -605,7 +658,7 @@ def static_checkout_proxy(page):
     if has_checkout_link:
         return "PASS", "Checkout link found on product page (checkout likely reachable after adding to cart)."
     if has_cart_link:
-        return "PASS", "Cart link found — agents can navigate toward checkout."
+        return "UNKNOWN", "Cart link found but /checkout not reachable and no checkout link — agents may not complete the purchase path."
     return "FAIL", "No checkout or cart links found, and /checkout not reachable — agents cannot complete a purchase."
 
 
@@ -655,16 +708,23 @@ def static_wallet_compatibility(page):
     Cloudflare Wallets + cloudflare.pay are the buyer-side (agent) product.
     Status as of Aug 2026: waitlist / early access, not GA.
     """
-    html = (page.get("html", "") or "").lower()
-    llms = (page.get("llms_txt_content") or "").lower()
-    checkout_html = (page.get("checkout_html") or "").lower()
-    combined = html + " " + llms + " " + checkout_html
-
     signals = []
 
+    # .well-known/agent-verification endpoint (CF agent identity) — strongest signal
+    agent_verify = page.get("agent_verification")
+    if agent_verify:
+        signals.append("agent-verification endpoint")
+
+    # Strip <script> bodies before text matching — JS error constants like
+    # var ERR="PAYMENT-REQUIRED" must not trigger a PASS
+    raw_html = page.get("html", "") or ""
+    visible_html = _strip_scripts(raw_html).lower()
+    llms = (page.get("llms_txt_content") or "").lower()
+    checkout_visible = _strip_scripts(page.get("checkout_html") or "").lower()
+    combined = visible_html + " " + llms + " " + checkout_visible
+
     # x402 protocol references (HTTP 402 Payment Required for agents)
-    if any(s in combined for s in ("x402", "402-receipt", "payment-required",
-                                    "payment-signature", "x402-hono")):
+    if any(s in combined for s in ("x402", "402-receipt", "x402-hono")):
         signals.append("x402 protocol")
 
     # MPP (Machine Payments Protocol — backwards-compatible with x402)
@@ -675,11 +735,6 @@ def static_wallet_compatibility(page):
     if any(s in combined for s in ("monetization-gateway", "cloudflare.pay",
                                     "cf-agent-auth", "cloudflare-agent")):
         signals.append("Cloudflare Monetization Gateway")
-
-    # .well-known/agent-verification endpoint (CF agent identity)
-    agent_verify = page.get("agent_verification")
-    if agent_verify:
-        signals.append("agent-verification endpoint")
 
     if page.get("agent_probe_status") is None and not signals:
         return "UNKNOWN", "Site not probed (local file mode) — cannot check x402 signals."
@@ -886,9 +941,11 @@ def static_agent_skills(page):
         signals.append("Agent Skills")
     if any(s in combined for s in ("webmcp", "web-mcp", "web_mcp")):
         signals.append("WebMCP")
-    if any(s in combined for s in ("ucp", "unified-commerce-protocol", "universal-checkout")):
+    # UCP/ACP: require word boundaries — bare 3-char substrings match
+    # ordinary words (e.g. "MacPherson" -> "acp", "UCPVC" -> "ucp")
+    if re.search(r'\bucp\b', combined) or "unified-commerce-protocol" in combined:
         signals.append("UCP")
-    if any(s in combined for s in ("acp", "agent-commerce-protocol")):
+    if re.search(r'\bacp\b', combined) or "agent-commerce-protocol" in combined:
         signals.append("ACP")
 
     # Also check for .well-known/skills or similar
@@ -1288,13 +1345,18 @@ def grade_shopper(check, page, answers):
                     "detail": f"no ground truth for '{check.get('ground_truth')}' "
                               f"(page doesn't expose it cleanly — itself a weakness)."}
 
-        # For price checks: also accept prices visible on the page
-        # (sale prices, member prices are legitimately on the page —
-        # extracting them is not a wrong answer)
+        # For price checks: accept alternate product prices (sale/member price)
+        # but NOT arbitrary page prices like shipping ($5.99) or tax.
+        # Only accept alternates within 20-150% of the GT price.
         alt_prices = set()
         if check.get("ground_truth") == "price" and isinstance(gt, float):
-            alt_prices = _visible_prices(page)
-            alt_prices.discard(gt)  # don't double-count the primary GT
+            for vp in _visible_prices(page):
+                if vp == gt:
+                    continue
+                # Reject prices that are clearly not the product price
+                # (shipping, small fees, unrelated numbers)
+                if gt > 0 and 0.20 <= vp / gt <= 1.50:
+                    alt_prices.add(vp)
 
         hits = 0
         alt_hits = 0
@@ -1334,6 +1396,12 @@ def grade_shopper(check, page, answers):
                 "detail": "no shopper answers to grade (n=0 or all runs failed)."}
     counts = Counter(_norm(a) for a in answers)
     modal, modal_n = counts.most_common(1)[0]
+    # A modal answer of "unknown"/empty means the agent extracted nothing —
+    # that's not consistency, it's illegibility.
+    if modal in ("", "unknown", "n/a", "none"):
+        return {"verdict": "FAIL", "pass_fraction": 0.0, "n": n,
+                "modal_answer": modal,
+                "detail": f"Agent consistently returned '{modal}' — page is illegible to agents, not consistent."}
     frac = modal_n / n if n else None
     detail = (f"agent agreed with itself {modal_n}/{n} (modal: '{modal}'); "
               f"{len(counts)} distinct answers.")
