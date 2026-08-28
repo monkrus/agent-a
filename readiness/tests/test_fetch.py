@@ -3,7 +3,7 @@ import sys
 import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from fetch import _parse_html, is_dead_page, is_collection_page, _probe_single_ua
+from fetch import _parse_html, is_dead_page, is_collection_page, _probe_single_ua, _is_safe_url
 
 
 # ---- HTML parsing -----------------------------------------------------------
@@ -175,6 +175,41 @@ class TestChallengeDetection:
                 f'<p>If access denied, contact support.</p></body></html>')
         is_challenge, _, _ = self._detect_challenge(html)
         assert not is_challenge
+
+
+# ---- SSRF protection --------------------------------------------------------
+
+class TestSsrfProtection:
+    def test_rejects_localhost(self):
+        assert not _is_safe_url("http://localhost/")
+
+    def test_rejects_127(self):
+        assert not _is_safe_url("http://127.0.0.1/")
+
+    def test_rejects_metadata_ip(self):
+        assert not _is_safe_url("http://169.254.169.254/latest/meta-data/")
+
+    def test_rejects_private_10(self):
+        assert not _is_safe_url("http://10.0.0.1/")
+
+    def test_rejects_private_172(self):
+        assert not _is_safe_url("http://172.16.0.1/")
+
+    def test_rejects_private_192(self):
+        assert not _is_safe_url("http://192.168.1.1/")
+
+    def test_rejects_ipv6_loopback(self):
+        assert not _is_safe_url("http://[::1]/")
+
+    def test_rejects_ftp_scheme(self):
+        assert not _is_safe_url("ftp://example.com/file")
+
+    def test_rejects_file_scheme(self):
+        assert not _is_safe_url("file:///etc/passwd")
+
+    def test_allows_public_url(self):
+        # google.com resolves to public IPs
+        assert _is_safe_url("https://www.google.com/")
 
 
 # ---- collection page detection ----------------------------------------------

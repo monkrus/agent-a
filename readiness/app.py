@@ -265,6 +265,8 @@ def scan():
     # Fetch page and check for 404 / soft-404 before running full scan
     try:
         pre_page = fetchmod.fetch(url)
+    except fetchmod._UnsafeURLError:
+        return render_template("index.html", error="That URL points to a private or internal address and cannot be scanned.")
     except Exception as e:
         return render_template("index.html", error=f"Could not fetch that URL: {e}")
 
@@ -323,6 +325,9 @@ def scan_stream():
 
         try:
             page = fetchmod.fetch(url)
+        except fetchmod._UnsafeURLError:
+            yield "data: " + json.dumps({"type": "error", "message": "That URL points to a private or internal address and cannot be scanned."}) + "\n\n"
+            return
         except Exception as e:
             yield "data: " + json.dumps({"type": "error", "message": "Fetch failed. Check the URL and try again."}) + "\n\n"
             return

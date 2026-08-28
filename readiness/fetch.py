@@ -20,14 +20,48 @@ not run JS. For JS-heavy targets, point `fetch_rendered` at a rendering backend
 (ListingIQ already uses Apify; wire that in clients work, not here).
 """
 from __future__ import annotations
+import ipaddress
 import json
 import os
 import pathlib
 import re
+import socket
 import sys
 import time
 from html.parser import HTMLParser
 from urllib.parse import urlparse, urljoin
+
+
+# ---- SSRF protection --------------------------------------------------------
+def _is_safe_url(url: str) -> bool:
+    """Reject URLs targeting private/loopback/link-local/reserved IPs.
+
+    Only http/https allowed. Resolves hostname via DNS and checks every
+    returned IP against ipaddress safety predicates.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    try:
+        infos = socket.getaddrinfo(hostname, parsed.port or (443 if parsed.scheme == "https" else 80))
+    except socket.gaierror:
+        return False
+    for family, _type, _proto, _canon, sockaddr in infos:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            return False
+    return True
+
+
+class _UnsafeURLError(ValueError):
+    """Raised when a URL targets a private/internal host."""
+    pass
 
 
 # ---- Per-domain fetch cache (prevents rate-limit garbage on rapid rescans) ---
@@ -117,6 +151,8 @@ def _parse_html(html: str, url: str = "") -> dict:
 
 def _fetch_rendered(url: str, timeout: int = 30) -> dict | None:
     """Fetch URL with Playwright headless browser. Returns parsed page or None."""
+    if not _is_safe_url(url):
+        return None
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -144,6 +180,9 @@ def fetch(target: str, timeout: int = 30) -> dict:
     render = os.environ.get("RENDER", "").lower() == "playwright"
 
     if re.match(r"^https?://", target):
+        # SSRF guard: reject private/loopback/link-local/metadata IPs
+        if not _is_safe_url(target):
+            raise _UnsafeURLError(f"URL targets a private or reserved IP: {target}")
         # Check cache — prevent garbage results from rapid repeated scans
         domain = urlparse(target).netloc
         cached = _fetch_cache.get(domain)
@@ -320,6 +359,9 @@ def _probe_single_ua(url: str, ua: str, timeout: int) -> dict:
     import requests as _requests
     result = {"status": None, "readable_words": 0, "challenge": False,
               "inconclusive": False}
+    if not _is_safe_url(url):
+        result["inconclusive"] = True
+        return result
 
     statuses = []
     last_response = None
@@ -442,6 +484,8 @@ def _probe_as_agent(url: str, timeout: int) -> dict:
 
 def _probe_ok(url: str, timeout: int) -> bool:
     try:
+        if not _is_safe_url(url):
+            return False
         import requests
         return requests.get(url, timeout=timeout).status_code == 200
     except Exception:
@@ -450,6 +494,8 @@ def _probe_ok(url: str, timeout: int) -> bool:
 
 def _get_text(url: str, timeout: int):
     try:
+        if not _is_safe_url(url):
+            return None
         import requests
         r = requests.get(url, timeout=timeout)
         return r.text if r.status_code == 200 else None
@@ -460,6 +506,8 @@ def _get_text(url: str, timeout: int):
 def _probe_markdown_negotiation(url: str, timeout: int) -> dict | None:
     """Probe whether the server supports content negotiation for markdown."""
     try:
+        if not _is_safe_url(url):
+            return None
         import requests
         r = requests.get(url, timeout=timeout,
                          headers={"Accept": "text/markdown",
@@ -478,6 +526,8 @@ def _probe_markdown_negotiation(url: str, timeout: int) -> dict | None:
 def _get_json(url: str, timeout: int) -> dict | None:
     """Fetch a URL and parse as JSON. Returns parsed dict or None."""
     try:
+        if not _is_safe_url(url):
+            return None
         import requests
         r = requests.get(url, timeout=timeout,
                          headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
@@ -491,6 +541,8 @@ def _get_json(url: str, timeout: int) -> dict | None:
 def _probe_link_headers(url: str, timeout: int) -> dict | None:
     """Check response headers for Link rel=describedby, rel=api-catalog, etc."""
     try:
+        if not _is_safe_url(url):
+            return None
         import requests
         r = requests.head(url, timeout=timeout, allow_redirects=True,
                           headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
@@ -523,6 +575,8 @@ def _probe_dns_aid(domain: str) -> dict | None:
 def _probe_cart_rate(cart_url: str, timeout: int) -> dict | None:
     """Probe cart API endpoint multiple times rapidly to test rate limiting."""
     try:
+        if not _is_safe_url(cart_url):
+            return None
         import requests
         statuses = []
         for _ in range(5):
@@ -549,6 +603,8 @@ def _probe_cart_rate(cart_url: str, timeout: int) -> dict | None:
 def _probe_admin_paths(origin: str, timeout: int) -> dict | None:
     """Check if admin/staff/API paths are exposed without auth."""
     try:
+        if not _is_safe_url(origin + "/"):
+            return None
         import requests
         paths = ["/admin", "/admin/api", "/staff", "/.env", "/api/products.json"]
         exposed = []
