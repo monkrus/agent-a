@@ -15,6 +15,12 @@
 
     <!-- FREE TIER: always visible -->
     <div class="card score-card">
+      {% if access_blocked %}
+      <div class="score-display">
+        <span class="score-number score-bad" style="font-size:1.5rem; letter-spacing:0;">BLOCKED</span>
+      </div>
+      <p class="headline" style="color:#f87171; font-weight:600;">AI shopping agents cannot access your store</p>
+      {% else %}
       <div class="score-display">
         <span class="score-number {% if data.readiness_score and data.readiness_score >= 80 %}score-good{% elif data.readiness_score and data.readiness_score >= 50 %}score-ok{% else %}score-bad{% endif %}">
           {{ data.readiness_score if data.readiness_score is not none else 'N/A' }}
@@ -22,6 +28,7 @@
         <span class="score-label">/ 100</span>
       </div>
       <p class="headline">{{ data.headline }}</p>
+      {% endif %}
       <div class="meta-row">
         <span>{{ data.meta.target }}</span>
         <span>{{ data.meta.n }} AI agent visits simulated{% if data.meta.duration_seconds %} &middot; {{ data.meta.duration_seconds }}s{% endif %}</span>
@@ -140,10 +147,63 @@
     </div>
     {% endif %}
 
+    <!-- ACCESS BLOCKED — primary finding -->
+    {% if access_blocked %}
+    <div class="card" style="border:1px solid rgba(239,68,68,0.4); background:rgba(239,68,68,0.04);">
+      <h2 style="color:#f87171;">Your store is invisible to AI shopping agents</h2>
+      <p style="font-size:0.95rem; color:var(--text); margin-bottom:1rem; line-height:1.7;">
+        When a customer asks ChatGPT, Perplexity, or Gemini to find a product like yours, these agents try to read your product page. Your site detected them and served a challenge page instead of your actual product. The agent moves on to a competitor — and the customer never knows you exist.
+      </p>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">
+        This is the single most important finding. None of the other 38 checks matter until agents can reach your page.
+      </p>
+
+      {% if data.intel and data.intel.agent_access %}
+      <div style="margin:1rem 0;">
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem; font-weight:600;">Crawler-by-crawler results:</p>
+        <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+          {% for agent in data.intel.agent_access %}
+          <div style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.35rem 0.7rem; border-radius:6px; font-size:0.85rem; font-weight:600;
+            {% if agent.status == 'blocked' %}background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3);
+            {% elif agent.status == 'allowed' %}background:rgba(34,197,94,0.12); color:#4ade80; border:1px solid rgba(34,197,94,0.3);
+            {% else %}background:rgba(234,179,8,0.12); color:#eab308; border:1px solid rgba(234,179,8,0.3);{% endif %}">
+            {{ agent.name }} — {{ agent.status }}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1rem; margin-top:1rem;">
+        <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin-bottom:0.5rem;">What this means for your revenue</p>
+        <ul style="font-size:0.85rem; color:var(--text-muted); padding-left:1.25rem; line-height:1.8;">
+          <li>AI shopping agents cannot recommend your products to anyone</li>
+          <li>Customers comparing prices via ChatGPT or Perplexity will see competitors, not you</li>
+          <li>"Find me a [your product]" queries return everyone except you</li>
+          <li>You won't see this in analytics — there's no bounce, no error, no traffic to measure</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1rem; margin-top:0.75rem;">
+        <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin-bottom:0.5rem;">How to fix it</p>
+        <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.7;">
+          Your site's bot protection (likely Cloudflare, Akamai, or your CDN) is blocking requests with AI agent User-Agent strings. You need to allowlist these crawlers:
+          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.8rem;">GPTBot</code>,
+          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.8rem;">ClaudeBot</code>,
+          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.8rem;">PerplexityBot</code>,
+          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.8rem;">OAI-SearchBot</code>.
+          Check your CDN/WAF settings, or contact your hosting provider.
+        </p>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- CHECK RESULTS -->
     <div class="card">
       <h2>Check Results</h2>
-      {% if not paid %}
+      {% if access_blocked %}
+      <p class="intel-subtitle">Only 2 access checks ran. The remaining {{ data.results|selectattr('gated')|list|length }} checks were skipped because agents can't reach the page.</p>
+      {% elif not paid %}
       <p class="intel-subtitle">Each check was run {{ data.meta.n }} times to test consistency. Unlock the full report to see details, evidence, and copy-paste fixes.</p>
       {% else %}
       <p class="intel-subtitle">Each check was run {{ data.meta.n }} times. Failing checks include evidence, what it costs you, and a ready-to-use fix.</p>

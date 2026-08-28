@@ -140,8 +140,13 @@
               div.scrollIntoView({behavior: 'smooth', block: 'end'});
             }
             else if (d.type === 'gate_blocked') {
-              addLine('<br><span style="color:#f87171;font-size:1.1rem;font-weight:bold;">BLOCKED: ' + d.message + '</span>');
-              addLine('<span style="color:#f87171;">&nbsp;&nbsp;' + d.skipped + ' checks skipped. Fix access first.</span>');
+              addLine('<br><div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:1.25rem;margin:0.5rem 0;">'
+                + '<div style="font-size:1.2rem;font-weight:700;color:#f87171;margin-bottom:0.5rem;">Your store is invisible to AI shopping agents</div>'
+                + '<p style="color:#c8c8d0;font-size:0.9rem;margin-bottom:0.75rem;">When a customer asks ChatGPT, Perplexity, or Gemini to find a product like yours, these agents try to read your page. Your site detected them and served a challenge page instead of your product. The agent moves on — the customer never sees you.</p>'
+                + (d.blocked_uas && d.blocked_uas.length ? '<div style="margin-bottom:0.5rem;"><span style="color:#8b8b96;font-size:0.8rem;">Blocked crawlers:</span> ' + d.blocked_uas.map(function(ua) { return '<span style="display:inline-block;background:rgba(239,68,68,0.15);color:#f87171;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;font-weight:600;margin:0.15rem 0.2rem;">' + ua + '</span>'; }).join('') + '</div>' : '')
+                + (d.allowed_uas && d.allowed_uas.length ? '<div style="margin-bottom:0.5rem;"><span style="color:#8b8b96;font-size:0.8rem;">Allowed crawlers:</span> ' + d.allowed_uas.map(function(ua) { return '<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#4ade80;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;font-weight:600;margin:0.15rem 0.2rem;">' + ua + '</span>'; }).join('') + '</div>' : '')
+                + '<div style="color:#8b8b96;font-size:0.8rem;margin-top:0.5rem;">' + d.skipped + ' remaining checks skipped — they can\'t run if agents can\'t reach the page.</div>'
+                + '</div>');
             }
             else if (d.type === 'gate_passed') {
               addLine('&nbsp;&nbsp;<span style="color:#4ade80;">&#10003; ' + d.message + '</span>');
@@ -155,12 +160,19 @@
               const finalTime = em > 0 ? em + 'm ' + es2 + 's' : es2 + 's';
               timerSpan.textContent = finalTime;
               addLine('<br><span style="color:#4ade80;font-weight:bold;">Scan complete &mdash; ' + finalTime + '</span>');
-              const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
+              const isBlocked = d.score !== undefined && d.score <= 5 && d.headline && d.headline.indexOf('BLOCKED') !== -1;
               scoreDiv.style.display = 'block';
-              scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
-                + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
-                + (d.impact && d.impact.low ? '<div style="color:#8b8b96;font-size:0.85rem;">Est. revenue at risk: $' + d.impact.low.toLocaleString() + ' &ndash; $' + d.impact.high.toLocaleString() + '/mo</div>' : '')
-                + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report &rarr;</a></div>';
+              if (isBlocked) {
+                scoreDiv.innerHTML = '<div style="font-size:2rem;font-weight:bold;color:#f87171;">BLOCKED</div>'
+                  + '<div style="color:#c8c8d0;margin:0.5rem 0;">AI shopping agents cannot access your store</div>'
+                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report &rarr;</a></div>';
+              } else {
+                const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
+                scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
+                  + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
+                  + (d.impact && d.impact.low ? '<div style="color:#8b8b96;font-size:0.85rem;">Est. revenue at risk: $' + d.impact.low.toLocaleString() + ' &ndash; $' + d.impact.high.toLocaleString() + '/mo</div>' : '')
+                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report &rarr;</a></div>';
+              }
               document.getElementById('scan-btn').disabled = false;
               document.getElementById('scan-btn').textContent = 'Scan free';
               document.getElementById('clear-btn').style.display = '';

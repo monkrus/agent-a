@@ -380,10 +380,16 @@ def scan_stream():
             gate_reason = ("Skipped: site blocks agent access "
                            f"({'; '.join(gate_reasons)}). "
                            "Fix access first.")
+            # Gather per-crawler details for the blocked report
+            probe_detail = page.get("agent_probe_detail", {})
+            blocked_uas = probe_detail.get("blocked_uas", [])
+            allowed_uas = probe_detail.get("allowed_uas", [])
             yield "data: " + json.dumps({
                 "type": "gate_blocked",
                 "message": f"ACCESS BLOCKED — {'; '.join(gate_reasons)}",
                 "skipped": len(other_static) + len(browser_checks) + len(shopper_checks),
+                "blocked_uas": blocked_uas,
+                "allowed_uas": allowed_uas,
             }) + "\n\n"
 
             # Mark remaining checks as gated
@@ -584,10 +590,11 @@ def results(scan_id):
     email_sent_to = session.get(f"email_{scan_id}")
     team_sent = session.pop(f"sent_{scan_id}", False)
     has_email = emailer._is_configured()
+    access_blocked = any(r.get("gated") for r in data.get("results", []))
     return render_template("results.html", data=data, paid=paid,
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            email_sent_to=email_sent_to, team_sent=team_sent,
-                           has_email=has_email)
+                           has_email=has_email, access_blocked=access_blocked)
 
 
 @app.route("/checkout/<scan_id>", methods=["POST"])
