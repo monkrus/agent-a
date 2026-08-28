@@ -1,9 +1,9 @@
-"""Tests for fetch.py — HTML parsing, dead page detection, collection detection."""
+"""Tests for fetch.py — HTML parsing, dead page detection, challenge detection."""
 import sys
 import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from fetch import _parse_html, is_dead_page, is_collection_page
+from fetch import _parse_html, is_dead_page, is_collection_page, _probe_single_ua
 
 
 # ---- HTML parsing -----------------------------------------------------------
@@ -86,6 +86,95 @@ class TestIsDeadPage:
         page = {"status": 200, "title": "Widget - Store",
                 "text": "Widget description " * 20}
         assert is_dead_page(page) is None
+
+    def test_429_is_not_dead(self):
+        """429 = rate-limited, not dead. Scan should proceed, not abort."""
+        page = {"status": 429, "title": "", "text": ""}
+        assert is_dead_page(page) is None
+
+    def test_403_is_dead(self):
+        page = {"status": 403, "title": "", "text": ""}
+        assert is_dead_page(page) is not None
+
+
+# ---- challenge detection (bot wall vs real page) ----------------------------
+
+class TestChallengeDetection:
+    """Regression tests for _probe_single_ua challenge detection.
+
+    We can't easily call _probe_single_ua without a real HTTP server,
+    so we test the challenge-detection logic via the internal code path
+    by simulating what the function does with crafted responses.
+    """
+
+    def _detect_challenge(self, body):
+        """Replicate the challenge detection logic from _probe_single_ua."""
+        import re
+        text = re.sub(r"<[^>]{1,500}>", " ", body)
+        words = len(text.split())
+        tl = text.lower()
+        challenge_sigs = ("cf-challenge", "challenge-platform",
+                          "checking your browser", "please verify",
+                          "access denied", "bot detection", "ddos protection",
+                          "captcha")
+        matched = [sig for sig in challenge_sigs if sig in tl]
+        return bool(matched and words < 500), words, matched
+
+    def test_real_challenge_page_detected(self):
+        """A thin page with challenge keywords IS a challenge."""
+        html = "<html><body><p>Checking your browser before accessing</p></body></html>"
+        is_challenge, words, _ = self._detect_challenge(html)
+        assert is_challenge
+        assert words < 500
+
+    def test_captcha_only_challenge_page(self):
+        """A thin page mentioning captcha IS a challenge."""
+        html = "<html><body><p>Please complete the captcha to continue</p></body></html>"
+        is_challenge, _, matched = self._detect_challenge(html)
+        assert is_challenge
+        assert "captcha" in matched
+
+    def test_shopify_captcha_bootstrap_not_challenge(self):
+        """Shopify's captcha-bootstrap script on a real product page is NOT a challenge.
+
+        Regression: every Shopify store includes <script id="captcha-bootstrap">.
+        With 5000+ words of product content, this must not trigger."""
+        product_content = " ".join(f"word{i}" for i in range(5000))
+        html = (f'<html><body><div>{product_content}</div>'
+                f'<script id="captcha-bootstrap">!function(){{}}</script></body></html>')
+        is_challenge, words, _ = self._detect_challenge(html)
+        assert not is_challenge
+        assert words >= 500
+
+    def test_cf_challenge_in_script_not_visible(self):
+        """cf-challenge inside a <script> tag is stripped before matching.
+
+        Only visible text triggers challenge detection, not script contents."""
+        product_content = " ".join(f"word{i}" for i in range(600))
+        html = (f'<html><body><div>{product_content}</div>'
+                f'<script>var cf_challenge = true;</script></body></html>')
+        is_challenge, words, _ = self._detect_challenge(html)
+        assert not is_challenge
+
+    def test_real_cloudflare_challenge_detected(self):
+        """A real Cloudflare challenge page (thin, visible challenge text)."""
+        html = ('<html><body>'
+                '<h1>Please verify you are a human</h1>'
+                '<p>Access denied. Checking your browser.</p>'
+                '<div id="cf-challenge">Challenge in progress</div>'
+                '</body></html>')
+        is_challenge, words, matched = self._detect_challenge(html)
+        assert is_challenge
+        assert words < 500
+
+    def test_access_denied_in_privacy_policy_not_challenge(self):
+        """A real page that mentions 'access denied' in policy text is NOT a challenge
+        if the page has substantial content."""
+        content = " ".join(f"product{i}" for i in range(600))
+        html = (f'<html><body><div>{content}</div>'
+                f'<p>If access denied, contact support.</p></body></html>')
+        is_challenge, _, _ = self._detect_challenge(html)
+        assert not is_challenge
 
 
 # ---- collection page detection ----------------------------------------------

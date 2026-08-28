@@ -302,6 +302,13 @@ class TestRateLimiting:
         v, _ = scorers.static_rate_limiting(page)
         assert v == "FAIL"
 
+    def test_fail_429(self):
+        """429 from the real agent probe = true rate-limiting verdict."""
+        page = _page(agent_probe_status=429, agent_probe_detail={})
+        v, d = scorers.static_rate_limiting(page)
+        assert v == "FAIL"
+        assert "429" in d
+
     def test_multi_ua_summary(self):
         page = _page(agent_probe_status=200,
                      agent_probe_detail={

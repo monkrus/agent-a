@@ -353,20 +353,21 @@ def _probe_single_ua(url: str, ua: str, timeout: int) -> dict:
         result["readable_words"] = words
 
         # Detect common WAF/bot challenge pages
-        # Real challenge pages have very little readable content (< 500 words).
-        # Shopify stores include <script id="captcha-bootstrap"> on every page,
-        # so only flag challenges when the page lacks real product content.
-        bl = body.lower()
+        # Match against visible text (tags stripped), not raw HTML — script
+        # tags, attributes, and comments contain false-positive keywords
+        # (e.g. Shopify's <script id="captcha-bootstrap"> on every store).
+        tl = text.lower()
         challenge_sigs = ("cf-challenge", "challenge-platform",
                           "checking your browser", "please verify",
-                          "access denied", "bot detection", "ddos protection")
-        # "captcha" only counts if the page is thin — Shopify's captcha-bootstrap
-        # script appears on all legitimate product pages too
-        thin_sigs = ("captcha",)
-        has_strong_sig = any(sig in bl for sig in challenge_sigs)
-        has_thin_sig = any(sig in bl for sig in thin_sigs)
-        if has_strong_sig or (has_thin_sig and words < 500):
+                          "access denied", "bot detection", "ddos protection",
+                          "captcha")
+        matched = [sig for sig in challenge_sigs if sig in tl]
+        # Real challenge pages are thin (< 500 words of visible content).
+        # A 5000-word product page mentioning "access denied" in its
+        # privacy policy is not a challenge.
+        if matched and words < 500:
             result["challenge"] = True
+            result["challenge_sigs"] = matched
 
     return result
 
