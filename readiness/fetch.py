@@ -207,7 +207,12 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["cart_rate_test"] = _probe_cart_rate(urljoin(origin, "/cart/add.js"), timeout)
                 page["admin_exposure"] = _probe_admin_paths(origin, timeout)
                 page["fetch_time_ms"] = None  # not measurable after 429 recovery
-                page["agent_probe_status"] = 429  # we already know it rate-limits
+                # Don't assume 429 on our scanner UA means agents are blocked —
+                # run the real multi-UA probe (GPTBot, ClaudeBot, etc.)
+                probe = _probe_as_agent(target, timeout)
+                page["agent_probe_status"] = probe["status"]
+                page["agent_probe_detail"] = probe
+                page["_initial_429"] = True  # record that our scanner was rate-limited
                 return page
 
         page = _parse_html(r.text, target)
