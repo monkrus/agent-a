@@ -560,7 +560,8 @@ def _probe_admin_paths(origin: str, timeout: int) -> dict | None:
 def is_dead_page(page: dict) -> str | None:
     """Return an error message if the page is a 404 or soft-404, else None."""
     status = page.get("status")
-    if status and status >= 400:
+    # 429 = rate-limited, not dead — let the scan proceed so RDY-031 can report it
+    if status and status >= 400 and status != 429:
         return f"HTTP {status} — this URL returned an error. Please check the URL and try again."
 
     title = (page.get("title") or "").lower()
