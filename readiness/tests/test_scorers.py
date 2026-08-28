@@ -200,7 +200,9 @@ class TestJsRenderRatio:
 
     def test_fail_heavily_js_rendered(self):
         # Almost no visible text, overwhelmingly script -> FAIL
-        html = "<div>$29.99</div>" + "<script>x=1;</script>" * 50
+        # Use realistic large script bodies (not tiny tags)
+        script_body = "var data=" + "a" * 2000 + ";"
+        html = "<div>$29.99</div>" + f"<script>{script_body}</script>" * 5
         page = _page(html=html)
         v, _ = scorers.static_js_render_ratio(page)
         assert v == "FAIL"
