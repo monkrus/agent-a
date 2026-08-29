@@ -529,33 +529,35 @@ def scan_stream():
                     }) + "\n\n"
 
                 # Browser interaction checks in parallel
-                for c in browser_checks:
-                    yield "data: " + json.dumps({
-                        "type": "check_running", "id": c["id"], "title": c["title"],
-                        "layer": "interaction",
-                    }) + "\n\n"
-
-                with ThreadPoolExecutor(max_workers=len(browser_checks)) as pool:
-                    future_to_check = {
-                        pool.submit(scorers.run_browser, c, page): c
-                        for c in browser_checks
-                    }
-                    for future in _as_completed(future_to_check):
-                        c = future_to_check[future]
-                        try:
-                            r = future.result()
-                        except Exception as exc:
-                            r = {"verdict": "UNKNOWN",
-                                 "detail": f"Browser check error: {exc}",
-                                 "pass_fraction": None}
-                        result = {**_base(c), **r}
-                        results.append(result)
-                        completed += 1
+                if browser_checks:
+                    for c in browser_checks:
                         yield "data: " + json.dumps({
-                            "type": "check", "id": c["id"], "title": c["title"],
-                            "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
-                            "layer": "interaction", "progress": f"{completed}/{total_checks}",
+                            "type": "check_running", "id": c["id"], "title": c["title"],
+                            "layer": "interaction",
                         }) + "\n\n"
+
+                if browser_checks:
+                    with ThreadPoolExecutor(max_workers=len(browser_checks)) as pool:
+                        future_to_check = {
+                            pool.submit(scorers.run_browser, c, page): c
+                            for c in browser_checks
+                        }
+                        for future in _as_completed(future_to_check):
+                            c = future_to_check[future]
+                            try:
+                                r = future.result()
+                            except Exception as exc:
+                                r = {"verdict": "UNKNOWN",
+                                     "detail": f"Browser check error: {exc}",
+                                     "pass_fraction": None}
+                            result = {**_base(c), **r}
+                            results.append(result)
+                            completed += 1
+                            yield "data: " + json.dumps({
+                                "type": "check", "id": c["id"], "title": c["title"],
+                                "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                                "layer": "interaction", "progress": f"{completed}/{total_checks}",
+                            }) + "\n\n"
 
             # Layer 4: Security (static)
             yield from _run_static_batch("security", security_static)
