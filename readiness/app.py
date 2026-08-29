@@ -69,17 +69,49 @@ SCAN_RATE_LIMIT = int(os.environ.get("SCAN_RATE_LIMIT", "30"))  # seconds betwee
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 
 
+# ---- Tier resolution (free vs paid) -----------------------------------------
+
+def _payment_completed(scan_id: str) -> bool:
+    """Check if a scan_id has a completed Stripe payment recorded."""
+    # Payment state is stored in Flask session by /payment-success
+    # For server-side checks outside request context, check scan metadata
+    scan_path = SCANS_DIR / f"{scan_id}.json"
+    if scan_path.exists():
+        try:
+            data = json.loads(scan_path.read_text())
+            return data.get("meta", {}).get("paid", False)
+        except Exception:
+            pass
+    return False
+
+
+def resolve_tier(scan_id: str | None) -> str:
+    """'paid' iff scan_id maps to a completed Stripe payment; else 'free'.
+    Never trust a client-supplied tier field — derive it server-side."""
+    if scan_id and _payment_completed(scan_id):
+        return "paid"
+    return "free"
+
+
+def checks_for_tier(tier: str, checks: list[dict]) -> list[dict]:
+    """Free tier = static checks only. Paid = all checks."""
+    if tier == "free":
+        return [c for c in checks if c.get("type") == "static"]
+    return checks
+
+
 def _load_checks():
     data = yaml.safe_load(CHECKS_PATH.read_text())
     return data.get("pack", "pack"), data.get("version", ""), data.get("checks", [])
 
 
-def _run_scan(target_url, n=None, pre_fetched_page=None):
+def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
     from concurrent.futures import ThreadPoolExecutor
     import time as _time
     _t0 = _time.time()
     n = n or int(os.environ.get("SCAN_N", "5"))
     pack, version, checks = _load_checks()
+    checks = checks_for_tier(tier, checks)
     page = pre_fetched_page or fetchmod.fetch(target_url)
 
     def _base(c):
@@ -91,6 +123,8 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
     static_checks = [c for c in checks if c.get("type") == "static"]
     browser_checks = [c for c in checks if c.get("type") == "browser"]
     shopper_checks = [c for c in checks if c.get("type") == "shopper"]
+    assert tier != "free" or not shopper_checks, "free tier must never carry shopper checks"
+    assert tier != "free" or not browser_checks, "free tier must never carry browser checks"
 
     results = []
     for c in static_checks:
@@ -160,7 +194,8 @@ def _run_scan(target_url, n=None, pre_fetched_page=None):
         "scan_id": scan_id,
         "meta": {
             "target": target_url, "pack": pack, "version": version,
-            "n": n, "shopper": os.environ.get("SHOPPER", "mock"),
+            "n": n, "shopper": "anthropic" if tier == "paid" else "mock",
+            "tier": tier,
             "timestamp": now.isoformat(timespec="seconds"),
             "page_status": page.get("status"),
             "duration_seconds": _elapsed,
@@ -338,6 +373,9 @@ def scan_stream():
             return
 
         pack, version, checks = _load_checks()
+        # Free tier: static checks only, no API spend
+        tier = "free"  # scan-stream is always the free entry point
+        checks = checks_for_tier(tier, checks)
 
         def _base(c):
             return {k: c.get(k) for k in
@@ -346,6 +384,8 @@ def scan_stream():
         static_checks = [c for c in checks if c.get("type") == "static"]
         browser_checks = [c for c in checks if c.get("type") == "browser"]
         shopper_checks = [c for c in checks if c.get("type") == "shopper"]
+        assert not shopper_checks, "free tier must never carry shopper checks"
+        assert not browser_checks, "free tier must never carry browser checks"
         total_checks = len(checks)
 
         results = []
@@ -550,7 +590,7 @@ def scan_stream():
             "scan_id": scan_id,
             "meta": {
                 "target": url, "pack": pack, "version": version,
-                "n": n, "shopper": os.environ.get("SHOPPER", "mock"),
+                "n": n, "shopper": "mock", "tier": tier,
                 "timestamp": now.isoformat(timespec="seconds"),
                 "page_status": page.get("status"),
                 "duration_seconds": _elapsed,
@@ -608,8 +648,17 @@ def checkout(scan_id):
     if not data:
         abort(404)
 
+    # Determine checkout mode: "audit" (one-time) or "monitor" (subscription)
+    checkout_mode = request.form.get("mode", "audit")
+
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
-    price_id = os.environ.get("STRIPE_PRICE_ID")
+    if checkout_mode == "monitor":
+        price_id = os.environ.get("STRIPE_PRICE_ID_MONITOR")
+        stripe_mode = "subscription"
+    else:
+        price_id = os.environ.get("STRIPE_PRICE_ID")
+        stripe_mode = "payment"
+
     if not stripe_key or not price_id:
         # Only allow demo unlock if DEV_MODE is explicitly enabled
         if os.environ.get("DEV_MODE", "").lower() == "true":
@@ -621,13 +670,13 @@ def checkout(scan_id):
     stripe.api_key = stripe_key
     checkout_session = stripe.checkout.Session.create(
         line_items=[{"price": price_id, "quantity": 1}],
-        mode="payment",
+        mode=stripe_mode,
         success_url=request.host_url.rstrip("/") +
                      url_for("payment_success", scan_id=scan_id) +
                      "?session_id={CHECKOUT_SESSION_ID}",
         cancel_url=request.host_url.rstrip("/") +
                     url_for("results", scan_id=scan_id),
-        metadata={"scan_id": scan_id},
+        metadata={"scan_id": scan_id, "mode": checkout_mode},
     )
     return redirect(checkout_session.url, code=303)
 
