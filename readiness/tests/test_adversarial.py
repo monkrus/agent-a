@@ -8,7 +8,7 @@ import pathlib
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 import scorers
-from fetch import _is_safe_url
+from fetch import _is_safe_url, _safe_get, _UnsafeURLError
 
 
 def _page(**kw):
@@ -33,6 +33,101 @@ class TestSsrf:
 
     def test_private_range_blocked(self):
         assert not _is_safe_url("http://10.0.0.1/api/internal")
+
+
+class TestSsrfRedirectBypass:
+    """Redirect-based SSRF: public URL 302s to a private IP."""
+
+    def test_redirect_to_metadata_blocked(self):
+        """302 to cloud metadata IP must raise _UnsafeURLError."""
+        import requests
+        from unittest.mock import patch, MagicMock
+
+        # Mock a 302 response pointing to metadata endpoint
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 302
+        redirect_resp.is_redirect = True
+        redirect_resp.is_permanent_redirect = False
+        redirect_resp.headers = {"Location": "http://169.254.169.254/latest/meta-data/"}
+
+        with patch("requests.get", return_value=redirect_resp):
+            import pytest
+            with pytest.raises(_UnsafeURLError):
+                _safe_get("https://www.example.com/redirect")
+
+    def test_redirect_to_localhost_blocked(self):
+        """302 to localhost must raise _UnsafeURLError."""
+        import requests
+        from unittest.mock import patch, MagicMock
+
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 302
+        redirect_resp.is_redirect = True
+        redirect_resp.is_permanent_redirect = False
+        redirect_resp.headers = {"Location": "http://127.0.0.1/admin"}
+
+        with patch("requests.get", return_value=redirect_resp):
+            import pytest
+            with pytest.raises(_UnsafeURLError):
+                _safe_get("https://www.example.com/redirect")
+
+    def test_relative_redirect_validated(self):
+        """Relative Location: /foo resolves against current host and is validated."""
+        import requests
+        from unittest.mock import patch, MagicMock, call
+
+        # First call: 302 with relative path
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 302
+        redirect_resp.is_redirect = True
+        redirect_resp.is_permanent_redirect = False
+        redirect_resp.headers = {"Location": "/products/widget"}
+
+        # Second call: final 200
+        final_resp = MagicMock()
+        final_resp.status_code = 200
+        final_resp.is_redirect = False
+        final_resp.is_permanent_redirect = False
+
+        with patch("requests.get", side_effect=[redirect_resp, final_resp]):
+            r = _safe_get("https://www.example.com/old-path")
+            assert r.status_code == 200
+
+    def test_public_to_public_redirect_works(self):
+        """Normal 301 between two public hosts succeeds."""
+        import requests
+        from unittest.mock import patch, MagicMock
+
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 301
+        redirect_resp.is_redirect = False
+        redirect_resp.is_permanent_redirect = True
+        redirect_resp.headers = {"Location": "https://www.example.org/new"}
+
+        final_resp = MagicMock()
+        final_resp.status_code = 200
+        final_resp.is_redirect = False
+        final_resp.is_permanent_redirect = False
+
+        with patch("requests.get", side_effect=[redirect_resp, final_resp]):
+            r = _safe_get("https://www.example.com/old")
+            assert r.status_code == 200
+
+    def test_too_many_redirects_raises(self):
+        """More than max_redirects hops raises _UnsafeURLError."""
+        import requests
+        from unittest.mock import patch, MagicMock
+
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 302
+        redirect_resp.is_redirect = True
+        redirect_resp.is_permanent_redirect = False
+        redirect_resp.headers = {"Location": "https://www.example.com/loop"}
+
+        with patch("requests.get", return_value=redirect_resp):
+            import pytest
+            with pytest.raises(_UnsafeURLError, match="too many redirects"):
+                _safe_get("https://www.example.com/start", max_redirects=3)
 
 
 # ---- Item 2: Wallet x402 false positive from JS constant --------------------

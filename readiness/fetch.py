@@ -64,6 +64,25 @@ class _UnsafeURLError(ValueError):
     pass
 
 
+def _safe_get(url, headers=None, timeout=30, max_redirects=5):
+    """GET that re-runs _is_safe_url on every redirect hop."""
+    import requests as _req
+    current = url
+    for _ in range(max_redirects):
+        if not _is_safe_url(current):
+            raise _UnsafeURLError(f"unsafe redirect target: {current}")
+        r = _req.get(current, headers=headers, timeout=timeout,
+                     allow_redirects=False)
+        if r.is_redirect or r.is_permanent_redirect:
+            loc = r.headers.get("Location", "")
+            current = urljoin(current, loc)
+            continue
+        # Attach the final URL so callers can use r.url as before
+        r.url = current
+        return r
+    raise _UnsafeURLError("too many redirects")
+
+
 # ---- Per-domain fetch cache (prevents rate-limit garbage on rapid rescans) ---
 _fetch_cache: dict[str, tuple[float, dict]] = {}  # domain -> (timestamp, page)
 CACHE_TTL = 120  # seconds
@@ -199,8 +218,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
         import requests  # local import so offline/file mode needs no network dep
         headers = {"User-Agent": "agent-a-readiness-scanner/0.1 (+contact)"}
         try:
-            r = requests.get(target, headers=headers, timeout=timeout)
-        except requests.exceptions.RequestException as e:
+            r = _safe_get(target, headers=headers, timeout=timeout)
+        except (requests.exceptions.RequestException, _UnsafeURLError) as e:
             return {"url": target, "status": 0, "html": "", "text": "",
                     "jsonld": [], "meta": {}, "title": "", "links": [],
                     "llms_txt": False, "llms_txt_content": None, "robots": None,
@@ -356,21 +375,20 @@ def _probe_single_ua(url: str, ua: str, timeout: int) -> dict:
       challenge: True if response looks like a WAF/bot challenge page
       inconclusive: True if all attempts timed out or failed
     """
-    import requests as _requests
     result = {"status": None, "readable_words": 0, "challenge": False,
               "inconclusive": False}
-    if not _is_safe_url(url):
-        result["inconclusive"] = True
-        return result
 
     statuses = []
     last_response = None
     for _ in range(3):
         try:
-            r = _requests.get(url, timeout=timeout,
-                              headers={"User-Agent": ua})
+            r = _safe_get(url, timeout=timeout,
+                          headers={"User-Agent": ua})
             statuses.append(r.status_code)
             last_response = r
+        except _UnsafeURLError:
+            result["inconclusive"] = True
+            return result
         except Exception:
             statuses.append(None)
         if len(statuses) >= 2 and statuses.count(statuses[0]) >= 2:
@@ -484,20 +502,14 @@ def _probe_as_agent(url: str, timeout: int) -> dict:
 
 def _probe_ok(url: str, timeout: int) -> bool:
     try:
-        if not _is_safe_url(url):
-            return False
-        import requests
-        return requests.get(url, timeout=timeout).status_code == 200
+        return _safe_get(url, timeout=timeout).status_code == 200
     except Exception:
         return False
 
 
 def _get_text(url: str, timeout: int):
     try:
-        if not _is_safe_url(url):
-            return None
-        import requests
-        r = requests.get(url, timeout=timeout)
+        r = _safe_get(url, timeout=timeout)
         return r.text if r.status_code == 200 else None
     except Exception:
         return None
@@ -506,12 +518,9 @@ def _get_text(url: str, timeout: int):
 def _probe_markdown_negotiation(url: str, timeout: int) -> dict | None:
     """Probe whether the server supports content negotiation for markdown."""
     try:
-        if not _is_safe_url(url):
-            return None
-        import requests
-        r = requests.get(url, timeout=timeout,
-                         headers={"Accept": "text/markdown",
-                                  "User-Agent": "agent-a-readiness-scanner/0.1"})
+        r = _safe_get(url, timeout=timeout,
+                      headers={"Accept": "text/markdown",
+                               "User-Agent": "agent-a-readiness-scanner/0.1"})
         ct = r.headers.get("Content-Type", "")
         return {
             "status": r.status_code,
@@ -526,11 +535,8 @@ def _probe_markdown_negotiation(url: str, timeout: int) -> dict | None:
 def _get_json(url: str, timeout: int) -> dict | None:
     """Fetch a URL and parse as JSON. Returns parsed dict or None."""
     try:
-        if not _is_safe_url(url):
-            return None
-        import requests
-        r = requests.get(url, timeout=timeout,
-                         headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+        r = _safe_get(url, timeout=timeout,
+                      headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
         if r.status_code == 200:
             return r.json()
     except Exception:
@@ -544,7 +550,7 @@ def _probe_link_headers(url: str, timeout: int) -> dict | None:
         if not _is_safe_url(url):
             return None
         import requests
-        r = requests.head(url, timeout=timeout, allow_redirects=True,
+        r = requests.head(url, timeout=timeout, allow_redirects=False,
                           headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
         link_header = r.headers.get("Link", "")
         return {
@@ -582,6 +588,7 @@ def _probe_cart_rate(cart_url: str, timeout: int) -> dict | None:
         for _ in range(5):
             try:
                 r = requests.post(cart_url, timeout=timeout,
+                                  allow_redirects=False,
                                   headers={"User-Agent": "agent-a-readiness-scanner/0.1",
                                            "Content-Type": "application/json"},
                                   json={"id": 0, "quantity": 1})
