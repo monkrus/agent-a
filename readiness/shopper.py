@@ -201,8 +201,8 @@ def _jsonld_availability(page: dict):
 _BACKENDS = {"mock": _mock_answer, "anthropic": _anthropic_answer}
 
 
-def ask(page: dict, task: str) -> str:
-    backend = _BACKENDS.get(os.environ.get("SHOPPER", "mock"), _mock_answer)
+def ask(page: dict, task: str, shopper: str | None = None) -> str:
+    backend = _BACKENDS.get(shopper or os.environ.get("SHOPPER", "mock"), _mock_answer)
     try:
         return backend(page, task)
     except Exception as e:
@@ -276,9 +276,9 @@ def _anthropic_batch(page: dict, tasks: dict[str, str]) -> dict[str, str]:
 _BATCH_BACKENDS = {"mock": _mock_batch, "anthropic": _anthropic_batch}
 
 
-def ask_batch(page: dict, tasks: dict[str, str]) -> dict[str, str]:
+def ask_batch(page: dict, tasks: dict[str, str], shopper: str | None = None) -> dict[str, str]:
     """Ask all shopper tasks in a single API call. Returns {check_id: answer}."""
-    backend = _BATCH_BACKENDS.get(os.environ.get("SHOPPER", "mock"), _mock_batch)
+    backend = _BATCH_BACKENDS.get(shopper or os.environ.get("SHOPPER", "mock"), _mock_batch)
     try:
         return backend(page, tasks)
     except Exception as e:

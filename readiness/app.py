@@ -150,9 +150,11 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
             results.append({**_base(c), **r})
 
         if shopper_checks:
+            shopper_mode = "anthropic" if tier == "paid" else "mock"
             tasks = {c["id"]: c["task"] for c in shopper_checks}
             with ThreadPoolExecutor(max_workers=n) as pool:
-                batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
+                batch_results = list(pool.map(
+                    lambda _: ask_batch(page, tasks, shopper=shopper_mode), range(n)))
             answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
             for c in shopper_checks:
                 answers = answers_by_check[c["id"]]
@@ -648,17 +650,8 @@ def checkout(scan_id):
     if not data:
         abort(404)
 
-    # Determine checkout mode: "audit" (one-time) or "monitor" (subscription)
-    checkout_mode = request.form.get("mode", "audit")
-
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
-    if checkout_mode == "monitor":
-        price_id = os.environ.get("STRIPE_PRICE_ID_MONITOR")
-        stripe_mode = "subscription"
-    else:
-        price_id = os.environ.get("STRIPE_PRICE_ID")
-        stripe_mode = "payment"
-
+    price_id = os.environ.get("STRIPE_PRICE_ID")
     if not stripe_key or not price_id:
         # Only allow demo unlock if DEV_MODE is explicitly enabled
         if os.environ.get("DEV_MODE", "").lower() == "true":
@@ -670,13 +663,13 @@ def checkout(scan_id):
     stripe.api_key = stripe_key
     checkout_session = stripe.checkout.Session.create(
         line_items=[{"price": price_id, "quantity": 1}],
-        mode=stripe_mode,
+        mode="payment",
         success_url=request.host_url.rstrip("/") +
                      url_for("payment_success", scan_id=scan_id) +
                      "?session_id={CHECKOUT_SESSION_ID}",
         cancel_url=request.host_url.rstrip("/") +
                     url_for("results", scan_id=scan_id),
-        metadata={"scan_id": scan_id, "mode": checkout_mode},
+        metadata={"scan_id": scan_id},
     )
     return redirect(checkout_session.url, code=303)
 

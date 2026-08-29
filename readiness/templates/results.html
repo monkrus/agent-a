@@ -200,15 +200,57 @@
 
     <!-- CHECK RESULTS -->
     <div class="card">
-      <h2>Check Results</h2>
-      {% if access_blocked %}
+      {% if paid %}
+      <h2>Deep Agent Audit — Full Results</h2>
+      <p class="intel-subtitle">Each check was run {{ data.meta.n }} times with a live AI agent. Failing checks include evidence, what it costs you, and a ready-to-use fix.</p>
+      {% elif access_blocked %}
+      <h2>Structural Readiness Check</h2>
       <p class="intel-subtitle">Only 2 access checks ran. The remaining {{ data.results|selectattr('gated')|list|length }} checks were skipped because agents can't reach the page.</p>
-      {% elif not paid %}
-      <p class="intel-subtitle">Each check was run {{ data.meta.n }} times to test consistency. Unlock the full report to see details, evidence, and copy-paste fixes.</p>
       {% else %}
-      <p class="intel-subtitle">Each check was run {{ data.meta.n }} times. Failing checks include evidence, what it costs you, and a ready-to-use fix.</p>
+      <h2>Structural Readiness Check</h2>
+      <p class="intel-subtitle">This free scan checks your page structure — whether AI agents <em>can</em> read your product data. The Deep Agent Audit tests whether they actually <em>do</em> read it correctly.</p>
       {% endif %}
 
+      {% if not paid and not access_blocked %}
+      {# Free tier: show top 5 failing checks by name only #}
+      {% set failing = data.results|selectattr('verdict', 'equalto', 'FAIL')|list %}
+      {% set passing = data.results|selectattr('verdict', 'equalto', 'PASS')|list %}
+      {% set unknown = data.results|selectattr('verdict', 'equalto', 'UNKNOWN')|list %}
+
+      <div style="display:flex; gap:1.5rem; margin:1rem 0; flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <span style="font-size:1.5rem; font-weight:700; color:#4ade80;">{{ passing|length }}</span>
+          <span style="font-size:0.8rem; color:var(--text-muted); display:block;">passing</span>
+        </div>
+        <div style="text-align:center;">
+          <span style="font-size:1.5rem; font-weight:700; color:#f87171;">{{ failing|length }}</span>
+          <span style="font-size:0.8rem; color:var(--text-muted); display:block;">failing</span>
+        </div>
+        <div style="text-align:center;">
+          <span style="font-size:1.5rem; font-weight:700; color:#a3a3a3;">{{ unknown|length }}</span>
+          <span style="font-size:0.8rem; color:var(--text-muted); display:block;">inconclusive</span>
+        </div>
+      </div>
+
+      {% if failing %}
+      <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin:1rem 0 0.5rem;">Top issues found:</p>
+      {% for r in failing[:5] %}
+      <div class="check-block check-fail">
+        <div class="check-header">
+          <span class="check-id">{{ r.id }}</span>
+          <span class="check-title">{{ r.title }}</span>
+          <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
+          <span class="verdict verdict-badge-fail">FAIL</span>
+        </div>
+      </div>
+      {% endfor %}
+      {% if failing|length > 5 %}
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem;">+ {{ failing|length - 5 }} more issues found. Unlock the Deep Agent Audit for details and fixes.</p>
+      {% endif %}
+      {% endif %}
+
+      {% else %}
+      {# Paid tier or access-blocked: show all checks with full detail #}
       {% for r in data.results %}
       <div class="check-block check-{{ r.verdict|lower }}">
         <div class="check-header">
@@ -307,25 +349,26 @@
         {% endif %}
       </div>
       {% endfor %}
+      {% endif %}
     </div>
 
     {% if not paid %}
     <!-- PAYWALL -->
     <div class="card paywall-card">
-      <h2>Unlock the Full Report</h2>
-      <p>See exactly what AI agents see on your page, what's going wrong, and get copy-paste fixes for every issue.</p>
+      <h2>Deep Agent Audit — $49</h2>
+      <p>Your free scan checks <strong>structural readiness</strong> — whether your page is set up for AI agents. The Deep Agent Audit sends a real AI shopper to your page {{ data.meta.n }} times and shows you exactly what it sees.</p>
       <ul>
+        <li><strong>Verified agent-shoppability</strong> — does a real AI agent extract the right price, availability, and product name?</li>
         <li>Plain-language explanation of each failure and what it costs you</li>
         <li>Evidence: sample AI agent responses across {{ data.meta.n }} visits</li>
         <li>Copy-paste code fixes for your platform</li>
-        <li>Re-scan to verify your fixes worked</li>
       </ul>
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
         <button type="submit" class="btn-pay">
           {% if has_stripe %}
-            Get Full Report — $49
+            Run Deep Agent Audit — $49
           {% else %}
-            Unlock Full Report (demo)
+            Run Deep Agent Audit (demo)
           {% endif %}
         </button>
       </form>
