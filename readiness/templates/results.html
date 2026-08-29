@@ -364,18 +364,10 @@
         <li>Copy-paste code fixes for your platform</li>
       </ul>
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
-        <button type="submit" class="btn-pay">
-          {% if has_stripe %}
-            Run Deep Agent Audit — $49
-          {% else %}
-            Run Deep Agent Audit (demo)
-          {% endif %}
-        </button>
+        <button type="submit" class="btn-pay">Run Deep Agent Audit — $49</button>
       </form>
-      {% if not has_stripe and dev_mode %}
+      {% if dev_mode and not has_stripe %}
       <p class="note">DEV MODE — clicking unlocks the report without payment.</p>
-      {% elif not has_stripe %}
-      <p class="note">Payment system is being set up. Check back soon.</p>
       {% endif %}
     </div>
     {% else %}
