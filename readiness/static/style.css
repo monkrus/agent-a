@@ -312,6 +312,17 @@ tr.verdict-fail { background: rgba(239,68,68,0.04); }
   font-size: 0.8rem;
   color: var(--text-muted);
 }
+.check-tier {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #4ade80;
+  letter-spacing: 0.03em;
+}
+.check-tier-paid {
+  color: #a78bfa;
+}
 
 footer {
   margin-top: 2rem;
