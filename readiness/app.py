@@ -105,6 +105,66 @@ def _load_checks():
     return data.get("pack", "pack"), data.get("version", ""), data.get("checks", [])
 
 
+# ---- Live stats from stored scans ------------------------------------------
+_stats_cache: dict[str, object] = {}
+_stats_cache_ts: float = 0
+STATS_CACHE_TTL = 300  # recompute every 5 minutes
+
+
+def _scan_stats() -> dict:
+    """Compute live stats from all stored scans. Cached for 5 minutes."""
+    global _stats_cache, _stats_cache_ts
+    now = _time.time()
+    if _stats_cache and now - _stats_cache_ts < STATS_CACHE_TTL:
+        return _stats_cache
+
+    from urllib.parse import urlparse
+    domains_seen: dict[str, bool] = {}  # domain -> has_fail
+
+    # Web scans
+    for f in SCANS_DIR.glob("*.json"):
+        try:
+            data = json.loads(f.read_text())
+            target = data.get("meta", {}).get("target", "")
+            domain = urlparse(target).netloc
+            if not domain:
+                continue
+            has_fail = any(r.get("verdict") == "FAIL" for r in data.get("results", []))
+            # If we've seen this domain before, keep the worst result
+            if domain not in domains_seen:
+                domains_seen[domain] = has_fail
+            elif has_fail:
+                domains_seen[domain] = True
+        except (json.JSONDecodeError, OSError, PermissionError):
+            continue
+
+    # CLI scans
+    cli_dir = SCANS_DIR / "cli"
+    if cli_dir.is_dir():
+        for f in cli_dir.glob("*.json"):
+            try:
+                data = json.loads(f.read_text())
+                target = data.get("meta", {}).get("target", "")
+                domain = urlparse(target).netloc
+                if not domain:
+                    continue
+                has_fail = any(r.get("verdict") == "FAIL" for r in data.get("results", []))
+                if domain not in domains_seen:
+                    domains_seen[domain] = has_fail
+                elif has_fail:
+                    domains_seen[domain] = True
+            except (json.JSONDecodeError, OSError, PermissionError):
+                continue
+
+    total = len(domains_seen)
+    failing = sum(1 for v in domains_seen.values() if v)
+    pct = round(100 * failing / total) if total else 0
+
+    _stats_cache = {"total_brands": total, "failing_pct": pct}
+    _stats_cache_ts = now
+    return _stats_cache
+
+
 def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
     from concurrent.futures import ThreadPoolExecutor
     import time as _time
@@ -261,7 +321,8 @@ def _load_scan(scan_id):
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    stats = _scan_stats()
+    return render_template("index.html", stats=stats)
 
 
 @app.route("/scan", methods=["POST"])
