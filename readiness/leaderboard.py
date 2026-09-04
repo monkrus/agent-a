@@ -62,18 +62,47 @@ def _top_weakness_category(results):
     return worst
 
 
+MIN_FULL_PACK_CHECKS = 40  # shopify-v1.yaml's total check count — see test_scan.py
+
+
+def _is_full_pack_scan(data: dict) -> bool:
+    """True iff this scan ran the complete check pack (static + shopper +
+    browser), not just the free tier's static subset.
+
+    Ranking a 30-check free scan against a 40-check full scan isn't a
+    like-for-like comparison — the free scan is structurally incapable of
+    failing the extraction/interaction checks it never ran, so it would
+    rank artificially high. Prefer meta.tier when present (set by every
+    scan written after this check was added); fall back to counting
+    results for older payloads that predate the field.
+    """
+    tier = data.get("meta", {}).get("tier")
+    if tier is not None:
+        return tier == "paid"
+    return len(data.get("results", [])) >= MIN_FULL_PACK_CHECKS
+
+
 def load_all_scans():
-    """Load all scans, deduplicate by domain (keep latest)."""
+    """Load all full-pack scans, deduplicate by domain (keep latest)."""
     if not SCANS_DIR.exists():
         return []
     scans = []
+    skipped = 0
     for f in sorted(SCANS_DIR.glob("*.json")):
         try:
             data = json.loads(f.read_text())
-            if "readiness_score" in data and data["readiness_score"] is not None:
-                scans.append(data)
         except (json.JSONDecodeError, KeyError, PermissionError, OSError):
             continue
+        if "readiness_score" not in data or data["readiness_score"] is None:
+            continue
+        if not _is_full_pack_scan(data):
+            skipped += 1
+            continue
+        scans.append(data)
+
+    if skipped:
+        print(f"Skipped {skipped} free-tier/partial scan(s) — leaderboard only "
+              f"ranks scans that ran the full check pack.")
 
     # Deduplicate by domain, keep latest
     by_domain = {}
