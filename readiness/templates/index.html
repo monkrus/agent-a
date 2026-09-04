@@ -106,15 +106,13 @@
               addLine('<span style="color:#8b8b96;">' + d.message + '</span>');
             }
             else if (d.type === 'layer') {
-              const estimates = {
-                'access': '~5s',
-                'data': '~10s',
-                'extraction': '~15s',
-                'interaction': '~2-3 min',
-                'security': '~5s',
-              };
-              const est = estimates[d.layer] ? ' <span style="color:#555;font-size:0.8rem;">(est. ' + estimates[d.layer] + ')</span>' : '';
-              addLine('<br><strong style="color:#e0e0e8;">' + d.label + '</strong>' + est);
+              // The free scan is static checks only — no live-agent
+              // extraction and no browser-driven interaction — so every
+              // layer here is a handful of HTTP probes, not the "run a
+              // shopper N times" or "drive a browser" work those layer
+              // names suggest on the paid tier. Keep the estimate uniform
+              // and cheap rather than borrowing paid-tier numbers.
+              addLine('<br><strong style="color:#e0e0e8;">' + d.label + '</strong> <span style="color:#555;font-size:0.8rem;">(est. a few seconds)</span>');
             }
             else if (d.type === 'check') {
               const icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">&#10003;</span>'
@@ -140,9 +138,16 @@
               div.scrollIntoView({behavior: 'smooth', block: 'end'});
             }
             else if (d.type === 'gate_blocked') {
+              // Only claim "served a challenge page" when a live access
+              // probe actually observed one (gate_cause waf/both) — a
+              // robots.txt block means well-behaved agents never request
+              // the page at all, so no challenge was ever served.
+              const causeText = d.gate_cause === 'robots'
+                ? 'Your robots.txt tells AI crawlers not to request this page, so they never see it at all.'
+                : 'The scan\'s request to your page did not get usable content back (see evidence below).';
               addLine('<br><div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:1.25rem;margin:0.5rem 0;">'
                 + '<div style="font-size:1.2rem;font-weight:700;color:#f87171;margin-bottom:0.5rem;">Your store is invisible to AI shopping agents</div>'
-                + '<p style="color:#c8c8d0;font-size:0.9rem;margin-bottom:0.75rem;">When a customer asks ChatGPT, Perplexity, or Gemini to find a product like yours, these agents try to read your page. Your site detected them and served a challenge page instead of your product. The agent moves on — the customer never sees you.</p>'
+                + '<p style="color:#c8c8d0;font-size:0.9rem;margin-bottom:0.75rem;">When a customer asks ChatGPT, Perplexity, or Gemini to find a product like yours, these agents try to read your page. ' + causeText + ' The agent moves on — the customer never sees you.</p>'
                 + (d.blocked_uas && d.blocked_uas.length ? '<div style="margin-bottom:0.5rem;display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;"><span style="color:#8b8b96;font-size:0.8rem;">Blocked crawlers:</span> ' + d.blocked_uas.map(function(ua) { return '<span style="display:inline-block;background:rgba(239,68,68,0.15);color:#f87171;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;font-weight:600;">' + ua + '</span>'; }).join(' ') + '</div>' : '')
                 + (d.allowed_uas && d.allowed_uas.length ? '<div style="margin-bottom:0.5rem;display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;"><span style="color:#8b8b96;font-size:0.8rem;">Allowed crawlers:</span> ' + d.allowed_uas.map(function(ua) { return '<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#4ade80;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;font-weight:600;">' + ua + '</span>'; }).join(' ') + '</div>' : '')
                 + '<div style="color:#8b8b96;font-size:0.8rem;margin-top:0.5rem;">' + d.skipped + ' remaining checks skipped — they can\'t run if agents can\'t reach the page.</div>'
@@ -160,7 +165,11 @@
               const finalTime = em > 0 ? em + 'm ' + es2 + 's' : es2 + 's';
               timerSpan.textContent = finalTime;
               addLine('<br><span style="color:#4ade80;font-weight:bold;">Scan complete &mdash; ' + finalTime + '</span>');
-              const isBlocked = d.score !== undefined && d.score <= 5 && d.headline && d.headline.indexOf('BLOCKED') !== -1;
+              // Use the gate state the server computed (payload.gate), not a
+              // score threshold guess — a threshold happens to work only by
+              // coincidence of how points are weighted, and breaks silently
+              // the moment weights change.
+              const isBlocked = !!d.blocked;
               scoreDiv.style.display = 'block';
               if (isBlocked) {
                 scoreDiv.innerHTML = '<div style="font-size:2rem;font-weight:bold;color:#f87171;">BLOCKED</div>'
@@ -170,7 +179,7 @@
                 const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
                 scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
                   + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
-                  + (d.impact && d.impact.low ? '<div style="color:#8b8b96;font-size:0.85rem;">Est. revenue at risk: $' + d.impact.low.toLocaleString() + ' &ndash; $' + d.impact.high.toLocaleString() + '/mo</div>' : '')
+                  + (d.impact && d.impact.low ? '<div style="color:#8b8b96;font-size:0.85rem;">Est. revenue at risk: $' + d.impact.low.toLocaleString() + ' &ndash; $' + d.impact.high.toLocaleString() + '/mo <span title="Traffic volume is estimated from product price, not measured.">(traffic estimated, not measured)</span></div>' : '')
                   + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report &rarr;</a></div>';
               }
               document.getElementById('scan-btn').disabled = false;

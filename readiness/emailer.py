@@ -46,6 +46,17 @@ def _build_html(scan_data: dict) -> str:
     timestamp = scan_data.get("meta", {}).get("timestamp", "")
     color = _score_color(score)
 
+    # "N AI agent visits simulated" is only true if a shopper check
+    # actually ran. Prefer the stored field; fall back to counting
+    # shopper-type results for reports written before it existed.
+    agent_runs = scan_data.get("meta", {}).get("agent_runs")
+    if agent_runs is None:
+        agent_runs = n if any(r.get("type") == "shopper" for r in results) else 0
+    if agent_runs > 0:
+        run_summary = f"{agent_runs} AI agent visits simulated"
+    else:
+        run_summary = f"{len(results)} structural checks &mdash; no agent simulation in this scan"
+
     checks_html = ""
     for r in results:
         v = r.get("verdict", "")
@@ -109,7 +120,7 @@ def _build_html(scan_data: dict) -> str:
       <!-- Headline -->
       <div style="padding:24px 32px;border-bottom:1px solid #e5e7eb;">
         <p style="margin:0;color:#374151;font-size:15px;">{headline}</p>
-        <p style="margin:8px 0 0;color:#9ca3af;font-size:13px;">{n} AI agent visits simulated &middot; {timestamp}</p>
+        <p style="margin:8px 0 0;color:#9ca3af;font-size:13px;">{run_summary} &middot; {timestamp}</p>
       </div>
 
       <!-- Check results -->

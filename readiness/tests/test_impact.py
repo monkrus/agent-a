@@ -111,3 +111,21 @@ class TestEstimate:
                            severity="critical", pass_fraction=0.0)]
         est = estimate(results, product_price=100.0)
         assert est["product_price"] == 100.0
+
+
+class TestVisitsSourceDerivation:
+    """Regression lock: `derivation.visits_source` must say "estimated"
+    when the caller didn't supply monthly_visits — it used to always say
+    "provided" because the check ran after monthly_visits had already been
+    overwritten with the estimate."""
+
+    def test_no_visits_given_is_labeled_estimated(self):
+        results = [_result(verdict="PASS", pass_fraction=1.0)]
+        est = estimate(results, monthly_visits=None)
+        assert est["derivation"]["visits_source"].startswith("estimated")
+
+    def test_visits_given_is_labeled_provided(self):
+        results = [_result(verdict="PASS", pass_fraction=1.0)]
+        est = estimate(results, monthly_visits=123_456)
+        assert est["derivation"]["visits_source"] == "provided"
+        assert est["monthly_visits_assumed"] == 123_456

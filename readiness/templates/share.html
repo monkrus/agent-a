@@ -38,9 +38,11 @@
         <span class="score-label">/ 100</span>
       </div>
       <p class="headline">{{ data.headline }}</p>
+      {% set agent_runs = data.meta.agent_runs if data.meta.agent_runs is defined
+          else (data.meta.n if data.results|selectattr('type', 'equalto', 'shopper')|list|length > 0 else 0) %}
       <div class="meta-row">
         <span>{{ domain }}</span>
-        <span>{{ data.meta.n }} AI agent visits simulated</span>
+        <span>{% if agent_runs > 0 %}{{ agent_runs }} AI agent visits simulated{% else %}{{ data.results|length }} structural checks{% endif %}</span>
         <span>{{ data.meta.timestamp[:10] }}</span>
       </div>
     </div>
@@ -48,11 +50,11 @@
     <!-- Category bars -->
     <div class="card">
       <h2>Readiness by Layer</h2>
-      <p class="intel-subtitle">How the page performs across four dimensions of agent readiness.</p>
+      <p class="intel-subtitle">How the page performs across each dimension of agent readiness that ran.</p>
       {% for layer in layers %}
       <div class="layer-bar">
         <div class="layer-bar-header">
-          <span class="layer-bar-label">{{ layer.label }}</span>
+          <span class="layer-bar-label">{{ layer.label }} <span style="opacity:0.6;">({{ layer.n_checks }} check{{ 's' if layer.n_checks != 1 }})</span></span>
           <span class="layer-bar-pct">{{ layer.pct }}%</span>
         </div>
         <div class="bar-track">

@@ -34,6 +34,12 @@ def estimate(results: list[dict], product_price: float | None = None,
     if product_price is None or product_price <= 0:
         product_price = 50.0  # conservative fallback
 
+    # Remember whether the caller actually gave us a traffic number, before
+    # we overwrite `monthly_visits` with the estimate below — otherwise the
+    # "provided" vs "estimated" label in `derivation` (further down) is
+    # always "provided", because by then the variable is never None.
+    visits_provided = monthly_visits is not None
+
     # -- Estimate monthly visits if not provided --
     # Smooth linear estimate: higher AOV correlates with fewer but higher-value visits.
     # Range: 300k visits at $10 AOV down to 80k at $300+, clamped.
@@ -88,8 +94,8 @@ def estimate(results: list[dict], product_price: float | None = None,
         "derivation": {
             "price_source": ("provided" if product_price != 50.0
                              else "fallback ($50 default — plug in real AOV for accuracy)"),
-            "visits_source": ("provided" if monthly_visits is not None
-                              else f"estimated from AOV (formula: 320k - AOV×800, clamped 80k–300k)"),
+            "visits_source": ("provided" if visits_provided
+                              else "estimated from AOV (formula: 320k - AOV×800, clamped 80k–300k)"),
             "ai_share_source": "Gartner AI in Commerce 2026 (5–15% range)",
             "conv_rate_source": "Forrester Channel Mix — organic search analog (2–4%)",
             "formula": ("monthly_loss = monthly_visits × ai_share × agent_fail_rate "
