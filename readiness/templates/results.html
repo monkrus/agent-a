@@ -389,6 +389,13 @@
     </div>
     {% endif %}
 
+    <!-- PAID: one-page brief -->
+    <div class="card">
+      <h2>One-page brief</h2>
+      <p>A designed, printable summary of this run &mdash; score, layer breakdown, top findings, and revenue estimate on one page.</p>
+      <a href="{{ url_for('results_brief', scan_id=data.scan_id) }}" class="btn-pay" style="display:inline-block;text-decoration:none;">Download brief</a>
+    </div>
+
     <!-- PAID: send to team -->
     {% if has_email %}
     <div class="card">

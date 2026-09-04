@@ -883,6 +883,20 @@ def send_report(scan_id):
     return redirect(url_for("results", scan_id=scan_id))
 
 
+@app.route("/results/<scan_id>/brief.html")
+def results_brief(scan_id):
+    """One-page HTML brief for a single scan run — paid deliverable, same
+    gate as send_report (must have unlocked this scan_id)."""
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+    if not session.get(f"paid_{scan_id}"):
+        abort(403)
+    import brief as briefmod
+    html = briefmod.render(data, mode="full", scan_ref=scan_id)
+    return Response(html, mimetype="text/html")
+
+
 # ---- Shareable public results (/r/<scan_id>) --------------------------------
 
 SEV_RANK_SHARE = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}

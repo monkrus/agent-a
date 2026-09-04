@@ -31,6 +31,8 @@ fetch.py                 Adapter: URL or local .html -> normalized page dict.
 shopper.py               Simulated shopping agent. SHOPPER=mock|anthropic.
 scorers.py               Static probes + shopper grading (correctness | consistency).
 scan.py                  CLI runner: fetch once -> run checks -> weighted score 0-100.
+brief.py                 One-page HTML brief for a single scan run (score, layers,
+                          top findings, revenue box). `scan.py --brief` writes it.
 app.py                   Flask web app: URL in -> free score -> paid full report (Stripe).
 templates/               Jinja2 templates for the web frontend.
 static/style.css         Minimal dark-theme stylesheet.
@@ -48,6 +50,12 @@ cd readiness
 SHOPPER=mock python scan.py --checks checks/shopify-v1.yaml \
     --target sample_page.html --n 10 --out /tmp/scan1
 ```
+
+Add `--brief` to also render a one-page HTML brief (`/tmp/scan1/brief.html`) next
+to `results.json` — a designed, printable summary of that run (score dial, layer
+bars, verdict grid, top findings, revenue estimate). Every figure in it is read
+straight from the payload; `python validate_report.py <results.json> --report
+<brief.html>` gates it the same way it gates client reports.
 
 ### CLI against a real page
 ```bash

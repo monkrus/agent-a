@@ -102,7 +102,7 @@ LAYER_LABELS = {
 }
 
 
-def _layer_scores(results):
+def layer_scores(results):
     """Compute per-layer (data/extraction/interaction/security) scores."""
     # Map categories to layers
     CAT_TO_LAYER = {}
@@ -134,6 +134,11 @@ def _layer_scores(results):
         layers[layer]["den"] += w
     return {layer: round(v["num"] / v["den"] * 100, 1) if v["den"] else 0
             for layer, v in layers.items()}
+
+
+# Back-compat alias — this used to be a module-private helper. brief.py and
+# any external callers should prefer the public name `layer_scores`.
+_layer_scores = layer_scores
 
 
 def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str = "") -> bytes:

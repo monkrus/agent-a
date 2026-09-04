@@ -281,6 +281,10 @@ def main():
                     type=pathlib.Path)
     ap.add_argument("--compare", default=None,
                     help="Competitor URL to scan for side-by-side comparison")
+    ap.add_argument("--brief", action="store_true",
+                    help="Also render a one-page HTML brief next to results.json")
+    ap.add_argument("--brief-out", default=None, type=pathlib.Path,
+                    help="Brief output path (default: <out>/brief.html)")
     args = ap.parse_args()
 
     if args.n < 1 or args.n > 50:
@@ -344,6 +348,18 @@ def main():
 
     (args.out / "results.json").write_text(json.dumps(payload, indent=2))
 
+    brief_path = None
+    if args.brief:
+        try:
+            import brief as briefmod
+            brief_path = args.brief_out or (args.out / "brief.html")
+            briefmod.write(payload, brief_path, mode="full", scan_ref=str(args.target))
+        except Exception as e:
+            # A rendering failure must not lose a paid scan — results.json is
+            # already on disk. Warn and move on.
+            print(f"  WARNING: brief rendering failed: {e}")
+            brief_path = None
+
     # ---- free-tier console summary (score + headline only) ----
     print(f"\n  AGENT READINESS SCORE: {s}/100" if s is not None else "\n  SCORE: n/a")
     print(f"  {payload['headline']}")
@@ -363,7 +379,10 @@ def main():
               f"(you are {abs(delta)} pts {arrow})" if delta else "")
     _elapsed = _time.time() - _t0
     print(f"  scan completed in {_elapsed:.1f}s")
-    print(f"  full per-check report -> {args.out/'results.json'} (paid deliverable)\n")
+    print(f"  full per-check report -> {args.out/'results.json'} (paid deliverable)")
+    if brief_path:
+        print(f"  brief -> {brief_path}")
+    print()
 
 
 if __name__ == "__main__":

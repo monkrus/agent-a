@@ -67,6 +67,8 @@ readiness/
   scorers.py           Static probes + shopper grading
   intel.py             Agent intelligence: platform, chat agents, commerce protocols
   fixes.py             Fix recipe stub (full recipes in agent-a-private)
+  brief.py             One-page HTML brief for a single scan run (score dial,
+                        layer bars, verdict grid, top findings, revenue box)
   batch.py             Batch scan CLI (python -m readiness.batch targets.txt)
   leaderboard.py       Leaderboard export (python -m readiness.leaderboard)
   og_image.py          OG image generator for shareable results
@@ -110,6 +112,7 @@ Every check maps to one category of agent readiness (40 checks total: 30 static 
 ## Common tasks
 
 - **Run a scan (CLI):** `SHOPPER=mock python readiness/scan.py --checks readiness/checks/shopify-v1.yaml --target <url> --n 5`
+- **Generate a brief for a run:** add `--brief` to the scan command above (writes `<out>/brief.html`), or `python -m readiness.brief <out>/results.json`. Gate it the same way as any client report: `python readiness/validate_report.py <out>/results.json --report <out>/brief.html`.
 - **Run the web app:** `cd readiness && python app.py`
 - **Batch scan:** `python -m readiness.batch targets.txt`
 - **Generate leaderboard:** `python -m readiness.leaderboard`
