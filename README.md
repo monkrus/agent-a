@@ -1,3 +1,6 @@
+[![Agent Ready](https://img.shields.io/badge/Agent-Ready-22c55e?style=flat-square)](https://agent-a.up.railway.app)
+[![Accepts x402 Payments](https://img.shields.io/badge/Accepts-x402%20Payments-3b82f6?style=flat-square)](https://agent-a.up.railway.app)
+
 # agent-a — LLM agent QA framework + agent-accessibility scanner
 
 ## Two tracks
