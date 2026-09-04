@@ -223,7 +223,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
             return {"url": target, "status": 0, "html": "", "text": "",
                     "jsonld": [], "meta": {}, "title": "", "links": [],
                     "llms_txt": False, "llms_txt_content": None, "robots": None,
-                    "cart_api": None, "checkout_html": None, "homepage_html": None,
+                    "cart_api": None, "checkout_probe": None,
+                    "checkout_html": None, "homepage_html": None,
                     "sitemap_xml": None, "mcp_json": None,
                     "oauth_discovery": None, "markdown_negotiation": None,
                     "agent_verification": None, "a2a_agent_card": None,
@@ -244,6 +245,11 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["rendered_links"] = rendered["links"]
                 page["rendered_meta"] = rendered["meta"]
                 page["_429_recovered"] = True
+                _hl429 = (page.get("html") or "").lower()
+                if "shopify" in _hl429 or "cdn.shopify.com" in _hl429 or "myshopify.com" in _hl429:
+                    page["_platform_name"] = "Shopify"
+                else:
+                    page["_platform_name"] = None
                 final_url = target
                 origin = f"{urlparse(final_url).scheme}://{urlparse(final_url).netloc}"
                 llms_txt = _get_text(urljoin(origin, "/llms.txt"), timeout)
@@ -251,7 +257,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["llms_txt_content"] = llms_txt
                 page["robots"] = _get_text(urljoin(origin, "/robots.txt"), timeout)
                 page["cart_api"] = _probe_ok(urljoin(origin, "/cart/add.js"), timeout)
-                page["checkout_html"] = _get_text(urljoin(origin, "/checkout"), timeout)
+                page["checkout_probe"] = _probe_checkout(urljoin(origin, "/checkout"), timeout)
+                page["checkout_html"] = page["checkout_probe"]["html"] if page["checkout_probe"] else None
                 page["homepage_html"] = _get_text(origin + "/", timeout)
                 page["sitemap_xml"] = _get_text(urljoin(origin, "/sitemap.xml"), timeout)
                 page["mcp_json"] = _get_json(urljoin(origin, "/.well-known/mcp.json"), timeout)
@@ -275,6 +282,12 @@ def fetch(target: str, timeout: int = 30) -> dict:
 
         page = _parse_html(r.text, target)
         page["status"] = r.status_code
+        # Lightweight platform detection for scorer use
+        _hl = (page.get("html") or "").lower()
+        if "shopify" in _hl or "cdn.shopify.com" in _hl or "myshopify.com" in _hl:
+            page["_platform_name"] = "Shopify"
+        else:
+            page["_platform_name"] = None
         # Use final URL after redirects for origin (e.g. http->https)
         final_url = r.url
         origin = f"{urlparse(final_url).scheme}://{urlparse(final_url).netloc}"
@@ -283,7 +296,8 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["llms_txt_content"] = llms_txt
         page["robots"] = _get_text(urljoin(origin, "/robots.txt"), timeout)
         page["cart_api"] = _probe_ok(urljoin(origin, "/cart/add.js"), timeout)
-        page["checkout_html"] = _get_text(urljoin(origin, "/checkout"), timeout)
+        page["checkout_probe"] = _probe_checkout(urljoin(origin, "/checkout"), timeout)
+        page["checkout_html"] = page["checkout_probe"]["html"] if page["checkout_probe"] else None
         page["homepage_html"] = _get_text(origin + "/", timeout)
         page["sitemap_xml"] = _get_text(urljoin(origin, "/sitemap.xml"), timeout)
         page["mcp_json"] = _get_json(urljoin(origin, "/.well-known/mcp.json"), timeout)
@@ -344,10 +358,12 @@ def fetch(target: str, timeout: int = 30) -> dict:
             html = f.read()
         page = _parse_html(html, target)
         page["status"] = 200
+        page["_platform_name"] = None
         page["llms_txt"] = None   # unknowable from a single local file
         page["llms_txt_content"] = None
         page["robots"] = None
         page["cart_api"] = None
+        page["checkout_probe"] = None
         page["checkout_html"] = None
         page["homepage_html"] = None
         page["sitemap_xml"] = None
@@ -515,6 +531,51 @@ def _get_text(url: str, timeout: int):
         return None
 
 
+def _probe_checkout(url: str, timeout: int) -> dict | None:
+    """Probe /checkout WITHOUT following redirects.
+
+    Returns dict with status, location (if redirect), html (if 200),
+    final_url, and redirect_reason if redirected to /cart or /account/login.
+    """
+    try:
+        if not _is_safe_url(url):
+            return None
+        import requests
+        r = requests.get(url, timeout=timeout, allow_redirects=False,
+                         headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+        result = {
+            "status": r.status_code,
+            "location": r.headers.get("Location"),
+            "final_url": url,
+            "html": None,
+            "redirect_reason": None,
+        }
+        if r.status_code == 200:
+            result["html"] = r.text
+        elif r.is_redirect or r.is_permanent_redirect:
+            loc = r.headers.get("Location", "")
+            abs_loc = urljoin(url, loc)
+            result["final_url"] = abs_loc
+            if "/cart" in loc.lower():
+                result["redirect_reason"] = "redirected_to_cart"
+            elif "/account" in loc.lower() or "login" in loc.lower():
+                result["redirect_reason"] = "redirected_to_login"
+            else:
+                result["redirect_reason"] = "redirected_other"
+            # Follow one hop to capture the final page content
+            try:
+                if _is_safe_url(abs_loc):
+                    r2 = requests.get(abs_loc, timeout=timeout, allow_redirects=True,
+                                      headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+                    result["html"] = r2.text if r2.status_code == 200 else None
+                    result["final_url"] = r2.url
+            except Exception:
+                pass
+        return result
+    except Exception:
+        return None
+
+
 def _probe_markdown_negotiation(url: str, timeout: int) -> dict | None:
     """Probe whether the server supports content negotiation for markdown."""
     try:
@@ -565,17 +626,28 @@ def _probe_link_headers(url: str, timeout: int) -> dict | None:
 
 
 def _probe_dns_aid(domain: str) -> dict | None:
-    """Check DNS TXT records for AI Discovery (DNS-AID) entries."""
+    """Check DNS TXT records for AI Discovery (DNS-AID) entries.
+
+    Uses dnspython for cross-platform DNS resolution. Returns None on
+    resolution errors so the check reports UNKNOWN, not FAIL.
+    """
     try:
-        import subprocess
-        result = subprocess.run(
-            ["nslookup", "-type=TXT", f"_ai.{domain}"],
-            capture_output=True, text=True, timeout=10)
-        output = result.stdout + result.stderr
-        has_aid = "_ai." in output and "text" in output.lower()
-        return {"has_dns_aid": has_aid, "raw": output[:500] if has_aid else None}
-    except Exception:
+        import dns.resolver
+    except ImportError:
+        return None  # dnspython not installed → UNKNOWN
+
+    try:
+        answers = dns.resolver.resolve(f"_ai.{domain}", "TXT")
+        txt_records = []
+        for rdata in answers:
+            for s in rdata.strings:
+                txt_records.append(s.decode("utf-8", errors="replace"))
+        raw = "\n".join(txt_records)
+        return {"has_dns_aid": bool(txt_records), "raw": raw[:500] if txt_records else None}
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.resolver.NoNameservers):
         return {"has_dns_aid": False, "raw": None}
+    except Exception:
+        return None  # resolution error → UNKNOWN
 
 
 def _probe_cart_rate(cart_url: str, timeout: int) -> dict | None:
@@ -596,11 +668,11 @@ def _probe_cart_rate(cart_url: str, timeout: int) -> dict | None:
             except Exception:
                 statuses.append(None)
         rate_limited = any(s == 429 for s in statuses if s)
-        all_ok = all(s in (200, 422, 400) for s in statuses if s)  # 422/400 = invalid product, but endpoint responded
+        all_200 = all(s == 200 for s in statuses if s)
         return {
             "statuses": statuses,
             "rate_limited": rate_limited,
-            "all_accepted": all_ok and not rate_limited,
+            "all_accepted": all_200 and not rate_limited,
             "endpoint_exists": any(s and s != 404 for s in statuses),
         }
     except Exception:
@@ -608,23 +680,58 @@ def _probe_cart_rate(cart_url: str, timeout: int) -> dict | None:
 
 
 def _probe_admin_paths(origin: str, timeout: int) -> dict | None:
-    """Check if admin/staff/API paths are exposed without auth."""
+    """Check if admin/staff/API paths are exposed without auth.
+
+    Uses a soft-404 baseline: GET a random path first, then only flag
+    paths whose response differs materially (status differs, or body
+    length differs by >30%).
+    """
     try:
         if not _is_safe_url(origin + "/"):
             return None
         import requests
+        import secrets as _secrets
+        headers = {"User-Agent": "agent-a-readiness-scanner/0.1"}
+
+        # Soft-404 baseline: request a path that should not exist
+        probe_path = f"/agent-a-probe-{_secrets.token_hex(6)}"
+        baseline = {"status": None, "length": 0}
+        try:
+            rb = requests.get(origin + probe_path, timeout=timeout,
+                              allow_redirects=False, headers=headers)
+            baseline = {"status": rb.status_code, "length": len(rb.text)}
+        except Exception:
+            pass
+
         paths = ["/admin", "/admin/api", "/staff", "/.env", "/api/products.json"]
         exposed = []
         for p in paths:
             try:
                 r = requests.get(origin + p, timeout=timeout, allow_redirects=False,
-                                 headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
-                # 200 with content = exposed; 301/302 to login = properly gated
+                                 headers=headers)
+                # Skip if response matches soft-404 baseline
+                if r.status_code == baseline["status"]:
+                    blen = baseline["length"]
+                    rlen = len(r.text)
+                    if blen > 0 and abs(rlen - blen) / blen < 0.30:
+                        continue  # same status, similar body = soft-404
+                    if blen == 0 and rlen < 200:
+                        continue
+
+                # 200 with content = potentially exposed
                 if r.status_code == 200 and len(r.text) > 200:
+                    # Special case: /.env — only flag if body has KEY=VALUE lines
+                    if p == "/.env":
+                        kv_lines = [ln for ln in r.text.splitlines()
+                                    if re.match(r'^[A-Z_][A-Z0-9_]*\s*=', ln)]
+                        if not kv_lines:
+                            continue  # not a real .env file
                     exposed.append({"path": p, "status": r.status_code})
             except Exception:
                 continue
-        return {"exposed_paths": exposed, "checked": len(paths)}
+        return {"exposed_paths": exposed, "checked": len(paths),
+                "baseline_status": baseline["status"],
+                "baseline_length": baseline["length"]}
     except Exception:
         return None
 

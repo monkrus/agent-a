@@ -519,10 +519,12 @@ class TestCartRateProtection:
         v, _ = scorers.static_cart_rate_protection(page)
         assert v == "PASS"
 
-    def test_fail_no_rate_limit(self):
+    def test_unknown_no_rate_limit(self):
+        """5 requests is not enough to determine rate limiting — verdict is UNKNOWN."""
         page = _page(cart_rate_test={"endpoint_exists": True, "rate_limited": False, "all_accepted": True})
-        v, _ = scorers.static_cart_rate_protection(page)
-        assert v == "FAIL"
+        v, detail = scorers.static_cart_rate_protection(page)
+        assert v == "UNKNOWN"
+        assert "manipulate" not in detail.lower()
 
     def test_unknown_no_endpoint(self):
         page = _page(cart_rate_test={"endpoint_exists": False})
@@ -553,12 +555,14 @@ class TestCheckoutBotChallenge:
 
 class TestAdminExposure:
     def test_pass_nothing_exposed(self):
-        page = _page(admin_exposure={"exposed_paths": [], "checked": 5})
+        page = _page(admin_exposure={"exposed_paths": [], "checked": 5,
+                                     "baseline_status": 404, "baseline_length": 200})
         v, _ = scorers.static_admin_exposure(page)
         assert v == "PASS"
 
     def test_fail_admin_exposed(self):
-        page = _page(admin_exposure={"exposed_paths": [{"path": "/.env", "status": 200}], "checked": 5})
+        page = _page(admin_exposure={"exposed_paths": [{"path": "/.env", "status": 200}], "checked": 5,
+                                     "baseline_status": 404, "baseline_length": 200})
         v, d = scorers.static_admin_exposure(page)
         assert v == "FAIL"
         assert ".env" in d

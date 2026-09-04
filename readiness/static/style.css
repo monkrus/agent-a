@@ -257,6 +257,9 @@ h2 {
 .verdict-badge-pass { background: rgba(34,197,94,0.15); color: var(--green); }
 .verdict-badge-fail { background: rgba(239,68,68,0.15); color: var(--red); }
 .verdict-badge-unknown { background: rgba(139,139,150,0.15); color: var(--text-muted); }
+.confidence { font-size: 0.65rem; padding: 0.15rem 0.4rem; border-radius: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+.confidence-observed { background: rgba(96,165,250,0.12); color: #60a5fa; }
+.confidence-estimated { background: rgba(234,179,8,0.12); color: #eab308; }
 
 /* Row tinting */
 tr.verdict-fail { background: rgba(239,68,68,0.04); }

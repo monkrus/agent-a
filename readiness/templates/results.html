@@ -241,6 +241,9 @@
           <span class="check-title">{{ r.title }}</span>
           <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
           <span class="verdict verdict-badge-fail">FAIL</span>
+          {% if r.confidence is defined %}
+          <span class="confidence confidence-{{ r.confidence }}" title="{{ 'Direct observation of page content' if r.confidence == 'observed' else 'Based on self-asserted UA, redirect proxy, or heuristic' }}">{{ r.confidence }}</span>
+          {% endif %}
         </div>
       </div>
       {% endfor %}
@@ -258,6 +261,9 @@
           <span class="check-title">{{ r.title }}</span>
           <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
           <span class="verdict verdict-badge-{{ r.verdict|lower }}">{{ r.verdict }}</span>
+          {% if r.confidence is defined %}
+          <span class="confidence confidence-{{ r.confidence }}" title="{{ 'Direct observation of page content' if r.confidence == 'observed' else 'Based on self-asserted UA, redirect proxy, or heuristic' }}">{{ r.confidence }}</span>
+          {% endif %}
         </div>
 
         {% if paid %}

@@ -53,18 +53,100 @@ import emailer             # noqa: E402
 from shopper import ask, ask_batch  # noqa: E402
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", secrets.token_hex(32))
+
+# ---- Secret key check -------------------------------------------------------
+_flask_env = os.environ.get("FLASK_ENV", "production")
+_flask_secret = os.environ.get("FLASK_SECRET_KEY", "")
+_is_testing = "pytest" in sys.modules or os.environ.get("TESTING", "") == "1"
+if not _flask_secret and _flask_env != "development" and not _is_testing:
+    # Allow app to start in debug mode without FLASK_SECRET_KEY
+    if not os.environ.get("FLASK_DEBUG", "0") == "1":
+        raise RuntimeError(
+            "FLASK_SECRET_KEY is not set. Set it in .env or environment, "
+            "or set FLASK_ENV=development for local dev."
+        )
+app.secret_key = _flask_secret or secrets.token_hex(32)
 
 CHECKS_PATH = pathlib.Path(__file__).resolve().parent / "checks" / "shopify-v1.yaml"
 SCANS_DIR = pathlib.Path(__file__).resolve().parent / ".scans"
 SCANS_DIR.mkdir(exist_ok=True)
 
-# Simple in-memory rate limiter for /scan (no extra dependency)
+# ---- Persistent mount detection --------------------------------------------
+import logging as _logging
+_logger = _logging.getLogger("agent-a")
+
+
+def _detect_persistent_mount():
+    """Check whether .scans/ is on a persistent volume mount."""
+    # Railway volumes are mounted over the app directory — check if the
+    # .scans dir is on a different device from the app root
+    import stat
+    try:
+        scans_stat = os.stat(str(SCANS_DIR))
+        app_stat = os.stat(str(pathlib.Path(__file__).resolve().parent))
+        # Different device ID → likely a mounted volume
+        if scans_stat.st_dev != app_stat.st_dev:
+            return True
+        # Presence of a Railway volume marker file
+        if (SCANS_DIR / ".railway-volume").exists():
+            return True
+        # Fallback: env var override
+        if os.environ.get("SCANS_PERSISTENT", "").lower() in ("1", "true"):
+            return True
+    except Exception:
+        pass
+    return False
+
+
+_persistent = _detect_persistent_mount()
+_scan_count = len(list(SCANS_DIR.glob("*.json")))
+_logger.warning(
+    "Scans dir: %s | persistent mount: %s | existing scans: %d",
+    SCANS_DIR, "YES" if _persistent else "NO (ephemeral — will be lost on redeploy)",
+    _scan_count,
+)
+
+# ---- Shared sqlite store for rate limits + stats cache ----------------------
+# Works across gunicorn workers (file-level locking via sqlite WAL mode)
 import time as _time
-import threading as _threading
-_scan_timestamps: dict[str, float] = {}
-_scan_lock = _threading.Lock()
+import sqlite3 as _sqlite3
+
+_STORE_PATH = SCANS_DIR / "_app_store.db"
+
+def _init_store():
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("""CREATE TABLE IF NOT EXISTS rate_limits (
+        ip TEXT PRIMARY KEY, last_scan REAL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS stats_cache (
+        key TEXT PRIMARY KEY, value TEXT, ts REAL)""")
+    conn.commit()
+    conn.close()
+
+_init_store()
+
 SCAN_RATE_LIMIT = int(os.environ.get("SCAN_RATE_LIMIT", "30"))  # seconds between scans per IP
+
+
+def _check_rate_limit(client_ip: str) -> int | None:
+    """Check rate limit. Returns seconds to wait, or None if OK."""
+    now = _time.time()
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        row = conn.execute("SELECT last_scan FROM rate_limits WHERE ip = ?",
+                           (client_ip,)).fetchone()
+        if row and now - row[0] < SCAN_RATE_LIMIT:
+            return int(SCAN_RATE_LIMIT - (now - row[0])) + 1
+        conn.execute("""INSERT INTO rate_limits (ip, last_scan) VALUES (?, ?)
+                        ON CONFLICT(ip) DO UPDATE SET last_scan = ?""",
+                     (client_ip, now, now))
+        # Prune old entries
+        conn.execute("DELETE FROM rate_limits WHERE last_scan < ?", (now - 600,))
+        conn.commit()
+        return None
+    finally:
+        conn.close()
+
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 
@@ -106,20 +188,23 @@ def _load_checks():
 
 
 # ---- Live stats from stored scans ------------------------------------------
-_stats_cache: dict[str, object] = {}
-_stats_cache_ts: float = 0
 STATS_CACHE_TTL = 300  # recompute every 5 minutes
 
 
 def _scan_stats() -> dict:
-    """Compute live stats from all stored scans. Cached for 5 minutes."""
-    global _stats_cache, _stats_cache_ts
+    """Compute live stats from all stored scans. Cached for 5 minutes in sqlite."""
     now = _time.time()
-    if _stats_cache and now - _stats_cache_ts < STATS_CACHE_TTL:
-        return _stats_cache
+    # Check sqlite cache first
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        row = conn.execute("SELECT value, ts FROM stats_cache WHERE key = 'stats'").fetchone()
+        if row and now - row[1] < STATS_CACHE_TTL:
+            return json.loads(row[0])
+    finally:
+        conn.close()
 
     from urllib.parse import urlparse
-    domains_seen: dict[str, bool] = {}  # domain -> has_fail
+    domains_seen: dict[str, bool] = {}  # domain -> has_critical_or_high_fail
 
     # Web scans
     for f in SCANS_DIR.glob("*.json"):
@@ -129,7 +214,10 @@ def _scan_stats() -> dict:
             domain = urlparse(target).netloc
             if not domain:
                 continue
-            has_fail = any(r.get("verdict") == "FAIL" for r in data.get("results", []))
+            has_fail = any(
+                r.get("verdict") == "FAIL" and r.get("severity_if_fail") in ("critical", "high")
+                for r in data.get("results", [])
+            )
             # If we've seen this domain before, keep the worst result
             if domain not in domains_seen:
                 domains_seen[domain] = has_fail
@@ -148,7 +236,10 @@ def _scan_stats() -> dict:
                 domain = urlparse(target).netloc
                 if not domain:
                     continue
-                has_fail = any(r.get("verdict") == "FAIL" for r in data.get("results", []))
+                has_fail = any(
+                    r.get("verdict") == "FAIL" and r.get("severity_if_fail") in ("critical", "high")
+                    for r in data.get("results", [])
+                )
                 if domain not in domains_seen:
                     domains_seen[domain] = has_fail
                 elif has_fail:
@@ -160,9 +251,16 @@ def _scan_stats() -> dict:
     failing = sum(1 for v in domains_seen.values() if v)
     pct = round(100 * failing / total) if total else 0
 
-    _stats_cache = {"total_brands": total, "failing_pct": pct}
-    _stats_cache_ts = now
-    return _stats_cache
+    stats = {"total_brands": total, "failing_pct": pct}
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("""INSERT INTO stats_cache (key, value, ts) VALUES ('stats', ?, ?)
+                        ON CONFLICT(key) DO UPDATE SET value = ?, ts = ?""",
+                     (json.dumps(stats), now, json.dumps(stats), now))
+        conn.commit()
+    finally:
+        conn.close()
+    return stats
 
 
 def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
@@ -329,19 +427,10 @@ def index():
 def scan():
     # Rate limit: one scan per IP per SCAN_RATE_LIMIT seconds
     client_ip = request.remote_addr or "unknown"
-    now_ts = _time.time()
-    with _scan_lock:
-        last = _scan_timestamps.get(client_ip, 0)
-        if now_ts - last < SCAN_RATE_LIMIT:
-            wait = int(SCAN_RATE_LIMIT - (now_ts - last)) + 1
-            return render_template("index.html",
-                                   error=f"Please wait {wait} seconds before scanning again."), 429
-        _scan_timestamps[client_ip] = now_ts
-        # Prune old entries (older than 10 minutes) to prevent memory growth
-        cutoff = now_ts - 600
-        stale = [ip for ip, ts in _scan_timestamps.items() if ts < cutoff]
-        for ip in stale:
-            del _scan_timestamps[ip]
+    wait = _check_rate_limit(client_ip)
+    if wait is not None:
+        return render_template("index.html",
+                               error=f"Please wait {wait} seconds before scanning again."), 429
 
     url = request.form.get("url", "").strip()
     # Strip leading bullets, dashes, whitespace from copy-paste
@@ -404,6 +493,15 @@ def _check_layer(check_id):
 @app.route("/scan-stream")
 def scan_stream():
     """SSE endpoint: streams check results one at a time as they complete."""
+    # Rate limit: same per-IP limit as /scan
+    client_ip = request.remote_addr or "unknown"
+    wait = _check_rate_limit(client_ip)
+    if wait is not None:
+        return Response(
+            "data: " + json.dumps({"type": "error",
+                                   "message": f"Please wait {wait} seconds before scanning again."}) + "\n\n",
+            content_type="text/event-stream", status=429)
+
     url = request.args.get("url", "").strip().lstrip("-*•· \t")
     if not url:
         return Response("data: " + json.dumps({"type": "error", "message": "No URL"}) + "\n\n",

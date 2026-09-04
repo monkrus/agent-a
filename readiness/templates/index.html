@@ -212,16 +212,20 @@
           <span class="stat-number">4</span>
           <span class="stat-label">AI crawlers tested</span>
         </div>
+        {% if stats.total_brands >= 25 %}
         <div class="stat-item">
           <span class="stat-number">{{ stats.failing_pct }}%</span>
-          <span class="stat-label">Stores failing at least one check</span>
+          <span class="stat-label">Stores failing a critical or high-severity check</span>
         </div>
         <div class="stat-item">
           <span class="stat-number">{{ stats.total_brands }}</span>
           <span class="stat-label">DTC brands scanned so far</span>
         </div>
+        {% endif %}
       </div>
+      {% if stats.total_brands >= 25 %}
       <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem; text-align:center;">Based on scans of Shopify DTC stores across fashion, beauty, food, and lifestyle.</p>
+      {% endif %}
     </div>
 
     <!-- 6 CATEGORIES -->
@@ -231,7 +235,7 @@
         <div class="check-item">
           <span class="check-num">01</span>
           <strong>Can agents read it?</strong>
-          <span>JSON-LD structured data, price in HTML, llms.txt, robots.txt, sitemap, page load time, and crawler access for GPTBot, ClaudeBot, and PerplexityBot.</span>
+          <span>JSON-LD structured data, price in HTML, llms.txt, robots.txt, sitemap, page load time, and crawler access for GPTBot, ClaudeBot, PerplexityBot, and OAI-SearchBot.</span>
           <span class="check-tier">Free</span>
         </div>
         <div class="check-item">
@@ -275,7 +279,7 @@
           <span class="step-num">1</span>
           <div>
             <strong>Paste a product URL</strong>
-            <p>Any Shopify product page. We fetch it exactly the way an AI agent would.</p>
+            <p>Any product page — optimized for Shopify, works on most platforms. We fetch it exactly the way an AI agent would.</p>
           </div>
         </div>
         <div class="step">
@@ -327,7 +331,7 @@
         </details>
         <details>
           <summary>How long does a scan take?</summary>
-          <p>The free scan takes about 10 seconds. The Deep Agent Audit takes 30 seconds to a minute. Results stream in live as each check completes.</p>
+          <p>The free scan typically takes 15–30 seconds (it makes ~20 HTTP requests to probe your site). The Deep Agent Audit takes 30 seconds to a minute. Results stream in live as each check completes.</p>
         </details>
       </div>
     </div>

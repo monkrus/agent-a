@@ -338,7 +338,7 @@ checks:
     title: x402 / agent wallet compatibility signals present
     detect: wallet_compatibility
     expect: Site references x402 protocol, Cloudflare agent wallet, or exposes programmatic payment endpoints for agent commerce.
-    fail_if: No x402 or agent-wallet signals — site cannot accept payments from agents with Cloudflare wallets.
+    fail_if: No x402, MPP, or agent-wallet signals found in page HTML, llms.txt, or checkout page.
     weight: 2
     severity_if_fail: medium
     fix: Prepare for agent wallet payments by exposing programmatic payment endpoints and monitoring the x402 / Cloudflare Monetization Gateway spec for merchant integration.
@@ -383,7 +383,7 @@ checks:
     title: A2A Agent Card published (Google protocol)
     detect: a2a_agent_card
     expect: An Agent-to-Agent card exists at /.well-known/agent.json.
-    fail_if: No A2A agent card — agents cannot discover capabilities via Google A2A protocol.
+    fail_if: No A2A agent card found at /.well-known/agent.json.
     weight: 1
     severity_if_fail: low
     fix: Publish a /.well-known/agent.json describing your agent's capabilities per the Google A2A spec.
@@ -416,7 +416,7 @@ checks:
     title: DNS for AI Discovery (DNS-AID) records
     detect: dns_aid
     expect: DNS TXT record at _ai subdomain advertises AI agent capabilities.
-    fail_if: No DNS-AID record — agents cannot discover site capabilities via DNS.
+    fail_if: No DNS-AID TXT record found at _ai subdomain.
     weight: 1
     severity_if_fail: low
     fix: Add a DNS TXT record at _ai.yourdomain.com to advertise AI agent discovery information.
@@ -450,7 +450,7 @@ checks:
     title: Cart API has rate limiting protection
     detect: cart_rate_protection
     expect: Cart API endpoint rate-limits rapid requests to prevent inventory manipulation.
-    fail_if: Cart API accepts unlimited rapid requests — agents could squat inventory at scale.
+    fail_if: Cart API showed no rate limiting in a 5-request probe.
     weight: 1
     severity_if_fail: medium
     fix: Add rate limiting to /cart/add.js — limit to 10 requests per minute per IP.
@@ -461,7 +461,7 @@ checks:
     title: Checkout has bot challenge protection
     detect: checkout_bot_challenge
     expect: Checkout page includes CAPTCHA, Turnstile, or other bot challenge.
-    fail_if: No bot challenge on checkout — agents could automate fraudulent purchases.
+    fail_if: No bot challenge (CAPTCHA, Turnstile) detected on the checkout page.
     weight: 1
     severity_if_fail: high
     fix: Enable bot protection on checkout (Shopify Bot Protection, Cloudflare Turnstile, or reCAPTCHA).
@@ -472,7 +472,7 @@ checks:
     title: Admin and API paths are not exposed
     detect: admin_exposure
     expect: Admin, staff, and internal API paths require authentication or return 401/403.
-    fail_if: Admin or API paths accessible without auth — agents could access internal resources.
+    fail_if: Admin or API paths returned 200 with distinct content (not soft-404).
     weight: 1
     severity_if_fail: critical
     fix: Ensure /admin, /staff, /.env, and API endpoints require authentication. Block public access via WAF rules.

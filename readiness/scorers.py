@@ -459,14 +459,25 @@ def static_prompt_injection(page):
 
 
 def static_guest_checkout(page):
+    probe = page.get("checkout_probe")
     checkout_html = page.get("checkout_html")
-    if checkout_html is None:
+    if probe is None and checkout_html is None:
         return "UNKNOWN", "Checkout page not probed (local file mode)."
 
+    # Handle redirect cases from the no-redirect probe
+    if probe and probe.get("redirect_reason"):
+        reason = probe["redirect_reason"]
+        final = probe.get("final_url", "/checkout")
+        if reason == "redirected_to_login":
+            return "FAIL", f"/checkout redirected to {final} — login required before checkout. Agents cannot purchase without credentials."
+        if reason == "redirected_to_cart":
+            return "UNKNOWN", f"/checkout redirected to {final} — checkout not directly reachable without a cart session."
+
     if not checkout_html:
-        return "UNKNOWN", "Checkout page not reachable (empty or redirected)."
+        return "UNKNOWN", "Checkout page returned no content."
 
     cl = checkout_html.lower()
+    probed_url = probe.get("final_url", "/checkout") if probe else "/checkout"
 
     # Login wall indicators: page requires sign-in before showing checkout
     login_wall = any(phrase in cl for phrase in (
@@ -486,13 +497,13 @@ def static_guest_checkout(page):
     # Login wall short-circuits — even if weak guest signals are present,
     # a login wall dominates unless there's an explicit guest option
     if login_wall and not guest_ok:
-        return "FAIL", "Checkout requires login — no guest checkout option found. Agents cannot purchase without credentials."
+        return "FAIL", f"Page at {probed_url} requires login — no guest checkout option found. Agents cannot purchase without credentials."
     if guest_ok:
-        return "PASS", "Guest checkout available — agents can purchase without an account."
+        return "PASS", f"Guest checkout available at {probed_url} — agents can purchase without an account."
     # Shopify default: checkout pages typically show email/shipping fields
     if "email" in cl and ("shipping" in cl or "address" in cl):
-        return "PASS", "Checkout shows email and address fields (guest checkout likely available)."
-    return "UNKNOWN", "Could not determine guest checkout availability from checkout page."
+        return "PASS", f"Page at {probed_url} shows email and address fields (guest checkout likely available)."
+    return "UNKNOWN", f"Could not determine guest checkout availability from {probed_url}."
 
 
 def static_cart_api(page):
@@ -635,10 +646,11 @@ def static_atc_flow_proxy(page):
 
 def static_checkout_proxy(page):
     """Proxy for RDY-019 browser check: can agents reach checkout?"""
+    probe = page.get("checkout_probe")
     checkout_html = page.get("checkout_html")
     cart_api = page.get("cart_api", False)
 
-    if checkout_html is None:
+    if probe is None and checkout_html is None:
         return "UNKNOWN", "Checkout page not probed (local file mode)."
 
     html = page.get("html", "") or ""
@@ -647,6 +659,17 @@ def static_checkout_proxy(page):
     # Check if checkout link exists on the page
     has_checkout_link = bool(re.search(r'href=["\'][^"\']*checkout[^"\']*["\']', hl))
     has_cart_link = bool(re.search(r'href=["\'][^"\']*cart[^"\']*["\']', hl))
+
+    # Handle redirect from probe
+    if probe and probe.get("redirect_reason"):
+        final = probe.get("final_url", "/checkout")
+        reason = probe["redirect_reason"]
+        if reason == "redirected_to_cart":
+            if has_checkout_link:
+                return "PASS", f"/checkout redirected to {final} (empty cart), but checkout link found on product page."
+            return "UNKNOWN", f"/checkout redirected to {final} — checkout requires a cart session. Cart/checkout links: {'found' if has_cart_link else 'not found'}."
+        if reason == "redirected_to_login":
+            return "FAIL", f"/checkout redirected to {final} — login required before checkout."
 
     # Check if /checkout returns content
     checkout_reachable = bool(checkout_html and len(checkout_html) > 100)
@@ -741,7 +764,7 @@ def static_wallet_compatibility(page):
 
     if signals:
         return "PASS", f"Agent wallet signals detected: {', '.join(signals)} — site supports x402/MPP agent payments."
-    return "FAIL", "No x402 or agent-wallet signals detected — site cannot accept payments from AI agents with Cloudflare wallets."
+    return "FAIL", "No x402, MPP, or agent-wallet signals found in page HTML, llms.txt, or checkout page."
 
 
 def static_contradictory_availability(page):
@@ -890,7 +913,7 @@ def static_a2a_agent_card(page):
         name = a2a.get("name", a2a.get("agent_name", ""))
         detail = f" (name: {name})" if name else ""
         return "PASS", f"A2A agent card found at /.well-known/agent.json{detail} — supports Google Agent-to-Agent protocol."
-    return "FAIL", "No A2A agent card at /.well-known/agent.json — agents cannot discover capabilities via Google A2A protocol."
+    return "FAIL", "No A2A agent card found at /.well-known/agent.json."
 
 
 def static_auth_md(page):
@@ -927,7 +950,7 @@ def static_dns_aid(page):
         return "UNKNOWN", "DNS-AID not probed (local file mode)."
     if dns.get("has_dns_aid"):
         return "PASS", "DNS-AID TXT record found at _ai subdomain — agents can discover site capabilities via DNS."
-    return "FAIL", "No DNS-AID TXT record at _ai subdomain — agents cannot discover capabilities via DNS."
+    return "FAIL", "No DNS-AID TXT record found at _ai subdomain."
 
 
 def static_agent_skills(page):
@@ -1023,21 +1046,54 @@ def static_cart_rate_protection(page):
     if not cart_test.get("endpoint_exists"):
         return "UNKNOWN", "No cart API endpoint found — rate test not applicable."
     if cart_test.get("rate_limited"):
-        return "PASS", "Cart API rate-limits rapid requests — protected against inventory manipulation by agents."
+        return "PASS", "Cart API returned 429 during rapid requests — rate limiting is active."
+
+    statuses = cart_test.get("statuses", [])
+    # 422/400 = endpoint rejected the payload (invalid product ID), not "accepted"
+    rejected = [s for s in statuses if s in (422, 400)]
+    if rejected:
+        return "UNKNOWN", (
+            f"Cart API returned {rejected[0]} for test requests (invalid payload rejected). "
+            "5 requests is not a meaningful rate-limit test."
+        )
+
     if cart_test.get("all_accepted"):
-        return "FAIL", "Cart API accepted 5 rapid requests with no rate limiting — agents could manipulate inventory at scale."
-    return "PASS", "Cart API responded to rapid requests with mixed results (some protection in place)."
+        return "UNKNOWN", (
+            "Cart API responded 200 to 5 rapid requests. "
+            "This is too few requests to determine whether rate limiting is in place."
+        )
+    return "UNKNOWN", "Cart API responded to rapid requests with mixed results — inconclusive."
 
 
 def static_checkout_bot_challenge(page):
     """RDY-044: Does checkout have bot detection/challenge?"""
+    probe = page.get("checkout_probe")
     checkout_html = page.get("checkout_html")
-    if checkout_html is None:
+    if probe is None and checkout_html is None:
         return "UNKNOWN", "Checkout page not probed (local file mode)."
+
+    # Handle redirect — need to know if this is Shopify (item 2)
+    if probe and probe.get("redirect_reason"):
+        final = probe.get("final_url", "/checkout")
+        reason = probe["redirect_reason"]
+        platform = (page.get("_platform_name") or "").lower()
+        # Shopify checkout is on a separate domain with built-in bot protection
+        if reason == "redirected_to_cart" and platform == "shopify":
+            return "UNKNOWN", (
+                f"/checkout redirected to {final}. "
+                "Shopify checkout is served on a separate domain with "
+                "built-in bot protection; not probeable without a cart."
+            )
+        if reason == "redirected_to_cart":
+            return "UNKNOWN", f"/checkout redirected to {final} — cannot probe bot challenge without a cart session."
+        if reason == "redirected_to_login":
+            return "UNKNOWN", f"/checkout redirected to login ({final}) — bot challenge check not applicable."
+
     if not checkout_html:
-        return "UNKNOWN", "Checkout page not reachable."
+        return "UNKNOWN", "Checkout page returned no content."
 
     cl = checkout_html.lower()
+    probed_url = probe.get("final_url", "/checkout") if probe else "/checkout"
 
     # Bot challenge signals
     challenge_signals = (
@@ -1050,8 +1106,8 @@ def static_checkout_bot_challenge(page):
 
     if has_challenge:
         detected = [sig for sig in challenge_signals if sig in cl]
-        return "PASS", f"Checkout has bot challenge protection ({detected[0]}) — agents cannot complete purchases without verification."
-    return "FAIL", "No bot challenge (CAPTCHA, Turnstile) detected on checkout — agents could automate fraudulent purchases."
+        return "PASS", f"Checkout at {probed_url} has bot challenge protection ({detected[0]})."
+    return "FAIL", f"No bot challenge (CAPTCHA, Turnstile) detected at {probed_url}."
 
 
 def static_admin_exposure(page):
@@ -1062,8 +1118,12 @@ def static_admin_exposure(page):
     exposed = admin.get("exposed_paths", [])
     if exposed:
         paths = ", ".join(e["path"] for e in exposed)
-        return "FAIL", f"Exposed admin/API paths without auth: {paths} — agents could access internal resources."
-    return "PASS", f"No admin or API paths exposed ({admin.get('checked', 0)} paths checked) — internal resources are properly gated."
+        return "FAIL", (
+            f"Paths returned 200 with distinct content (not soft-404): {paths}. "
+            f"Soft-404 baseline: HTTP {admin.get('baseline_status')}."
+        )
+    checked = admin.get("checked", 0)
+    return "PASS", f"No admin or API paths exposed ({checked} paths checked, soft-404 baseline used)."
 
 
 STATIC = {
@@ -1250,14 +1310,38 @@ def run_browser(check, page):
     return ret
 
 
+# Checks that use self-asserted UA, redirect proxies, or heuristic detection
+# rather than direct observation of page content
+_ESTIMATED_CHECKS = {
+    "rate_limiting",         # self-asserted UA probe
+    "checkout_proxy",        # redirect proxy for browser check
+    "guest_checkout",        # probes /checkout (may redirect)
+    "checkout_bot_challenge",# probes /checkout (may redirect)
+    "cart_rate_protection",  # POST probe with 5 requests
+    "admin_exposure",        # probes admin paths with soft-404 baseline
+    "search_accessible",     # homepage HTML heuristic
+    "nav_accessible",        # homepage HTML heuristic
+    "related_products",      # regex heuristic for related sections
+    "atc_flow_proxy",        # heuristic proxy for browser check
+    "dns_aid",               # DNS TXT lookup
+}
+
+
+def check_confidence(detect: str) -> str:
+    """Return 'estimated' or 'observed' based on check method."""
+    return "estimated" if detect in _ESTIMATED_CHECKS else "observed"
+
+
 def run_static(check, page):
     fn = STATIC.get(check.get("detect"))
     if not fn:
         return {"verdict": "UNKNOWN", "detail": f"no probe '{check.get('detect')}'",
-                "pass_fraction": None}
+                "pass_fraction": None, "confidence": "estimated"}
     verdict, detail = fn(page)
+    confidence = check_confidence(check.get("detect", ""))
     return {"verdict": verdict, "detail": detail,
-            "pass_fraction": {"PASS": 1.0, "FAIL": 0.0}.get(verdict)}
+            "pass_fraction": {"PASS": 1.0, "FAIL": 0.0}.get(verdict),
+            "confidence": confidence}
 
 
 # ---- SHOPPER grading --------------------------------------------------------
