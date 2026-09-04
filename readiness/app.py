@@ -47,10 +47,9 @@ import fetch as fetchmod   # noqa: E402
 import fixes as fixesmod   # noqa: E402
 import impact as impactmod # noqa: E402
 import intel as intelmod   # noqa: E402
-import scorers             # noqa: E402
 import yaml                # noqa: E402
 import emailer             # noqa: E402
-from shopper import ask, ask_batch  # noqa: E402
+from pipeline import run_pipeline, run_pipeline_sync, gate_info, layer_for_check  # noqa: E402
 
 app = Flask(__name__)
 
@@ -263,8 +262,13 @@ def _scan_stats() -> dict:
     return stats
 
 
-def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
-    from concurrent.futures import ThreadPoolExecutor
+def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free", scan_id=None):
+    """Run a scan via the shared pipeline (pipeline.py) and write the payload.
+
+    `scan_id`: reuse an existing scan_id instead of minting a new one. Used
+    by the paid re-scan (see payment_success) so the paid results land under
+    the same URL the merchant already has open/bookmarked.
+    """
     import time as _time
     _t0 = _time.time()
     n = n or int(os.environ.get("SCAN_N", "5"))
@@ -272,52 +276,20 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
     checks = checks_for_tier(tier, checks)
     page = pre_fetched_page or fetchmod.fetch(target_url)
 
-    def _base(c):
-        return {k: c.get(k) for k in
-                ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
-
-    ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
-
-    static_checks = [c for c in checks if c.get("type") == "static"]
-    browser_checks = [c for c in checks if c.get("type") == "browser"]
-    shopper_checks = [c for c in checks if c.get("type") == "shopper"]
-    assert tier != "free" or not shopper_checks, "free tier must never carry shopper checks"
-    assert tier != "free" or not browser_checks, "free tier must never carry browser checks"
-
-    results = []
-    for c in static_checks:
-        r = scorers.run_static(c, page)
-        results.append({**_base(c), **r})
-
-    # Layer 0: access gate — if blocked, skip expensive checks
-    access_blocked = any(r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"
-                         for r in results)
-
-    if access_blocked:
-        gate_failures = [r.get("title", r.get("id")) for r in results
-                         if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"]
-        gate_reason = ("Skipped: site blocks agent access "
-                       f"({'; '.join(gate_failures)}). "
-                       "Fix access first — nothing else matters until agents can reach the page.")
-        for c in browser_checks + shopper_checks:
-            results.append({**_base(c), "verdict": "FAIL", "detail": gate_reason,
-                            "pass_fraction": 0.0, "gated": True})
-    else:
-        for c in browser_checks:
-            r = scorers.run_browser(c, page)
-            results.append({**_base(c), **r})
-
-        if shopper_checks:
-            shopper_mode = "anthropic" if tier == "paid" else "mock"
-            tasks = {c["id"]: c["task"] for c in shopper_checks}
-            with ThreadPoolExecutor(max_workers=n) as pool:
-                batch_results = list(pool.map(
-                    lambda _: ask_batch(page, tasks, shopper=shopper_mode), range(n)))
-            answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
-            for c in shopper_checks:
-                answers = answers_by_check[c["id"]]
-                g = scorers.grade_shopper(c, page, answers)
-                results.append({**_base(c), **g, "sample_answers": answers[:3]})
+    # SHOPPER env is the master switch the rest of the codebase (CLI,
+    # batch.py) already respects — an explicit SHOPPER=mock must win even
+    # for a paid scan (this is what keeps tests and staging environments
+    # from making real, billed Anthropic calls just because tier="paid").
+    # Only when SHOPPER isn't set do we pick a tier-based default, and even
+    # then we degrade "anthropic" to "mock" rather than crash the checkout
+    # flow if no API key is configured. meta.shopper below always records
+    # which backend actually ran, never the aspirational one.
+    shopper_mode = os.environ.get("SHOPPER")
+    if not shopper_mode:
+        shopper_mode = "anthropic" if tier == "paid" else "mock"
+    if shopper_mode == "anthropic" and not os.environ.get("ANTHROPIC_API_KEY"):
+        shopper_mode = "mock"
+    results = run_pipeline_sync(checks, page, n, tier=tier, shopper_mode=shopper_mode)
 
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 
@@ -338,9 +310,10 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
     readiness_score = round(100 * num / den, 1) if den else None
 
     now = datetime.datetime.now()
-    scan_id = hashlib.sha256(
-        f"{target_url}:{now.isoformat()}".encode()
-    ).hexdigest()[:12]
+    if not scan_id:
+        scan_id = hashlib.sha256(
+            f"{target_url}:{now.isoformat()}".encode()
+        ).hexdigest()[:12]
 
     # Confidence band (same logic as scan.py CLI)
     from scan import confidence_band
@@ -350,12 +323,15 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
 
     _elapsed = round(_time.time() - _t0, 1)
 
+    agent_runs = n if any(r.get("type") == "shopper" for r in results) else 0
+
     payload = {
         "scan_id": scan_id,
         "meta": {
             "target": target_url, "pack": pack, "version": version,
-            "n": n, "shopper": "anthropic" if tier == "paid" else "mock",
-            "tier": tier,
+            "n": n, "shopper": shopper_mode,
+            "tier": tier, "paid": tier == "paid",
+            "agent_runs": agent_runs,
             "timestamp": now.isoformat(timespec="seconds"),
             "page_status": page.get("status"),
             "duration_seconds": _elapsed,
@@ -366,6 +342,7 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
         "results": results,
         "impact": impact_est,
         "intel": intelmod.analyze(page, page.get("llms_txt_content")),
+        "gate": gate_info(results, page),
     }
     (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload, indent=2))
     return scan_id
@@ -423,14 +400,21 @@ def index():
     return render_template("index.html", stats=stats)
 
 
+def _index_error(error, status=200):
+    """Render the homepage with an error message. index.html always
+    references `stats.*` (the live "N% of stores fail" banner) — every
+    error-path render_template("index.html", ...) call must pass stats
+    too, or it 500s instead of showing the merchant the actual error."""
+    return render_template("index.html", error=error, stats=_scan_stats()), status
+
+
 @app.route("/scan", methods=["POST"])
 def scan():
     # Rate limit: one scan per IP per SCAN_RATE_LIMIT seconds
     client_ip = request.remote_addr or "unknown"
     wait = _check_rate_limit(client_ip)
     if wait is not None:
-        return render_template("index.html",
-                               error=f"Please wait {wait} seconds before scanning again."), 429
+        return _index_error(f"Please wait {wait} seconds before scanning again.", 429)
 
     url = request.form.get("url", "").strip()
     # Strip leading bullets, dashes, whitespace from copy-paste
@@ -443,56 +427,44 @@ def scan():
     from urllib.parse import urlparse
     path = urlparse(url).path.rstrip("/")
     if not path or path.count("/") < 2:
-        return render_template("index.html", error=(
+        return _index_error(
             "That looks like a homepage or collection page. "
             "Please paste a specific product page URL instead — "
             "on your store, click on any product and copy the URL from your browser. "
             "It usually looks like: your-store.com/products/product-name"
-        ))
+        )
     # Fetch page and check for 404 / soft-404 before running full scan
     try:
         pre_page = fetchmod.fetch(url)
     except fetchmod._UnsafeURLError:
-        return render_template("index.html", error="That URL points to a private or internal address and cannot be scanned.")
+        return _index_error("That URL points to a private or internal address and cannot be scanned.")
     except Exception as e:
-        return render_template("index.html", error=f"Could not fetch that URL: {e}")
+        return _index_error(f"Could not fetch that URL: {e}")
 
     dead = fetchmod.is_dead_page(pre_page)
     if dead:
-        return render_template("index.html", error=dead)
+        return _index_error(dead)
 
     collection_warning = fetchmod.is_collection_page(pre_page)
     if collection_warning:
-        return render_template("index.html", error=collection_warning)
+        return _index_error(collection_warning)
 
     try:
         scan_id = _run_scan(url, pre_fetched_page=pre_page)
     except Exception as e:
-        return render_template("index.html", error=f"Could not scan that URL: {e}")
+        return _index_error(f"Could not scan that URL: {e}")
     return redirect(url_for("results", scan_id=scan_id))
-
-
-# ---- Layer-by-layer check ordering for streaming display ----
-LAYER_CHECKS = {
-    "access":      {"RDY-003", "RDY-031"},
-    "data":        {"RDY-001", "RDY-002", "RDY-004", "RDY-005", "RDY-011",
-                    "RDY-012", "RDY-013", "RDY-029", "RDY-030"},
-    "extraction":  {"RDY-006", "RDY-007", "RDY-008", "RDY-009", "RDY-010"},
-    "interaction": {"RDY-014", "RDY-015", "RDY-017", "RDY-018", "RDY-019",
-                    "RDY-020", "RDY-021", "RDY-022", "RDY-023"},
-    "security":    {"RDY-016"},
-}
-
-def _check_layer(check_id):
-    for layer, ids in LAYER_CHECKS.items():
-        if check_id in ids:
-            return layer
-    return "other"
 
 
 @app.route("/scan-stream")
 def scan_stream():
-    """SSE endpoint: streams check results one at a time as they complete."""
+    """SSE endpoint: streams check results one at a time as they complete.
+
+    Drives the same `run_pipeline` generator used by the CLI and the
+    non-streaming /scan route (see pipeline.py) — every event it yields is
+    forwarded as an SSE message, so this route can no longer drop checks
+    that the other entry points run.
+    """
     # Rate limit: same per-IP limit as /scan
     client_ip = request.remote_addr or "unknown"
     wait = _check_rate_limit(client_ip)
@@ -510,12 +482,10 @@ def scan_stream():
         url = "https://" + url
 
     def generate():
-        from concurrent.futures import ThreadPoolExecutor
         import time as t
 
         _t0 = t.time()
         n = int(os.environ.get("SCAN_N", "5"))
-        ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
 
         yield "data: " + json.dumps({"type": "status", "message": "Fetching page..."}) + "\n\n"
 
@@ -533,193 +503,34 @@ def scan_stream():
             yield "data: " + json.dumps({"type": "error", "message": dead}) + "\n\n"
             return
 
+        # Same preflight the no-JS /scan route runs, so a collection/category
+        # URL doesn't silently score as a broken product page here.
+        collection_warning = fetchmod.is_collection_page(page)
+        if collection_warning:
+            yield "data: " + json.dumps({"type": "error", "message": collection_warning}) + "\n\n"
+            return
+
         pack, version, checks = _load_checks()
         # Free tier: static checks only, no API spend
         tier = "free"  # scan-stream is always the free entry point
         checks = checks_for_tier(tier, checks)
-
-        def _base(c):
-            return {k: c.get(k) for k in
-                    ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
-
-        static_checks = [c for c in checks if c.get("type") == "static"]
-        browser_checks = [c for c in checks if c.get("type") == "browser"]
-        shopper_checks = [c for c in checks if c.get("type") == "shopper"]
-        assert not shopper_checks, "free tier must never carry shopper checks"
-        assert not browser_checks, "free tier must never carry browser checks"
         total_checks = len(checks)
 
-        results = []
-        completed = 0
-
-        # --- Layer 0: Access ---
-        yield "data: " + json.dumps({"type": "layer", "layer": "access", "label": "Layer 0: Access"}) + "\n\n"
-
-        access_checks = [c for c in static_checks if c.get("id") in ACCESS_GATE_IDS]
-        other_static = [c for c in static_checks if c.get("id") not in ACCESS_GATE_IDS]
-
-        for c in access_checks:
-            r = scorers.run_static(c, page)
-            result = {**_base(c), **r}
-            results.append(result)
-            completed += 1
-            yield "data: " + json.dumps({
-                "type": "check", "id": c["id"], "title": c["title"],
-                "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
-                "layer": "access", "progress": f"{completed}/{total_checks}",
-            }) + "\n\n"
-
-        # Check gate
-        access_blocked = any(r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"
-                             for r in results)
-
-        if access_blocked:
-            gate_reasons = []
-            for r in results:
-                if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL":
-                    if r.get("id") == "RDY-031":
-                        gate_reasons.append("site blocks agent-like traffic")
-                    elif r.get("id") == "RDY-003":
-                        gate_reasons.append("robots.txt blocks AI crawlers")
-                    else:
-                        gate_reasons.append(r.get("title"))
-            gate_reason = ("Skipped: site blocks agent access "
-                           f"({'; '.join(gate_reasons)}). "
-                           "Fix access first.")
-            # Gather per-crawler details for the blocked report
-            probe_detail = page.get("agent_probe_detail", {})
-            blocked_uas = probe_detail.get("blocked_uas", [])
-            allowed_uas = probe_detail.get("allowed_uas", [])
-            yield "data: " + json.dumps({
-                "type": "gate_blocked",
-                "message": f"ACCESS BLOCKED — {'; '.join(gate_reasons)}",
-                "skipped": len(other_static) + len(browser_checks) + len(shopper_checks),
-                "blocked_uas": blocked_uas,
-                "allowed_uas": allowed_uas,
-            }) + "\n\n"
-
-            # Mark remaining checks as gated
-            for c in other_static + browser_checks + shopper_checks:
-                results.append({**_base(c), "verdict": "FAIL", "detail": gate_reason,
-                                "pass_fraction": 0.0, "gated": True})
-                completed += 1
-        else:
-            yield "data: " + json.dumps({
-                "type": "gate_passed", "message": "Access OK — continuing scan..."
-            }) + "\n\n"
-
-            # --- Split static checks by layer ---
-            LAYER_LABELS = {
-                "data": "Layer 1: Data",
-                "extraction": "Layer 2: Extraction",
-                "interaction": "Layer 3: Interaction",
-                "security": "Layer 4: Security",
-            }
-            data_static = [c for c in other_static if _check_layer(c.get("id", "")) == "data"]
-            interaction_static = [c for c in other_static if _check_layer(c.get("id", "")) == "interaction"]
-            security_static = [c for c in other_static if _check_layer(c.get("id", "")) == "security"]
-
-            def _run_static_batch(label_key, checks_list):
-                nonlocal completed
-                if not checks_list:
-                    return
-                yield "data: " + json.dumps({
-                    "type": "layer", "layer": label_key,
-                    "label": LAYER_LABELS[label_key],
-                }) + "\n\n"
-                for c in checks_list:
-                    r = scorers.run_static(c, page)
-                    result = {**_base(c), **r}
-                    results.append(result)
-                    completed += 1
-                    yield "data: " + json.dumps({
-                        "type": "check", "id": c["id"], "title": c["title"],
-                        "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
-                        "layer": label_key, "progress": f"{completed}/{total_checks}",
-                    }) + "\n\n"
-
-            # Layer 1: Data (static)
-            yield from _run_static_batch("data", data_static)
-
-            # Layer 2: Extraction (shopper checks)
-            if shopper_checks:
-                yield "data: " + json.dumps({
-                    "type": "layer", "layer": "extraction",
-                    "label": "Layer 2: Extraction",
-                }) + "\n\n"
-
-                tasks = {c["id"]: c["task"] for c in shopper_checks}
-                with ThreadPoolExecutor(max_workers=n) as pool:
-                    batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
-                answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
-
-                for c in shopper_checks:
-                    answers = answers_by_check[c["id"]]
-                    g = scorers.grade_shopper(c, page, answers)
-                    result = {**_base(c), **g, "sample_answers": answers[:3]}
-                    results.append(result)
-                    completed += 1
-                    yield "data: " + json.dumps({
-                        "type": "check", "id": c["id"], "title": c["title"],
-                        "verdict": g["verdict"], "detail": g.get("detail", "")[:120],
-                        "layer": "extraction", "progress": f"{completed}/{total_checks}",
-                    }) + "\n\n"
-
-            # Layer 3: Interaction (static + browser in parallel)
-            has_interaction = interaction_static or browser_checks
-            if has_interaction:
-                from concurrent.futures import as_completed as _as_completed
-
-                yield "data: " + json.dumps({
-                    "type": "layer", "layer": "interaction",
-                    "label": "Layer 3: Interaction",
-                }) + "\n\n"
-
-                # Static interaction checks first
-                for c in interaction_static:
-                    r = scorers.run_static(c, page)
-                    result = {**_base(c), **r}
-                    results.append(result)
-                    completed += 1
-                    yield "data: " + json.dumps({
-                        "type": "check", "id": c["id"], "title": c["title"],
-                        "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
-                        "layer": "interaction", "progress": f"{completed}/{total_checks}",
-                    }) + "\n\n"
-
-                # Browser interaction checks in parallel
-                if browser_checks:
-                    for c in browser_checks:
-                        yield "data: " + json.dumps({
-                            "type": "check_running", "id": c["id"], "title": c["title"],
-                            "layer": "interaction",
-                        }) + "\n\n"
-
-                if browser_checks:
-                    with ThreadPoolExecutor(max_workers=len(browser_checks)) as pool:
-                        future_to_check = {
-                            pool.submit(scorers.run_browser, c, page): c
-                            for c in browser_checks
-                        }
-                        for future in _as_completed(future_to_check):
-                            c = future_to_check[future]
-                            try:
-                                r = future.result()
-                            except Exception as exc:
-                                r = {"verdict": "UNKNOWN",
-                                     "detail": f"Browser check error: {exc}",
-                                     "pass_fraction": None}
-                            result = {**_base(c), **r}
-                            results.append(result)
-                            completed += 1
-                            yield "data: " + json.dumps({
-                                "type": "check", "id": c["id"], "title": c["title"],
-                                "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
-                                "layer": "interaction", "progress": f"{completed}/{total_checks}",
-                            }) + "\n\n"
-
-            # Layer 4: Security (static)
-            yield from _run_static_batch("security", security_static)
+        results = None
+        for event in run_pipeline(checks, page, n, tier=tier):
+            if event["type"] == "complete":
+                results = event["results"]
+                break
+            if event["type"] == "layer":
+                yield "data: " + json.dumps(event) + "\n\n"
+            elif event["type"] == "check_running":
+                yield "data: " + json.dumps(event) + "\n\n"
+            elif event["type"] == "check":
+                yield "data: " + json.dumps(event) + "\n\n"
+            elif event["type"] == "gate_blocked":
+                yield "data: " + json.dumps(event) + "\n\n"
+            elif event["type"] == "gate_passed":
+                yield "data: " + json.dumps(event) + "\n\n"
 
         # --- Final score ---
         results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
@@ -749,11 +560,17 @@ def scan_stream():
         impact_est = impactmod.estimate(results)
         _elapsed = round(t.time() - _t0, 1)
 
+        # The free tier never runs shopper checks, so this is always 0 today
+        # — kept as a real computation (not a hardcoded "n") so it stays
+        # correct if the free tier ever changes.
+        agent_runs = n if any(r.get("type") == "shopper" for r in results) else 0
+
         payload = {
             "scan_id": scan_id,
             "meta": {
                 "target": url, "pack": pack, "version": version,
-                "n": n, "shopper": "mock", "tier": tier,
+                "n": n, "shopper": "mock", "tier": tier, "paid": False,
+                "agent_runs": agent_runs,
                 "timestamp": now.isoformat(timespec="seconds"),
                 "page_status": page.get("status"),
                 "duration_seconds": _elapsed,
@@ -764,6 +581,7 @@ def scan_stream():
             "results": results,
             "impact": impact_est,
             "intel": intelmod.analyze(page, page.get("llms_txt_content")),
+            "gate": gate_info(results, page),
         }
         (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload, indent=2))
 
@@ -774,6 +592,8 @@ def scan_stream():
             "scan_id": scan_id,
             "duration": _elapsed,
             "impact": impact_est.get("estimated_monthly_loss", {}),
+            "blocked": bool(payload["gate"]),
+            "total_checks": total_checks,
         }) + "\n\n"
 
     def safe_generate():
@@ -786,12 +606,43 @@ def scan_stream():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+def _unlock_paid_scan(scan_id: str) -> dict | None:
+    """Re-run the scan with the paid tier's checks (shopper + browser) and
+    overwrite the stored payload under the same scan_id.
+
+    Before this, paying $49 only set a session flag — the report the
+    merchant saw was still the free static-checks-only payload, re-labeled.
+    This makes the purchase actually run what the paywall copy promises.
+
+    Idempotent: if the stored payload already has meta.paid=True, this is
+    a no-op, so a page refresh or a retried payment webhook can't spend
+    the shopper/browser budget twice.
+    """
+    data = _load_scan(scan_id)
+    if not data:
+        return None
+    if data.get("meta", {}).get("paid"):
+        return data
+    target_url = data.get("meta", {}).get("target", "")
+    n = data.get("meta", {}).get("n") or int(os.environ.get("SCAN_N", "5"))
+    try:
+        _run_scan(target_url, n=n, tier="paid", scan_id=scan_id)
+    except Exception:
+        _logger.exception("Paid re-scan failed for scan_id=%s target=%s", scan_id, target_url)
+        return _load_scan(scan_id)  # unchanged free payload; caller decides what to show
+    return _load_scan(scan_id)
+
+
 @app.route("/results/<scan_id>")
 def results(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    paid = session.get(f"paid_{scan_id}", False)
+    # Persistent entitlement lives in the stored payload (meta.paid), not
+    # just the session cookie — a cookie loss or a second device must not
+    # re-lock a report that was already paid for. The session flag is kept
+    # as a same-request-cycle signal (e.g. right after DEV_MODE unlock).
+    paid = session.get(f"paid_{scan_id}", False) or bool(data.get("meta", {}).get("paid"))
     stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
     has_stripe = bool(stripe_key)
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
@@ -817,6 +668,7 @@ def checkout(scan_id):
         # Only allow demo unlock if DEV_MODE is explicitly enabled
         if os.environ.get("DEV_MODE", "").lower() == "true":
             session[f"paid_{scan_id}"] = True
+            _unlock_paid_scan(scan_id)
             return redirect(url_for("results", scan_id=scan_id))
         abort(503, description="Payment system is not configured.")
 
@@ -857,6 +709,9 @@ def payment_success(scan_id):
     elif os.environ.get("DEV_MODE", "").lower() == "true":
         session[f"paid_{scan_id}"] = True
 
+    if session.get(f"paid_{scan_id}"):
+        data = _unlock_paid_scan(scan_id) or data
+
     # Auto-send report to buyer's email
     if buyer_email and session.get(f"paid_{scan_id}"):
         emailer.send_report(buyer_email, data)
@@ -868,11 +723,13 @@ def payment_success(scan_id):
 @app.route("/send-report/<scan_id>", methods=["POST"])
 def send_report(scan_id):
     """Send the full report to an additional email (e.g. developer)."""
-    if not session.get(f"paid_{scan_id}"):
-        abort(403)
     data = _load_scan(scan_id)
     if not data:
         abort(404)
+    # Same persistent-entitlement check as /results: don't require the
+    # buyer to still have the session cookie that unlocked this scan.
+    if not (session.get(f"paid_{scan_id}") or data.get("meta", {}).get("paid")):
+        abort(403)
     to_email = request.form.get("email", "").strip()
     if not to_email or "@" not in to_email:
         return redirect(url_for("results", scan_id=scan_id))
@@ -886,31 +743,23 @@ def send_report(scan_id):
 # ---- Shareable public results (/r/<scan_id>) --------------------------------
 
 SEV_RANK_SHARE = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
-LAYER_ORDER = ["data", "extraction", "interaction", "security"]
+LAYER_ORDER = ["data", "extraction", "interaction", "security", "discovery"]
 LAYER_LABELS = {"data": "Data", "extraction": "Extraction",
-                "interaction": "Interaction", "security": "Security"}
+                "interaction": "Interaction", "security": "Security",
+                "discovery": "Protocol & Discovery"}
 
 
 def _layer_scores(results):
-    """Compute per-layer scores from results."""
-    CAT_TO_LAYER = {}
-    for r in results:
-        cat = r.get("category", "")
-        ctype = r.get("type", "")
-        if ctype == "shopper":
-            CAT_TO_LAYER[cat] = "extraction"
-        elif ctype == "browser":
-            CAT_TO_LAYER[cat] = "interaction"
-        elif cat in ("security",):
-            CAT_TO_LAYER[cat] = "security"
-        elif cat in ("agent-interaction", "variant-interaction"):
-            CAT_TO_LAYER[cat] = "interaction"
-        else:
-            CAT_TO_LAYER[cat] = "data"
+    """Compute per-layer scores from results, using the same category->layer
+    map as the scan pipeline (pipeline.layer_for_check) so the share page
+    can't drift from what actually ran."""
     layers = {}
+    counts = {}
     for r in results:
-        cat = r.get("category", "")
-        layer = CAT_TO_LAYER.get(cat, "data")
+        layer = layer_for_check(r)
+        if layer == "access":
+            continue  # access-gate checks aren't shown as a share-page bar
+        counts[layer] = counts.get(layer, 0) + 1
         pf = r.get("pass_fraction")
         if pf is None:
             continue
@@ -919,8 +768,9 @@ def _layer_scores(results):
             layers[layer] = {"num": 0.0, "den": 0.0}
         layers[layer]["num"] += w * pf
         layers[layer]["den"] += w
-    return {lay: round(v["num"] / v["den"] * 100, 1) if v["den"] else 0
-            for lay, v in layers.items()}
+    scores = {lay: round(v["num"] / v["den"] * 100, 1) if v["den"] else 0
+             for lay, v in layers.items()}
+    return scores, counts
 
 
 def _plain_finding(r):
@@ -930,7 +780,7 @@ def _plain_finding(r):
     detail = r.get("detail", "")
     pr = r.get("pass_rate", "")
     if v == "FAIL" and pr:
-        return f"{title} — agents got this right only {pr} times."
+        return f"{title} — agent answered correctly in {pr} runs."
     if v == "UNKNOWN":
         return f"{title} — could not be verified (agents can't find this data either)."
     if detail and len(detail) < 120:
@@ -954,14 +804,18 @@ def share(scan_id):
     domain = _domain_from_url(data.get("meta", {}).get("target", ""))
     results = data.get("results", [])
 
-    # Layer scores for bars
-    ls = _layer_scores(results)
+    # Layer scores for bars. `counts` records how many checks actually ran
+    # in each layer, so a bar can never read e.g. "Security 100%" when only
+    # a fraction of the security checks in the pack were run — see CLAUDE.md
+    # rule 6: a percentage without its denominator is a claim we can't back.
+    ls, counts = _layer_scores(results)
     layers = []
     for lay in LAYER_ORDER:
         if lay in ls:
             pct = ls[lay]
             grade = "good" if pct >= 80 else "ok" if pct >= 50 else "bad"
-            layers.append({"label": LAYER_LABELS[lay], "pct": int(pct), "grade": grade})
+            layers.append({"label": LAYER_LABELS[lay], "pct": int(pct), "grade": grade,
+                           "n_checks": counts.get(lay, 0)})
 
     # Top 3 findings (FAIL/UNKNOWN, sorted by severity)
     findings_raw = [r for r in results if r.get("verdict") in ("FAIL", "UNKNOWN")]

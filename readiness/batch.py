@@ -33,10 +33,10 @@ load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import fetch as fetchmod
-import scorers
 import fixes as fixesmod
 import intel as intelmod
-from shopper import ask_batch
+from pipeline import run_pipeline_sync, gate_info
+from scan import headline as scan_headline, confidence_band
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 CHECKS_PATH = pathlib.Path(__file__).resolve().parent / "checks" / "shopify-v1.yaml"
@@ -73,8 +73,15 @@ def _find_existing_scan(domain):
 
 
 def _run_scan(target_url, n):
-    """Run a full scan, return (scan_id, payload)."""
-    from concurrent.futures import ThreadPoolExecutor
+    """Run a full scan, return (scan_id, payload).
+
+    Uses the shared pipeline (pipeline.py) — the same one the CLI and web
+    routes use. Before this, batch.py had its own fourth copy of the
+    fetch -> static -> browser -> shopper flow, and that copy never
+    implemented the access gate at all: a blocked site would still get
+    browser/shopper checks run against a challenge page. tier="paid" here
+    just means "run every check type"; batch scans are always full scans.
+    """
     import hashlib
 
     pack, version, checks = _load_checks()
@@ -84,32 +91,7 @@ def _run_scan(target_url, n):
     if dead:
         return None, {"error": dead, "meta": {"target": target_url}}
 
-    def _base(c):
-        return {k: c.get(k) for k in
-                ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
-
-    static_checks = [c for c in checks if c.get("type") == "static"]
-    browser_checks = [c for c in checks if c.get("type") == "browser"]
-    shopper_checks = [c for c in checks if c.get("type") == "shopper"]
-
-    results = []
-    for c in static_checks:
-        r = scorers.run_static(c, page)
-        results.append({**_base(c), **r})
-    for c in browser_checks:
-        r = scorers.run_browser(c, page)
-        results.append({**_base(c), **r})
-
-    if shopper_checks:
-        tasks = {c["id"]: c["task"] for c in shopper_checks}
-        with ThreadPoolExecutor(max_workers=n) as pool:
-            batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
-        answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
-        for c in shopper_checks:
-            answers = answers_by_check[c["id"]]
-            g = scorers.grade_shopper(c, page, answers)
-            results.append({**_base(c), **g, "sample_answers": answers[:3]})
-
+    results = run_pipeline_sync(checks, page, n, tier="paid")
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 
     for r in results:
@@ -127,51 +109,22 @@ def _run_scan(target_url, n):
         den += w
     readiness_score = round(100 * num / den, 1) if den else None
 
-    # Confidence band (95% CI margin)
-    import math
-    z = 1.96
-    variance_sum = 0.0
-    for r in results:
-        pf = r.get("pass_fraction")
-        if pf is None:
-            continue
-        w = r.get("weight", 0) or 0
-        ctype = r.get("type", "static")
-        if ctype == "shopper":
-            p = pf
-            se = math.sqrt(p * (1 - p) / n) if n > 0 else 0
-            variance_sum += (w * se) ** 2
-        elif ctype == "browser":
-            browser_attempts = r.get("browser_attempts", 1)
-            se = 0.3 / math.sqrt(max(browser_attempts, 1))
-            variance_sum += (w * se) ** 2
-    score_se = 100 * math.sqrt(variance_sum) / den if den else 0
-    confidence_margin = round(z * score_se, 1) if den else None
-
-    # Headline
-    crits = [r for r in results
-             if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
-    if crits:
-        headline = f"{len(crits)} critical readiness failure(s): " + \
-                   "; ".join(r["title"] for r in crits[:2])
-    else:
-        fails = [r for r in results if r.get("verdict") == "FAIL"]
-        if fails:
-            headline = f"{len(fails)} issue(s) limiting agent readiness; top: {fails[0]['title']}."
-        else:
-            unknown = [r for r in results if r.get("verdict") == "UNKNOWN"]
-            headline = ("No failures found, but some checks were inconclusive."
-                        if unknown else "Page reads cleanly to shopping agents across all checks.")
+    confidence_margin = confidence_band(results, n)
+    headline = scan_headline(results)
 
     scan_id = hashlib.sha256(
         f"{target_url}:{datetime.datetime.now().isoformat()}".encode()
     ).hexdigest()[:12]
+
+    agent_runs = n if any(r.get("type") == "shopper" for r in results) else 0
 
     payload = {
         "scan_id": scan_id,
         "meta": {
             "target": target_url, "pack": pack, "version": version,
             "n": n, "shopper": os.environ.get("SHOPPER", "mock"),
+            "tier": "paid", "paid": True,
+            "agent_runs": agent_runs,
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
             "page_status": page.get("status"),
         },
@@ -180,6 +133,7 @@ def _run_scan(target_url, n):
         "headline": headline,
         "results": results,
         "intel": intelmod.analyze(page, page.get("llms_txt_content")),
+        "gate": gate_info(results, page),
     }
 
     SCANS_DIR.mkdir(exist_ok=True)

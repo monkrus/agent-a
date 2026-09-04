@@ -62,6 +62,10 @@ framework code. These are portfolio-value open source.
 readiness/
   scan.py              CLI entry point
   app.py               Flask web frontend (port 5000)
+  pipeline.py          Shared scan pipeline (fetch -> access-gate -> static ->
+                       browser -> shopper) used by scan.py, app.py (/scan and
+                       /scan-stream), and batch.py — the single place check
+                       layering and check-dropping bugs can be fixed once.
   fetch.py             Page fetcher (requests + optional Playwright for rendered DOM)
   shopper.py           Simulated shopping agent (mock or anthropic backend)
   scorers.py           Static probes + shopper grading

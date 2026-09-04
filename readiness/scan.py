@@ -31,9 +31,8 @@ import yaml
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod          # noqa: E402
-import scorers                    # noqa: E402
 import impact as impactmod        # noqa: E402
-from shopper import ask, ask_batch  # noqa: E402
+from pipeline import run_pipeline_sync, gate_info  # noqa: E402
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 
@@ -44,64 +43,18 @@ def load_checks(path):
 
 
 def scan(checks, page, n):
-    from concurrent.futures import ThreadPoolExecutor
+    """Run the full check pack against `page`. Thin wrapper around the
+    shared pipeline (pipeline.py) — see that module for the access-gate,
+    layering, and drop-detection logic.
 
-    # Layer 0: Access gate — RDY-031 (WAF blocking) and RDY-003 (robots.txt)
-    # If the site blocks agents at the access layer, skip expensive browser/shopper
-    # checks. A blocked site shouldn't score 65/100.
-    ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
-
-    static_checks = [c for c in checks if c.get("type") == "static"]
-    browser_checks = [c for c in checks if c.get("type") == "browser"]
-    shopper_checks = [c for c in checks if c.get("type") == "shopper"]
-
-    def _base(c):
-        return {k: c.get(k) for k in
-                ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
-
-    # Run static checks first (includes access gate checks)
-    results = []
-    for c in static_checks:
-        r = scorers.run_static(c, page)
-        results.append({**_base(c), **r})
-
-    # Check the access gate: did RDY-031 or RDY-003 fail?
-    access_blocked = False
-    gate_failures = []
-    for r in results:
-        if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL":
-            access_blocked = True
-            gate_failures.append(r.get("title", r.get("id")))
-
-    if access_blocked:
-        # Skip browser + shopper checks — mark them as gated
-        gate_reason = ("Skipped: site blocks agent access "
-                       f"({'; '.join(gate_failures)}). "
-                       "Fix access first — nothing else matters until agents can reach the page.")
-        for c in browser_checks + shopper_checks:
-            results.append({**_base(c), "verdict": "FAIL", "detail": gate_reason,
-                            "pass_fraction": 0.0, "gated": True})
-    else:
-        # Access OK — run browser and shopper checks normally
-        for c in browser_checks:
-            r = scorers.run_browser(c, page)
-            results.append({**_base(c), **r})
-
-        # Shopper checks: batched — all tasks in one API call per run
-        if shopper_checks:
-            tasks = {c["id"]: c["task"] for c in shopper_checks}
-            # N batched calls in parallel (capped at 10 workers to avoid rate limits)
-            workers = min(n, 10)
-            with ThreadPoolExecutor(max_workers=workers) as pool:
-                batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
-            # Transpose: {check_id: [answer_run1, answer_run2, ...]}
-            answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
-            for c in shopper_checks:
-                answers = answers_by_check[c["id"]]
-                g = scorers.grade_shopper(c, page, answers)
-                results.append({**_base(c), **g, "sample_answers": answers})
-
-    return results
+    tier="paid" here just means "don't filter checks" (the CLI is handed
+    whatever checks the caller already selected — see load_checks/main()).
+    shopper_mode is left as None, so ask_batch resolves the backend from
+    the SHOPPER env var, exactly as before. sample_limit=None: the CLI
+    report keeps the full N answers per shopper check, not the web UI's
+    3-answer preview.
+    """
+    return run_pipeline_sync(checks, page, n, tier="paid", sample_limit=None)
 
 
 def score(results):
@@ -312,11 +265,14 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     impact_est = impactmod.estimate(results)
     rdata = report_data(results, page)
+    agent_runs = args.n if any(r.get("type") == "shopper" for r in results) else 0
     payload = {
         "meta": {
             "target": args.target, "pack": pack, "version": version,
             "n": args.n, "shopper": __import__("os").environ.get("SHOPPER", "mock"),
             "model": __import__("os").environ.get("SHOPPER_MODEL", "claude-sonnet-4-6"),
+            "tier": "paid", "paid": True,
+            "agent_runs": agent_runs,
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
             "page_status": page.get("status"),
         },
@@ -326,6 +282,7 @@ def main():
         "report": rdata,
         "results": results,
         "impact": impact_est,
+        "gate": gate_info(results, page),
     }
 
     # ---- competitor comparison (optional) ----

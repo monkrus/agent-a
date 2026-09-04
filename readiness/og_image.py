@@ -12,7 +12,11 @@ from __future__ import annotations
 import io
 import os
 import pathlib
+import sys
 from typing import Optional
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from pipeline import layer_for_check  # noqa: E402
 
 SCANS_DIR = pathlib.Path(__file__).resolve().parent / ".scans"
 
@@ -99,31 +103,19 @@ LAYER_LABELS = {
     "extraction": "Extraction",
     "interaction": "Interaction",
     "security": "Security",
+    "discovery": "Protocol & Discovery",
 }
 
 
 def _layer_scores(results):
-    """Compute per-layer (data/extraction/interaction/security) scores."""
-    # Map categories to layers
-    CAT_TO_LAYER = {}
-    for r in results:
-        cat = r.get("category", "")
-        ctype = r.get("type", "")
-        if ctype == "shopper":
-            CAT_TO_LAYER[cat] = "extraction"
-        elif ctype == "browser":
-            CAT_TO_LAYER[cat] = "interaction"
-        elif cat in ("security",):
-            CAT_TO_LAYER[cat] = "security"
-        elif cat in ("agent-interaction", "variant-interaction"):
-            CAT_TO_LAYER[cat] = "interaction"
-        else:
-            CAT_TO_LAYER[cat] = "data"
-
+    """Compute per-layer scores, using the same category->layer map as the
+    scan pipeline (pipeline.layer_for_check) — see app._layer_scores for
+    why this must not be a separate, driftable copy."""
     layers = {}
     for r in results:
-        cat = r.get("category", "")
-        layer = CAT_TO_LAYER.get(cat, "data")
+        layer = layer_for_check(r)
+        if layer == "access":
+            continue
         pf = r.get("pass_fraction")
         if pf is None:
             continue
