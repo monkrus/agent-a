@@ -128,7 +128,7 @@
                          : '<span style="color:#facc15;">?</span>';
               const detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.75rem;">&mdash; ' + d.detail.substring(0, 120) + '</span>' : '';
               const html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + detail
-                + ' <span style="color:#555;">[' + d.progress + ']</span>';
+;
               const existing = document.getElementById('running-' + d.id);
               if (existing) {
                 existing.innerHTML = html;
