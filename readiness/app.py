@@ -462,11 +462,17 @@ def scan():
     url = url.lstrip("-*•· \t")
     if not url:
         return redirect(url_for("index"))
+    if len(url) > 2000:
+        return render_template("index.html", error="That URL is too long (max 2,000 characters). Please paste just the product page URL.")
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
-    # Check if this looks like a product page
+    # Basic URL format check
     from urllib.parse import urlparse
-    path = urlparse(url).path.rstrip("/")
+    parsed = urlparse(url)
+    if not parsed.hostname or "." not in parsed.hostname:
+        return render_template("index.html", error="That doesn't look like a valid URL. Please paste a product page URL like: your-store.com/products/product-name")
+    # Check if this looks like a product page
+    path = parsed.path.rstrip("/")
     if not path or path.count("/") < 2:
         return render_template("index.html", error=(
             "That looks like a homepage or collection page. "
@@ -532,8 +538,16 @@ def scan_stream():
     if not url:
         return Response("data: " + json.dumps({"type": "error", "message": "No URL"}) + "\n\n",
                         content_type="text/event-stream")
+    if len(url) > 2000:
+        return Response("data: " + json.dumps({"type": "error", "message": "That URL is too long (max 2,000 characters). Please paste just the product page URL."}) + "\n\n",
+                        content_type="text/event-stream")
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
+    from urllib.parse import urlparse as _urlparse
+    _parsed = _urlparse(url)
+    if not _parsed.hostname or "." not in _parsed.hostname:
+        return Response("data: " + json.dumps({"type": "error", "message": "That doesn't look like a valid URL. Please paste a product page URL like: your-store.com/products/product-name"}) + "\n\n",
+                        content_type="text/event-stream")
 
     def generate():
         from concurrent.futures import ThreadPoolExecutor
