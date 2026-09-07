@@ -508,11 +508,13 @@ def scan():
 LAYER_CHECKS = {
     "access":      {"RDY-003", "RDY-031"},
     "data":        {"RDY-001", "RDY-002", "RDY-004", "RDY-005", "RDY-011",
-                    "RDY-012", "RDY-013", "RDY-029", "RDY-030"},
+                    "RDY-012", "RDY-013", "RDY-029", "RDY-030", "RDY-033"},
     "extraction":  {"RDY-006", "RDY-007", "RDY-008", "RDY-009", "RDY-010"},
     "interaction": {"RDY-014", "RDY-015", "RDY-017", "RDY-018", "RDY-019",
-                    "RDY-020", "RDY-021", "RDY-022", "RDY-023"},
-    "security":    {"RDY-016"},
+                    "RDY-020", "RDY-021", "RDY-022", "RDY-023", "RDY-032"},
+    "security":    {"RDY-016", "RDY-042", "RDY-043", "RDY-044", "RDY-045"},
+    "protocols":   {"RDY-034", "RDY-035", "RDY-036", "RDY-037", "RDY-038",
+                    "RDY-039", "RDY-040", "RDY-041"},
 }
 
 def _check_layer(check_id):
@@ -654,10 +656,12 @@ def scan_stream():
                 "extraction": "Layer 2: Extraction",
                 "interaction": "Layer 3: Interaction",
                 "security": "Layer 4: Security",
+                "protocols": "Layer 5: Protocol Discovery",
             }
             data_static = [c for c in other_static if _check_layer(c.get("id", "")) == "data"]
             interaction_static = [c for c in other_static if _check_layer(c.get("id", "")) == "interaction"]
             security_static = [c for c in other_static if _check_layer(c.get("id", "")) == "security"]
+            protocol_static = [c for c in other_static if _check_layer(c.get("id", "")) == "protocols"]
 
             def _run_static_batch(label_key, checks_list):
                 nonlocal completed
@@ -760,6 +764,9 @@ def scan_stream():
 
             # Layer 4: Security (static)
             yield from _run_static_batch("security", security_static)
+
+            # Layer 5: Protocol Discovery (static)
+            yield from _run_static_batch("protocols", protocol_static)
 
         # --- Final score ---
         results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
