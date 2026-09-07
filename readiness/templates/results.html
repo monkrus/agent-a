@@ -232,6 +232,13 @@
         </div>
       </div>
 
+      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin:1rem 0; font-size:0.75rem; color:var(--text-muted);">
+        <span><span class="sev sev-critical">critical</span> agents can't use the page at all</span>
+        <span><span class="sev sev-high">high</span> blocks purchases or gives wrong info</span>
+        <span><span class="sev sev-medium">medium</span> reduces agent effectiveness</span>
+        <span><span class="sev sev-low">low</span> nice to have, minor impact</span>
+      </div>
+
       {% if failing %}
       <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin:1rem 0 0.5rem;">Top issues found:</p>
       {% for r in failing[:5] %}
