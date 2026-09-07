@@ -24,7 +24,6 @@
   <div class="container">
 
     <!-- HERO -->
-    <div id="scan-top" style="scroll-margin-top:60px;"></div>
     <header>
       <h1>AI agents are shopping.<br>Most stores can't sell to them.</h1>
       <p class="subtitle" style="font-size:1.25rem; line-height:1.7; max-width:700px; margin:1rem auto;">ChatGPT, Perplexity, and Gemini decide what to recommend by reading your product pages. If an agent can't extract your price or find Add&nbsp;to&nbsp;Cart, the sale goes to a competitor — <strong style="color:#f87171;">silently, with nothing in your analytics to explain&nbsp;it.</strong></p>
@@ -36,6 +35,7 @@
       <p class="error-msg">{{ error }}</p>
       {% endif %}
 
+      <div id="scan-top" style="scroll-margin-top:70px;"></div>
       <form action="{{ url_for('scan') }}" method="post" class="scan-form" id="scan-form">
         <div class="input-row">
           <input type="text" id="url" name="url" placeholder="your-store.com/products/product-name" required>
