@@ -104,9 +104,14 @@
             const d = JSON.parse(event.data);
 
             if (d.type === 'status') {
-              addLine('<span style="color:#8b8b96;">' + d.message + '</span>');
+              const div = document.createElement('div');
+              div.id = 'status-msg';
+              div.innerHTML = '<span style="color:#8b8b96;">' + d.message + '</span>';
+              log.appendChild(div);
             }
             else if (d.type === 'layer') {
+              const statusMsg = document.getElementById('status-msg');
+              if (statusMsg) statusMsg.remove();
               const estimates = {
                 'access': '~5s',
                 'data': '~10s',
