@@ -120,8 +120,32 @@ def _init_store():
         ip TEXT PRIMARY KEY, last_scan REAL)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS stats_cache (
         key TEXT PRIMARY KEY, value TEXT, ts REAL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS counters (
+        key TEXT PRIMARY KEY, value INTEGER DEFAULT 0)""")
+    conn.execute("""INSERT OR IGNORE INTO counters (key, value) VALUES ('total_scans', 0)""")
     conn.commit()
     conn.close()
+
+
+def _increment_scan_count():
+    """Increment the total scan counter. Returns the new count."""
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("UPDATE counters SET value = value + 1 WHERE key = 'total_scans'")
+        conn.commit()
+        row = conn.execute("SELECT value FROM counters WHERE key = 'total_scans'").fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
+
+
+def _get_scan_count() -> int:
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        row = conn.execute("SELECT value FROM counters WHERE key = 'total_scans'").fetchone()
+        return row[0] if row else 0
+    finally:
+        conn.close()
 
 _init_store()
 
@@ -420,6 +444,7 @@ def _load_scan(scan_id):
 @app.route("/")
 def index():
     stats = _scan_stats()
+    stats["total_scans"] = _get_scan_count()
     return render_template("index.html", stats=stats)
 
 
@@ -467,6 +492,7 @@ def scan():
 
     try:
         scan_id = _run_scan(url, pre_fetched_page=pre_page)
+        _increment_scan_count()
     except Exception as e:
         return render_template("index.html", error=f"Could not scan that URL: {e}")
     return redirect(url_for("results", scan_id=scan_id))
@@ -766,6 +792,7 @@ def scan_stream():
             "intel": intelmod.analyze(page, page.get("llms_txt_content")),
         }
         (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload, indent=2))
+        _increment_scan_count()
 
         yield "data: " + json.dumps({
             "type": "done",

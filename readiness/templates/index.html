@@ -212,6 +212,12 @@
           <span class="stat-number">4</span>
           <span class="stat-label">AI crawlers tested</span>
         </div>
+        {% if stats.total_scans %}
+        <div class="stat-item">
+          <span class="stat-number">{{ stats.total_scans }}</span>
+          <span class="stat-label">Products scanned</span>
+        </div>
+        {% endif %}
         {% if stats.total_brands >= 25 %}
         <div class="stat-item">
           <span class="stat-number">{{ stats.failing_pct }}%</span>
