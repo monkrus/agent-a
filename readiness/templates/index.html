@@ -112,15 +112,7 @@
             else if (d.type === 'layer') {
               const statusMsg = document.getElementById('status-msg');
               if (statusMsg) statusMsg.remove();
-              const estimates = {
-                'access': '~5s',
-                'data': '~10s',
-                'extraction': '~15s',
-                'interaction': '~2-3 min',
-                'security': '~5s',
-              };
-              const est = estimates[d.layer] ? ' <span style="color:#555;font-size:0.8rem;">(est. ' + estimates[d.layer] + ')</span>' : '';
-              addLine('<br><strong style="color:#e0e0e8;">' + d.label + '</strong>' + est);
+              addLine('<br><strong style="color:#e0e0e8;">' + d.label + '</strong>');
             }
             else if (d.type === 'check') {
               const icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">&#10003;</span>'
