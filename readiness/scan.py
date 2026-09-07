@@ -344,6 +344,13 @@ def main():
 
     (args.out / "results.json").write_text(json.dumps(payload, indent=2))
 
+    # Increment global scan counter (shared with web app)
+    try:
+        from app import _increment_scan_count
+        _increment_scan_count()
+    except Exception:
+        pass  # app module may not be loadable in all CLI contexts
+
     # ---- free-tier console summary (score + headline only) ----
     print(f"\n  AGENT READINESS SCORE: {s}/100" if s is not None else "\n  SCORE: n/a")
     print(f"  {payload['headline']}")
