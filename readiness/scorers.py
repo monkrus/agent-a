@@ -1324,6 +1324,8 @@ _ESTIMATED_CHECKS = {
     "related_products",      # regex heuristic for related sections
     "atc_flow_proxy",        # heuristic proxy for browser check
     "dns_aid",               # DNS TXT lookup
+    "wallet_compatibility",  # text heuristic search
+    "cart_api",              # probes Shopify-specific endpoint
 }
 
 
