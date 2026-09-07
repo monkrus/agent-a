@@ -201,19 +201,19 @@
     </div>
 
     <!-- STATS -->
-    <div class="card">
-      <div class="stat-row">
+    <div class="card" style="padding:1rem 1.5rem;">
+      <div class="stat-row" style="gap:1rem;">
         <div class="stat-item">
-          <span class="stat-number">30</span>
-          <span class="stat-label">Free checks — data, interaction, security, protocols, resilience, discovery</span>
+          <span class="stat-number" style="color:#4ade80;">30</span>
+          <span class="stat-label"><span style="color:#4ade80;font-weight:600;">Free</span> checks</span>
         </div>
         <div class="stat-item">
           <span class="stat-number" style="background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">40</span>
-          <span class="stat-label" style="color:#a78bfa;font-weight:600;">Deep Agent Audit ($49) — adds extraction + browser flows</span>
+          <span class="stat-label"><span style="color:#a78bfa;font-weight:600;">Deep Audit</span> checks ($49)</span>
         </div>
         <div class="stat-item">
           <span class="stat-number">4</span>
-          <span class="stat-label">AI crawlers probed — GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot</span>
+          <span class="stat-label">AI crawlers</span>
         </div>
         {% if stats.total_scans %}
         <div class="stat-item">
@@ -224,17 +224,14 @@
         {% if stats.total_brands >= 25 %}
         <div class="stat-item">
           <span class="stat-number">{{ stats.failing_pct }}%</span>
-          <span class="stat-label">Stores failing a critical or high-severity check</span>
+          <span class="stat-label">Failing critical check</span>
         </div>
         <div class="stat-item">
           <span class="stat-number">{{ stats.total_brands }}</span>
-          <span class="stat-label">DTC brands scanned so far</span>
+          <span class="stat-label">Brands scanned</span>
         </div>
         {% endif %}
       </div>
-      {% if stats.total_brands >= 25 %}
-      <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0.75rem; text-align:center;">Based on scans of Shopify DTC stores across fashion, beauty, food, and lifestyle.</p>
-      {% endif %}
     </div>
 
     <!-- 6 CATEGORIES -->
