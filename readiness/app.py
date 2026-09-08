@@ -466,12 +466,16 @@ def scan():
     url = url.lstrip("-*•· \t")
     if not url:
         return redirect(url_for("index"))
-    if len(url) > 2000:
-        return render_template("index.html", error="That URL is too long (max 2,000 characters). Please paste just the product page URL.")
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
-    # Basic URL format check
-    from urllib.parse import urlparse
+    # Strip tracking/marketing params — keep only variant
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+    _p = urlparse(url)
+    if _p.query:
+        _keep = {k: v for k, v in parse_qs(_p.query).items() if k == "variant"}
+        url = urlunparse(_p._replace(query=urlencode(_keep, doseq=True)))
+    if len(url) > 2000:
+        return render_template("index.html", error="That URL is too long (max 2,000 characters). Please paste just the product page URL.")
     parsed = urlparse(url)
     if not parsed.hostname or "." not in parsed.hostname:
         return render_template("index.html", error="That doesn't look like a valid URL. Please paste a product page URL like: your-store.com/products/product-name")
@@ -544,11 +548,17 @@ def scan_stream():
     if not url:
         return Response("data: " + json.dumps({"type": "error", "message": "No URL"}) + "\n\n",
                         content_type="text/event-stream")
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    # Strip tracking/marketing params — keep only variant
+    from urllib.parse import urlparse as _urlp, parse_qs as _pqs, urlencode as _ue, urlunparse as _uu
+    _pp = _urlp(url)
+    if _pp.query:
+        _keep = {k: v for k, v in _pqs(_pp.query).items() if k == "variant"}
+        url = _uu(_pp._replace(query=_ue(_keep, doseq=True)))
     if len(url) > 2000:
         return Response("data: " + json.dumps({"type": "error", "message": "That URL is too long (max 2,000 characters). Please paste just the product page URL."}) + "\n\n",
                         content_type="text/event-stream")
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
     from urllib.parse import urlparse as _urlparse
     _parsed = _urlparse(url)
     if not _parsed.hostname or "." not in _parsed.hostname:
