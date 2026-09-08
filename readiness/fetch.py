@@ -246,7 +246,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["rendered_meta"] = rendered["meta"]
                 page["_429_recovered"] = True
                 _hl429 = (page.get("html") or "").lower()
-                if "shopify" in _hl429 or "cdn.shopify.com" in _hl429 or "myshopify.com" in _hl429:
+                if re.search(r'\bshopify\b', _hl429) or re.search(r'["\'/:.]cdn\.shopify\.com\b', _hl429) or re.search(r'["\'/:.]myshopify\.com\b', _hl429):
                     page["_platform_name"] = "Shopify"
                 else:
                     page["_platform_name"] = None
@@ -284,7 +284,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["status"] = r.status_code
         # Lightweight platform detection for scorer use
         _hl = (page.get("html") or "").lower()
-        if "shopify" in _hl or "cdn.shopify.com" in _hl or "myshopify.com" in _hl:
+        if re.search(r'\bshopify\b', _hl) or re.search(r'["\'/:.]cdn\.shopify\.com\b', _hl) or re.search(r'["\'/:.]myshopify\.com\b', _hl):
             page["_platform_name"] = "Shopify"
         else:
             page["_platform_name"] = None
