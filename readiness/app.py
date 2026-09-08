@@ -834,6 +834,62 @@ def scan_stream():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+def _generate_jsonld_snippet(data: dict) -> str | None:
+    """Generate a ready-to-paste JSON-LD snippet when RDY-001 fails."""
+    results = data.get("results", [])
+    rdy001 = next((r for r in results if r.get("id") == "RDY-001"), None)
+    if not rdy001 or rdy001.get("verdict") != "FAIL":
+        return None
+
+    import re as _re
+    target = data.get("meta", {}).get("target", "")
+    intel = data.get("intel", {})
+
+    # Extract product name from scan data
+    # Try intel structured data, then page title from headline
+    name = "Your Product Name"
+    for r in results:
+        if r.get("id") == "RDY-008" and r.get("ground_truth"):
+            name = r["ground_truth"]
+            break
+    if name == "Your Product Name":
+        # Try to extract from URL slug
+        slug = target.rstrip("/").split("/")[-1].split("?")[0]
+        if slug:
+            name = slug.replace("-", " ").replace("_", " ").title()
+
+    # Extract price from scan results
+    price = "0.00"
+    currency = "USD"
+    for r in results:
+        if r.get("id") == "RDY-006" and r.get("ground_truth"):
+            price = f"{r['ground_truth']:.2f}"
+            break
+        if r.get("id") == "RDY-002" and r.get("verdict") == "PASS":
+            detail = r.get("detail", "")
+            m = _re.search(r'\$(\d[\d,]*\.?\d*)', detail)
+            if m:
+                price = m.group(1)
+
+    snippet = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": name,
+        "url": target,
+        "image": "https://your-store.com/path-to-product-image.jpg",
+        "description": "Add your product description here.",
+        "brand": {"@type": "Brand", "name": "Your Brand"},
+        "offers": {
+            "@type": "Offer",
+            "price": price,
+            "priceCurrency": currency,
+            "availability": "https://schema.org/InStock",
+            "url": target,
+        }
+    }, indent=2)
+    return snippet
+
+
 @app.route("/results/<scan_id>")
 def results(scan_id):
     data = _load_scan(scan_id)
@@ -847,10 +903,13 @@ def results(scan_id):
     team_sent = session.pop(f"sent_{scan_id}", False)
     has_email = emailer._is_configured()
     access_blocked = any(r.get("gated") for r in data.get("results", []))
+    # Generate JSON-LD snippet if RDY-001 failed
+    jsonld_snippet = _generate_jsonld_snippet(data) if not paid else None
     return render_template("results.html", data=data, paid=paid,
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            email_sent_to=email_sent_to, team_sent=team_sent,
-                           has_email=has_email, access_blocked=access_blocked)
+                           has_email=has_email, access_blocked=access_blocked,
+                           jsonld_snippet=jsonld_snippet)
 
 
 @app.route("/checkout/<scan_id>", methods=["POST"])

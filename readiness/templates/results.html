@@ -256,6 +256,17 @@
       {% endif %}
       {% endif %}
 
+      {% if jsonld_snippet %}
+      <div style="background:var(--surface); border:1px solid rgba(74,222,128,0.3); border-radius:8px; padding:1rem; margin-top:1.25rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <span style="font-size:0.9rem; font-weight:600; color:#4ade80;">Fix it now — paste this JSON-LD into your page</span>
+          <button onclick="copySnippet()" id="snippet-btn" style="padding:0.35rem 0.75rem; border-radius:5px; border:1px solid rgba(74,222,128,0.3); background:rgba(74,222,128,0.1); color:#4ade80; font-size:0.8rem; cursor:pointer; font-weight:500;">Copy snippet</button>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.75rem;">Add this inside a <code>&lt;script type="application/ld+json"&gt;</code> tag in your product page. Replace the placeholder image, description, and brand with your real data.</p>
+        <pre id="jsonld-snippet" style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:0.75rem; font-size:0.75rem; overflow-x:auto; color:#c8c8d0; margin:0;"><code>{{ jsonld_snippet }}</code></pre>
+      </div>
+      {% endif %}
+
       <div style="display:flex; gap:0.75rem; margin-top:1.25rem; flex-wrap:wrap;">
         <button onclick="copyResults()" id="copy-btn" style="padding:0.5rem 1rem; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:0.85rem; cursor:pointer; font-weight:500;">Copy results</button>
       </div>
@@ -437,6 +448,14 @@
     navigator.clipboard.writeText(code).then(function() {
       btn.textContent = 'Copied!';
       setTimeout(function() { btn.textContent = 'Copy fix'; }, 2000);
+    });
+  }
+  function copySnippet() {
+    var code = document.getElementById('jsonld-snippet').textContent;
+    navigator.clipboard.writeText(code).then(function() {
+      var btn = document.getElementById('snippet-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy snippet'; }, 2000);
     });
   }
   function copyResults() {
