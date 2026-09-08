@@ -31,7 +31,7 @@
       {% endif %}
       <div class="meta-row">
         <span>{{ data.meta.target }}</span>
-        <span>{{ data.meta.n }} AI agent visits simulated{% if data.meta.duration_seconds %} &middot; {{ data.meta.duration_seconds }}s{% endif %}</span>
+        <span>{% if paid %}{{ data.meta.n }} AI agent visits simulated{% else %}{{ data.results|length }} structural checks completed{% endif %}{% if data.meta.duration_seconds %} &middot; {{ data.meta.duration_seconds }}s{% endif %}</span>
       </div>
     </div>
 
