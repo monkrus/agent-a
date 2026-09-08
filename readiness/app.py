@@ -390,6 +390,10 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
         "results": results,
         "impact": impact_est,
         "intel": intelmod.analyze(page, page.get("llms_txt_content")),
+        "meta_price": page.get("meta", {}).get("og:price:amount")
+                      or page.get("meta", {}).get("product:price:amount"),
+        "meta_currency": page.get("meta", {}).get("og:price:currency")
+                         or page.get("meta", {}).get("product:price:currency", "USD"),
     }
     (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload, indent=2))
     return scan_id
@@ -811,6 +815,10 @@ def scan_stream():
             "results": results,
             "impact": impact_est,
             "intel": intelmod.analyze(page, page.get("llms_txt_content")),
+            "meta_price": page.get("meta", {}).get("og:price:amount")
+                          or page.get("meta", {}).get("product:price:amount"),
+            "meta_currency": page.get("meta", {}).get("og:price:currency")
+                             or page.get("meta", {}).get("product:price:currency", "USD"),
         }
         (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload, indent=2))
         _increment_scan_count()
@@ -866,7 +874,7 @@ def _generate_jsonld_snippet(data: dict) -> str | None:
         if r.get("id") == "RDY-006" and r.get("ground_truth"):
             price = f"{r['ground_truth']:.2f}"
             break
-    # Fall back to price found in HTML (free tier)
+    # Fall back to price found in HTML detail (free tier)
     if price == "0.00":
         for r in results:
             if r.get("id") == "RDY-002" and r.get("verdict") == "PASS":
@@ -875,6 +883,12 @@ def _generate_jsonld_snippet(data: dict) -> str | None:
                 if m:
                     price = m.group(1)
                     break
+    # Fall back to og:price:amount from scan metadata
+    if price == "0.00":
+        meta_price = data.get("meta_price")
+        if meta_price:
+            price = f"{float(meta_price):.2f}"
+            currency = data.get("meta_currency", currency)
 
     snippet = json.dumps({
         "@context": "https://schema.org",
