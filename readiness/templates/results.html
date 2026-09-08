@@ -101,7 +101,7 @@
           <div class="agent-chip agent-{{ agent.status }}">
             <span class="agent-name">{{ agent.name }}</span>
             <span class="agent-status">
-              {% if agent.status == 'blocked' %}blocked{% elif agent.status == 'allowed' %}allowed{% else %}limited{% endif %}
+              {% if agent.status == 'blocked' %}blocked{% elif agent.status == 'allowed' %}allowed{% else %}limited access{% endif %}
             </span>
           </div>
           {% endfor %}
