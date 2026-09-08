@@ -954,6 +954,12 @@ def compare(scan_id):
         return redirect(url_for("results", scan_id=scan_id))
     if not comp_url.startswith(("http://", "https://")):
         comp_url = "https://" + comp_url
+    # Strip tracking params — keep only variant
+    from urllib.parse import urlparse as _urlp2, parse_qs as _pqs2, urlencode as _ue2, urlunparse as _uu2
+    _cp = _urlp2(comp_url)
+    if _cp.query:
+        _keep = {k: v for k, v in _pqs2(_cp.query).items() if k == "variant"}
+        comp_url = _uu2(_cp._replace(query=_ue2(_keep, doseq=True)))
 
     try:
         comp_page = fetchmod.fetch(comp_url)
