@@ -382,7 +382,7 @@
     <div class="card">
       <h2>How do you compare?</h2>
       <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Paste a competitor's product page to see who's more agent-ready.</p>
-      <form action="{{ url_for('compare', scan_id=data.scan_id) }}" method="post" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <form action="{{ url_for('compare', scan_id=data.scan_id) }}" method="post" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Scanning competitor...';b.style.opacity='0.7';">
         <input type="text" name="competitor_url" placeholder="competitor.com/products/similar-product" required
                style="flex:1; min-width:200px; padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-size:0.85rem; background:var(--bg); color:var(--text);">
         <button type="submit" class="btn-pay" style="white-space:nowrap; padding:0.6rem 1.2rem;">Compare</button>
