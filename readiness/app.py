@@ -905,11 +905,44 @@ def results(scan_id):
     access_blocked = any(r.get("gated") for r in data.get("results", []))
     # Generate JSON-LD snippet if RDY-001 failed
     jsonld_snippet = _generate_jsonld_snippet(data) if not paid else None
+    # Load comparison if one exists
+    comparison = session.get(f"compare_{scan_id}")
     return render_template("results.html", data=data, paid=paid,
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            email_sent_to=email_sent_to, team_sent=team_sent,
                            has_email=has_email, access_blocked=access_blocked,
-                           jsonld_snippet=jsonld_snippet)
+                           jsonld_snippet=jsonld_snippet, comparison=comparison)
+
+
+@app.route("/compare/<scan_id>", methods=["POST"])
+def compare(scan_id):
+    """Run a free scan on a competitor URL and show side-by-side."""
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+    comp_url = request.form.get("competitor_url", "").strip().lstrip("-*•· \t")
+    if not comp_url:
+        return redirect(url_for("results", scan_id=scan_id))
+    if not comp_url.startswith(("http://", "https://")):
+        comp_url = "https://" + comp_url
+
+    try:
+        comp_page = fetchmod.fetch(comp_url)
+        dead = fetchmod.is_dead_page(comp_page)
+        if dead:
+            session[f"compare_{scan_id}"] = None
+            return redirect(url_for("results", scan_id=scan_id))
+        comp_scan_id = _run_scan(comp_url, pre_fetched_page=comp_page)
+        _increment_scan_count()
+        comp_data = _load_scan(comp_scan_id)
+        session[f"compare_{scan_id}"] = {
+            "score": comp_data.get("readiness_score"),
+            "target": comp_url,
+            "scan_id": comp_scan_id,
+        }
+    except Exception:
+        session[f"compare_{scan_id}"] = None
+    return redirect(url_for("results", scan_id=scan_id))
 
 
 @app.route("/checkout/<scan_id>", methods=["POST"])

@@ -378,6 +378,43 @@
     </div>
 
     {% if not paid %}
+    <!-- COMPETITOR COMPARISON -->
+    <div class="card">
+      <h2>How do you compare?</h2>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Paste a competitor's product page to see who's more agent-ready.</p>
+      <form action="{{ url_for('compare', scan_id=data.scan_id) }}" method="post" style="display:flex; gap:8px; align-items:center;">
+        <input type="text" name="competitor_url" placeholder="competitor.com/products/similar-product" required
+               style="flex:1; padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-size:0.85rem; background:var(--bg); color:var(--text);">
+        <button type="submit" style="padding:0.5rem 1rem; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:0.85rem; cursor:pointer; font-weight:500; white-space:nowrap;">Compare</button>
+      </form>
+    </div>
+
+    {% if comparison %}
+    <div class="card">
+      <h2>Head-to-Head</h2>
+      <div style="display:flex; gap:2rem; flex-wrap:wrap; margin:1rem 0; justify-content:center;">
+        <div style="text-align:center; flex:1; min-width:200px;">
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.25rem;">Your store</div>
+          <div style="font-size:2.5rem; font-weight:700; color:{% if data.readiness_score >= comparison.score %}#4ade80{% else %}#f87171{% endif %};">{{ data.readiness_score }}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">{{ data.meta.target|truncate(40) }}</div>
+        </div>
+        <div style="text-align:center; align-self:center; font-size:1.5rem; color:var(--text-muted);">vs</div>
+        <div style="text-align:center; flex:1; min-width:200px;">
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.25rem;">Competitor</div>
+          <div style="font-size:2.5rem; font-weight:700; color:{% if comparison.score >= data.readiness_score %}#4ade80{% else %}#f87171{% endif %};">{{ comparison.score }}</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">{{ comparison.target|truncate(40) }}</div>
+        </div>
+      </div>
+      {% if data.readiness_score > comparison.score %}
+      <p style="text-align:center; color:#4ade80; font-weight:600;">You're {{ (data.readiness_score - comparison.score)|round(1) }} points ahead.</p>
+      {% elif data.readiness_score < comparison.score %}
+      <p style="text-align:center; color:#f87171; font-weight:600;">You're {{ (comparison.score - data.readiness_score)|round(1) }} points behind.</p>
+      {% else %}
+      <p style="text-align:center; color:#facc15; font-weight:600;">Tied score.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- PAYWALL -->
     <div class="card paywall-card">
       <h2>Deep Agent Audit — $49</h2>
