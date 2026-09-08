@@ -970,10 +970,29 @@ def compare(scan_id):
         comp_scan_id = _run_scan(comp_url, pre_fetched_page=comp_page)
         _increment_scan_count()
         comp_data = _load_scan(comp_scan_id)
+        comp_results = comp_data.get("results", [])
+        your_results = data.get("results", [])
+        # Build check-level comparison
+        your_fails = {r["id"] for r in your_results if r.get("verdict") == "FAIL"}
+        comp_fails = {r["id"] for r in comp_results if r.get("verdict") == "FAIL"}
+        your_passes = {r["id"] for r in your_results if r.get("verdict") == "PASS"}
+        comp_passes = {r["id"] for r in comp_results if r.get("verdict") == "PASS"}
+        # Checks competitor fails that you pass
+        comp_missing = [r["title"] for r in comp_results
+                        if r["id"] in (comp_fails - your_fails) and r["id"] in your_passes]
+        # Checks you both fail
+        both_fail = [r["title"] for r in your_results
+                     if r["id"] in (your_fails & comp_fails)]
+        # Checks you fail that competitor passes
+        you_behind = [r["title"] for r in your_results
+                      if r["id"] in (your_fails - comp_fails) and r["id"] in comp_passes]
         session[f"compare_{scan_id}"] = {
             "score": comp_data.get("readiness_score"),
             "target": comp_url,
             "scan_id": comp_scan_id,
+            "comp_missing": comp_missing[:5],
+            "both_fail": both_fail[:5],
+            "you_behind": you_behind[:5],
         }
     except Exception:
         session[f"compare_{scan_id}"] = None

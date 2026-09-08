@@ -412,6 +412,33 @@
       {% else %}
       <p style="text-align:center; color:#facc15; font-weight:600;">Tied score.</p>
       {% endif %}
+
+      <div style="margin-top:1rem; font-size:0.85rem;">
+        {% if comparison.comp_missing %}
+        <div style="margin-bottom:0.75rem;">
+          <span style="color:#4ade80; font-weight:600;">Competitor is missing (you pass):</span>
+          <ul style="color:var(--text-muted); padding-left:1.25rem; margin:0.25rem 0;">
+            {% for title in comparison.comp_missing %}<li>{{ title }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if comparison.you_behind %}
+        <div style="margin-bottom:0.75rem;">
+          <span style="color:#f87171; font-weight:600;">You're behind (competitor passes):</span>
+          <ul style="color:var(--text-muted); padding-left:1.25rem; margin:0.25rem 0;">
+            {% for title in comparison.you_behind %}<li>{{ title }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if comparison.both_fail %}
+        <div>
+          <span style="color:#facc15; font-weight:600;">Both fail:</span>
+          <ul style="color:var(--text-muted); padding-left:1.25rem; margin:0.25rem 0;">
+            {% for title in comparison.both_fail %}<li>{{ title }}</li>{% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
     </div>
     {% endif %}
 
