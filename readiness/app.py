@@ -846,30 +846,35 @@ def _generate_jsonld_snippet(data: dict) -> str | None:
     intel = data.get("intel", {})
 
     # Extract product name from scan data
-    # Try intel structured data, then page title from headline
     name = "Your Product Name"
     for r in results:
         if r.get("id") == "RDY-008" and r.get("ground_truth"):
             name = r["ground_truth"]
             break
     if name == "Your Product Name":
-        # Try to extract from URL slug
+        # Try to extract from URL slug — strip leading numeric IDs
         slug = target.rstrip("/").split("/")[-1].split("?")[0]
         if slug:
-            name = slug.replace("-", " ").replace("_", " ").title()
+            clean = _re.sub(r'^\d+[-_]', '', slug)  # strip "3350692-" prefix
+            name = clean.replace("-", " ").replace("_", " ").title()
 
     # Extract price from scan results
     price = "0.00"
     currency = "USD"
+    # Check shopper ground truth first (paid tier)
     for r in results:
         if r.get("id") == "RDY-006" and r.get("ground_truth"):
             price = f"{r['ground_truth']:.2f}"
             break
-        if r.get("id") == "RDY-002" and r.get("verdict") == "PASS":
-            detail = r.get("detail", "")
-            m = _re.search(r'\$(\d[\d,]*\.?\d*)', detail)
-            if m:
-                price = m.group(1)
+    # Fall back to price found in HTML (free tier)
+    if price == "0.00":
+        for r in results:
+            if r.get("id") == "RDY-002" and r.get("verdict") == "PASS":
+                detail = r.get("detail", "")
+                m = _re.search(r'\$(\d[\d,]*\.?\d*)', detail)
+                if m:
+                    price = m.group(1)
+                    break
 
     snippet = json.dumps({
         "@context": "https://schema.org",
