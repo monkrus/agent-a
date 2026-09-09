@@ -1019,6 +1019,7 @@ def checkout(scan_id):
     checkout_session = stripe.checkout.Session.create(
         line_items=[{"price": price_id, "quantity": 1}],
         mode="payment",
+        allow_promotion_codes=True,
         success_url=request.host_url.rstrip("/") +
                      url_for("payment_success", scan_id=scan_id) +
                      "?session_id={CHECKOUT_SESSION_ID}",
