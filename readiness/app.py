@@ -1044,7 +1044,7 @@ def payment_success(scan_id):
             import stripe
             stripe.api_key = stripe_key
             cs = stripe.checkout.Session.retrieve(stripe_session_id)
-            if cs.payment_status == "paid" and cs.metadata.get("scan_id") == scan_id:
+            if cs.payment_status in ("paid", "no_payment_required") and cs.metadata.get("scan_id") == scan_id:
                 session[f"paid_{scan_id}"] = True
                 buyer_email = cs.customer_details.email if cs.customer_details else None
         except Exception:
