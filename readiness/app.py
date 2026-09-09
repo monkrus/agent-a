@@ -54,6 +54,11 @@ from shopper import ask, ask_batch  # noqa: E402
 
 app = Flask(__name__)
 
+# ---- Reverse proxy (Railway, Render, etc.) -----------------------------------
+# Tell Flask it's behind HTTPS so session cookies, redirects, and url_for work.
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 # ---- Secret key check -------------------------------------------------------
 _flask_env = os.environ.get("FLASK_ENV", "production")
 _flask_secret = os.environ.get("FLASK_SECRET_KEY", "")
@@ -66,6 +71,11 @@ if not _flask_secret and _flask_env != "development" and not _is_testing:
             "or set FLASK_ENV=development for local dev."
         )
 app.secret_key = _flask_secret or secrets.token_hex(32)
+
+# ---- Session cookie security ------------------------------------------------
+app.config["SESSION_COOKIE_SECURE"] = True      # HTTPS only
+app.config["SESSION_COOKIE_HTTPONLY"] = True     # no JS access
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"   # sent on top-level navigations (Stripe redirect)
 
 CHECKS_PATH = pathlib.Path(__file__).resolve().parent / "checks" / "shopify-v1.yaml"
 SCANS_DIR = pathlib.Path(__file__).resolve().parent / ".scans"
@@ -1044,11 +1054,17 @@ def payment_success(scan_id):
             import stripe
             stripe.api_key = stripe_key
             cs = stripe.checkout.Session.retrieve(stripe_session_id)
+            _logger.info("Stripe session %s: payment_status=%s, metadata=%s",
+                         stripe_session_id, cs.payment_status, cs.metadata)
             if cs.payment_status in ("paid", "no_payment_required") and cs.metadata.get("scan_id") == scan_id:
                 session[f"paid_{scan_id}"] = True
                 buyer_email = cs.customer_details.email if cs.customer_details else None
+                _logger.info("Payment verified for scan %s — unlocked", scan_id)
+            else:
+                _logger.warning("Payment NOT verified for scan %s: status=%s, meta_scan_id=%s",
+                                scan_id, cs.payment_status, cs.metadata.get("scan_id"))
         except Exception:
-            pass  # fall through — don't unlock without verified payment
+            _logger.exception("Stripe verification failed for scan %s", scan_id)
     elif os.environ.get("DEV_MODE", "").lower() == "true":
         session[f"paid_{scan_id}"] = True
 
