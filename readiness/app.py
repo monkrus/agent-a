@@ -946,11 +946,13 @@ def results(scan_id):
     jsonld_snippet = _generate_jsonld_snippet(data) if not paid else None
     # Load comparison if one exists
     comparison = session.get(f"compare_{scan_id}")
+    scan_count = _get_scan_count()
     return render_template("results.html", data=data, paid=paid,
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            email_sent_to=email_sent_to, team_sent=team_sent,
                            has_email=has_email, access_blocked=access_blocked,
-                           jsonld_snippet=jsonld_snippet, comparison=comparison)
+                           jsonld_snippet=jsonld_snippet, comparison=comparison,
+                           scan_count=scan_count)
 
 
 @app.route("/compare/<scan_id>", methods=["POST"])
