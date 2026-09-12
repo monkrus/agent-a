@@ -984,6 +984,148 @@ def static_agent_skills(page):
     return "FAIL", "No agent skills, WebMCP, UCP, or ACP signals detected — agents have no structured commerce protocols."
 
 
+# ---- PRODUCT COPY RICHNESS ---------------------------------------------------
+
+def _keyword_copy_richness(page):
+    """Keyword-based copy richness check (free/mock fallback).
+
+    Four universal dimensions:
+      1. Material / composition — what the product is made of
+      2. Features / benefits   — descriptive selling language
+      3. Fit / size / specs    — physical attributes an agent needs to recommend
+      4. Description depth     — enough words for an agent to summarise the product
+    """
+    html = page.get("html", "") or ""
+    visible = re.sub(r"<[^>]{0,500}>", " ", _strip_scripts(html))
+    text_lower = visible.lower()
+    word_count = len(visible.split())
+
+    MATERIAL_KW = [
+        "cotton", "silk", "lace", "linen", "leather", "suede", "wool",
+        "cashmere", "satin", "mesh", "nylon", "polyester", "spandex",
+        "elastane", "rayon", "modal", "bamboo", "organic", "synthetic",
+        "wood", "metal", "steel", "aluminum", "aluminium", "titanium",
+        "ceramic", "glass", "plastic", "silicone", "rubber", "foam",
+        "ingredient", "made from", "made with", "crafted from",
+        "constructed from", "composed of", "blend",
+    ]
+    FEATURE_KW = [
+        "designed", "features", "provides", "ensures", "perfect for",
+        "ideal for", "built for", "great for", "suitable for",
+        "comfortable", "durable", "lightweight", "breathable",
+        "waterproof", "water-resistant", "versatile", "premium",
+        "luxurious", "soft", "smooth", "flexible", "supportive",
+        "adjustable", "removable", "flattering", "sculpting",
+        "handmade", "handcrafted", "artisan", "ergonomic",
+        "eco-friendly", "sustainable", "vegan", "hypoallergenic",
+        "award-winning", "bestselling", "best-selling", "innovative",
+    ]
+    FIT_KW = [
+        "true to size", "runs small", "runs large", "relaxed fit",
+        "slim fit", "regular fit", "oversized", "fitted", "tailored",
+        "size guide", "size chart", "measurements", "dimensions",
+        "height", "width", "length", "weight", "capacity",
+        "oz", " ml", "gram", "inch", " cm", "mm ",
+        "compatible with", "fits", "waist", "bust", "hip", "inseam",
+        "underwire", "wireless", "unlined", "padded", "convertible",
+        "one size", "plus size", "petite", "extended size",
+    ]
+    DESC_MIN_WORDS = 40
+
+    dims_found = []
+    dims_missing = []
+
+    def _has_any(keywords):
+        return any(kw in text_lower for kw in keywords)
+
+    if _has_any(MATERIAL_KW):
+        dims_found.append("material/composition")
+    else:
+        dims_missing.append("material/composition")
+
+    if _has_any(FEATURE_KW):
+        dims_found.append("features/benefits")
+    else:
+        dims_missing.append("features/benefits")
+
+    if _has_any(FIT_KW):
+        dims_found.append("fit/size/specs")
+    else:
+        dims_missing.append("fit/size/specs")
+
+    if word_count >= DESC_MIN_WORDS:
+        dims_found.append("description depth")
+    else:
+        dims_missing.append(f"description depth ({word_count} words, need {DESC_MIN_WORDS}+)")
+
+    score = len(dims_found)
+
+    if score >= 4:
+        return ("PASS",
+                f"Product copy covers all 4 agent-readable dimensions: "
+                f"{', '.join(dims_found)}.")
+    elif score >= 3:
+        return ("PASS",
+                f"Product copy covers {score}/4 dimensions ({', '.join(dims_found)}). "
+                f"Missing: {', '.join(dims_missing)}.")
+    else:
+        return ("FAIL",
+                f"Product copy only covers {score}/4 agent-readable dimensions "
+                f"({', '.join(dims_found) or 'none'}). "
+                f"Missing: {', '.join(dims_missing)}. "
+                f"AI agents cannot see images — they need text to understand and "
+                f"recommend this product.")
+
+
+def static_copy_richness(page):
+    """RDY-046: Product description completeness for AI agents.
+
+    When SHOPPER=anthropic and images are available, runs vision-based
+    emotional gap analysis comparing what photos convey vs what text says.
+    Falls back to keyword-based check when SHOPPER=mock or no images.
+    """
+    import os
+    shopper_mode = os.environ.get("SHOPPER", "mock").lower()
+    images = page.get("images", [])
+
+    if shopper_mode != "anthropic" or not images:
+        return _keyword_copy_richness(page)
+
+    # Vision-based emotional gap analysis
+    try:
+        import emotional_gap
+        result = emotional_gap.analyze_emotional_gap(page)
+    except Exception as e:
+        # Fall back to keyword check on any failure
+        return _keyword_copy_richness(page)
+
+    gap_score = result.get("gap_score")
+    if gap_score is None:
+        return _keyword_copy_richness(page)
+
+    weighted = result.get("weighted_gap_score", gap_score)
+    missing = result.get("missing_emotional_concepts", [])
+    covered = result.get("covered_emotional_concepts", [])
+    category = result.get("category", "general")
+    cat_weight = result.get("category_weight", 5)
+
+    # Verdict thresholds: weighted_gap_score < 0.3 = PASS, >= 0.3 = FAIL
+    if weighted < 0.3:
+        detail = (f"Product copy conveys the emotional impression from photos. "
+                  f"Covered: {', '.join(covered) if covered else 'all concepts'}. "
+                  f"Category: {category} (emotional weight {cat_weight}/10).")
+        if missing:
+            detail += f" Minor gaps: {', '.join(missing)}."
+        return ("PASS", detail)
+    else:
+        detail = (f"Photos convey emotions that the product copy does not — "
+                  f"AI agents miss what human shoppers see. "
+                  f"Gap score: {gap_score:.2f} (weighted: {weighted:.2f} for {category}). "
+                  f"Missing from text: {', '.join(missing) if missing else 'emotional content'}. "
+                  f"Covered: {', '.join(covered) if covered else 'minimal'}.")
+        return ("FAIL", detail)
+
+
 # ---- SECURITY & TRUST probes -------------------------------------------------
 
 def static_ugc_injection(page):
@@ -1162,6 +1304,7 @@ STATIC = {
     "cart_rate_protection": static_cart_rate_protection,
     "checkout_bot_challenge": static_checkout_bot_challenge,
     "admin_exposure": static_admin_exposure,
+    "copy_richness": static_copy_richness,
 }
 
 

@@ -103,7 +103,7 @@ class TestLoadChecks:
         yaml_path = pathlib.Path(__file__).resolve().parent.parent / "checks" / "shopify-v1.yaml"
         pack, version, checks = load_checks(yaml_path)
         assert pack == "shopify-readiness"
-        assert len(checks) == 40
+        assert len(checks) == 41
 
     def test_weights_sum_to_100(self):
         yaml_path = pathlib.Path(__file__).resolve().parent.parent / "checks" / "shopify-v1.yaml"

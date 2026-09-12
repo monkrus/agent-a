@@ -573,6 +573,59 @@ class TestAdminExposure:
         assert v == "UNKNOWN"
 
 
+# ---- RDY-046: copy_richness --------------------------------------------------
+
+class TestCopyRichness:
+    def test_pass_all_dimensions(self):
+        html = """<div>
+            <p>Made from luxurious silk and French lace blend.</p>
+            <p>Designed for everyday comfort with a flattering fit.</p>
+            <p>True to size — see our size chart for measurements.</p>
+            <p>This is a longer product description that provides enough detail
+               for an AI shopping agent to understand what the product is about
+               and recommend it to customers looking for quality items.</p>
+        </div>"""
+        v, d = scorers.static_copy_richness(_page(html=html))
+        assert v == "PASS"
+        assert "4" in d or "all" in d.lower()
+
+    def test_pass_three_dimensions(self):
+        html = """<div>
+            <p>Made from premium cotton with a soft, breathable feel.</p>
+            <p>This comfortable everyday essential is designed for all-day wear
+               and provides the support you need while remaining lightweight
+               and flexible throughout the day.</p>
+        </div>"""
+        v, d = scorers.static_copy_richness(_page(html=html))
+        assert v == "PASS"
+        assert "3" in d
+
+    def test_fail_thin_copy(self):
+        html = "<h1>Black Bra</h1><span>$98.00</span><button>Add to Cart</button>"
+        v, d = scorers.static_copy_richness(_page(html=html))
+        assert v == "FAIL"
+        assert "agent" in d.lower()
+
+    def test_fail_images_only(self):
+        html = """<div>
+            <img src="product.jpg" alt="product">
+            <span class="price">$49.99</span>
+            <button>Add to Cart</button>
+        </div>"""
+        v, d = scorers.static_copy_richness(_page(html=html))
+        assert v == "FAIL"
+
+    def test_keywords_in_script_not_counted(self):
+        html = """<script>var material = "silk"; var fit = "true to size";</script>
+                  <h1>Product</h1><span>$50</span>"""
+        v, _ = scorers.static_copy_richness(_page(html=html))
+        assert v == "FAIL"
+
+    def test_dispatch(self):
+        r = scorers.run_static({"detect": "copy_richness"}, _page(html="<p>short</p>"))
+        assert r["verdict"] == "FAIL"
+
+
 # ---- run_static dispatch ----------------------------------------------------
 
 class TestRunStatic:

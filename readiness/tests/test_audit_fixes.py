@@ -335,14 +335,14 @@ class TestFreeTierCheckCount:
         from app import checks_for_tier, _load_checks
         _, _, all_checks = _load_checks()
         free = checks_for_tier("free", all_checks)
-        assert len(free) == 30, f"Expected 30 free checks, got {len(free)}"
+        assert len(free) == 31, f"Expected 31 free checks, got {len(free)}"
         assert all(c.get("type") == "static" for c in free)
 
     def test_paid_tier_has_40_checks(self):
         from app import checks_for_tier, _load_checks
         _, _, all_checks = _load_checks()
         paid = checks_for_tier("paid", all_checks)
-        assert len(paid) == 40, f"Expected 40 paid checks, got {len(paid)}"
+        assert len(paid) == 41, f"Expected 41 paid checks, got {len(paid)}"
 
     def test_shopify_free_yaml_deleted(self):
         """shopify-free.yaml should not exist — app uses shopify-v1.yaml + type filter."""

@@ -112,6 +112,17 @@ checks:
     severity_if_fail: high
     fix: Add schema.org/Product JSON-LD with price and availability, or server-render key product content so agents don't need a browser.
 
+  - id: RDY-046
+    type: static
+    category: product-copy
+    title: Product description is rich enough for AI agents
+    detect: copy_richness
+    expect: Product page conveys material, features, fit/specs, and sufficient description in text — not just images.
+    fail_if: Product copy is too thin for agents to understand or recommend the product (missing 2+ content dimensions).
+    weight: 2
+    severity_if_fail: medium
+    fix: Add text descriptions covering material/composition, features/benefits, and fit/sizing. AI agents cannot see images — they need words to recommend your product.
+
   - id: RDY-014
     type: static
     category: agent-interaction
@@ -219,7 +230,7 @@ checks:
     detect: cart_api
     expect: A /cart/add.js or equivalent AJAX endpoint exists so headless agents can add to cart without DOM interaction.
     fail_if: No cart API endpoint found — agents must rely on browser-level DOM interaction to add items.
-    weight: 3
+    weight: 2
     severity_if_fail: medium
     fix: Expose a /cart/add.js (Shopify default) or equivalent API endpoint for programmatic cart operations.
 
@@ -339,7 +350,7 @@ checks:
     detect: wallet_compatibility
     expect: Site references x402 protocol, Cloudflare agent wallet, or exposes programmatic payment endpoints for agent commerce.
     fail_if: No x402, MPP, or agent-wallet signals found in page HTML, llms.txt, or checkout page.
-    weight: 2
+    weight: 1
     severity_if_fail: medium
     fix: Prepare for agent wallet payments by exposing programmatic payment endpoints and monitoring the x402 / Cloudflare Monetization Gateway spec for merchant integration.
 

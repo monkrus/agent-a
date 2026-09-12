@@ -96,6 +96,7 @@ class _Extract(HTMLParser):
         self.meta: dict[str, str] = {}
         self.jsonld_raw: list[str] = []
         self.links: list[tuple[str, str]] = []  # (href, anchor_text)
+        self.images: list[str] = []  # product image URLs/srcs
         self._in_script_ld = False
         self._skip_depth = 0
         self._cur_href = None
@@ -115,6 +116,10 @@ class _Extract(HTMLParser):
         elif tag == "a" and a.get("href"):
             self._cur_href = a["href"]
             self._cur_anchor = []
+        elif tag == "img" and self._skip_depth == 0:
+            src = a.get("src") or a.get("data-src") or ""
+            if src:
+                self.images.append(src)
 
     def handle_endtag(self, tag):
         if tag in ("script", "style"):
@@ -140,6 +145,50 @@ class _Extract(HTMLParser):
                 self._cur_anchor.append(s)
 
 
+def _extract_images(parser_images, meta, jsonld, url):
+    """Collect product image URLs from HTML img tags, og:image, and JSON-LD.
+
+    Deduplicates by URL, prioritizes og:image and JSON-LD images first.
+    Returns up to 5 unique image URLs (absolute where possible).
+    """
+    seen = set()
+    images = []
+
+    def _add(src):
+        if not src or src in seen:
+            return
+        # Make absolute if relative
+        if url and not src.startswith(("http://", "https://", "data:")):
+            src = urljoin(url, src)
+        if src.startswith("data:"):
+            return
+        if src not in seen:
+            seen.add(src)
+            images.append(src)
+
+    # 1. og:image (highest priority — the brand's chosen hero image)
+    _add(meta.get("og:image"))
+
+    # 2. JSON-LD image field
+    for obj in jsonld:
+        if not isinstance(obj, dict):
+            continue
+        img = obj.get("image")
+        if isinstance(img, str):
+            _add(img)
+        elif isinstance(img, list):
+            for i in img:
+                _add(i if isinstance(i, str) else (i.get("url") if isinstance(i, dict) else None))
+        elif isinstance(img, dict):
+            _add(img.get("url"))
+
+    # 3. HTML img tags (from parser)
+    for src in parser_images:
+        _add(src)
+
+    return images[:5]
+
+
 def _parse_html(html: str, url: str = "") -> dict:
     p = _Extract()
     try:
@@ -157,6 +206,7 @@ def _parse_html(html: str, url: str = "") -> dict:
     m = re.search(r"<title[^>]{0,500}>([^<]{0,500})</title>", html, re.I)
     if m:
         title = re.sub(r"\s+", " ", m.group(1)).strip()
+    images = _extract_images(p.images, p.meta, jsonld, url)
     return {
         "url": url,
         "html": html,
@@ -165,6 +215,7 @@ def _parse_html(html: str, url: str = "") -> dict:
         "meta": p.meta,
         "title": title or p.meta.get("og:title", ""),
         "links": p.links,
+        "images": images,
     }
 
 
@@ -222,6 +273,7 @@ def fetch(target: str, timeout: int = 30) -> dict:
         except (requests.exceptions.RequestException, _UnsafeURLError) as e:
             return {"url": target, "status": 0, "html": "", "text": "",
                     "jsonld": [], "meta": {}, "title": "", "links": [],
+                    "images": [],
                     "llms_txt": False, "llms_txt_content": None, "robots": None,
                     "cart_api": None, "checkout_probe": None,
                     "checkout_html": None, "homepage_html": None,
