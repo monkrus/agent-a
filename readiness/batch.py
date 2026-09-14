@@ -275,7 +275,7 @@ def main():
             outreach_path.write_text(email_md)
             print(f"  Outreach: {outreach_path}")
         else:
-            print(f"  Outreach: skipped (--no-outreach)")
+            print("  Outreach: skipped (--no-outreach)")
 
         csv_rows.append({
             "domain": domain, "score": score,

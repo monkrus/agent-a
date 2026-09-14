@@ -89,7 +89,7 @@ def estimate(results: list[dict], product_price: float | None = None,
             "price_source": ("provided" if product_price != 50.0
                              else "fallback ($50 default — plug in real AOV for accuracy)"),
             "visits_source": ("provided" if monthly_visits is not None
-                              else f"estimated from AOV (formula: 320k - AOV×800, clamped 80k–300k)"),
+                              else "estimated from AOV (formula: 320k - AOV×800, clamped 80k–300k)"),
             "ai_share_source": "Gartner AI in Commerce 2026 (5–15% range)",
             "conv_rate_source": "Forrester Channel Mix — organic search analog (2–4%)",
             "formula": ("monthly_loss = monthly_visits × ai_share × agent_fail_rate "
@@ -219,7 +219,7 @@ def format_impact(impact: dict) -> str:
     annual_low = impact["estimated_annual_loss"]["low"]
     annual_high = impact["estimated_annual_loss"]["high"]
 
-    lines.append(f"ESTIMATED REVENUE IMPACT")
+    lines.append("ESTIMATED REVENUE IMPACT")
     lines.append(f"{'=' * 50}")
     lines.append("")
     lines.append(f"Monthly:  ${low:,} – ${high:,}")

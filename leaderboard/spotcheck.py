@@ -53,7 +53,6 @@ class _ScriptCollector(_HTMLParser):
         if self._in_script:
             self._current.append(data)
 import pathlib
-import textwrap
 
 OUT_DIR = pathlib.Path(__file__).resolve().parent / "post-assets"
 
@@ -176,32 +175,32 @@ def generate_spotcheck(brand, url):
     lines.append(f"# Independent Spot-Check — {brand}")
     lines.append("")
     lines.append(f"**URL:** `{url}`")
-    lines.append(f"**Method:** Plain `requests.get()` with Chrome User-Agent (no JS execution)")
-    lines.append(f"**Code path:** Completely independent of scanner's fetch.py/scorers.py")
+    lines.append("**Method:** Plain `requests.get()` with Chrome User-Agent (no JS execution)")
+    lines.append("**Code path:** Completely independent of scanner's fetch.py/scorers.py")
     lines.append("")
 
     status, raw_html, error = fetch_page(url)
 
     if error:
-        lines.append(f"## FETCH ERROR")
-        lines.append(f"```")
+        lines.append("## FETCH ERROR")
+        lines.append("```")
         lines.append(f"{error}")
-        lines.append(f"```")
+        lines.append("```")
         lines.append("")
         lines.append("Cannot produce evidence — fetch failed.")
         return "\n".join(lines), []
 
-    lines.append(f"## 1. Fetch Summary")
+    lines.append("## 1. Fetch Summary")
     lines.append(f"- HTTP status: **{status}**")
 
     blocked = check_bot_block(status, raw_html)
     if blocked:
-        lines.append(f"- **BOT-BLOCKED**: Response appears to be a challenge/block page.")
+        lines.append("- **BOT-BLOCKED**: Response appears to be a challenge/block page.")
         lines.append(f"- HTML size: {len(raw_html)} bytes")
-        lines.append(f"- First 500 chars:")
-        lines.append(f"```")
+        lines.append("- First 500 chars:")
+        lines.append("```")
         lines.append(raw_html[:500])
-        lines.append(f"```")
+        lines.append("```")
         lines.append("")
         lines.append("**A blocked fetch is NOT evidence for or against any finding.**")
         return "\n".join(lines), []
@@ -229,7 +228,7 @@ def generate_spotcheck(brand, url):
     if jsonld_matches:
         lines.append(f"**Found {len(jsonld_matches)} JSON-LD block(s):**")
         for line_num, ctx in jsonld_matches:
-            lines.append(f"")
+            lines.append("")
             lines.append(f"Starting at line {line_num}:")
             lines.append("```html")
             for cl in ctx:

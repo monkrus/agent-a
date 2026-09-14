@@ -61,7 +61,6 @@ def main():
     new = load_new_scans()
 
     all_domains = sorted(set(old.keys()) | set(new.keys()))
-    tier_in_new = {d for d in new if d in TIER_DOMAINS and new[d]["score"] is not None}
 
     print("=" * 90)
     print("DIFF REPORT: Old Parser vs New Parser")
@@ -136,7 +135,7 @@ def main():
     print()
 
     # ProductGroup adoption
-    print(f"PRODUCTGROUP ADOPTION:")
+    print("PRODUCTGROUP ADOPTION:")
     print(f"  Brands that gained points from ProductGroup fix: {len(product_group_gainers)}")
     for d in product_group_gainers:
         old_s = old.get(d, {}).get("score", "N/A")

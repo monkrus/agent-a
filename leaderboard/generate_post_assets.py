@@ -196,7 +196,6 @@ def generate_chart(tier, output_path, date_stamp=""):
     GREEN = (34, 197, 94)
     YELLOW = (234, 179, 8)
     RED = (239, 68, 68)
-    ACCENT = (99, 102, 241)
 
     img = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)

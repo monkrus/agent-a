@@ -144,7 +144,6 @@ def static_robots_allows_agents(page):
 
     # Parse robots.txt into per-UA stanzas
     blocks = re.split(r"(?im)^\s*user-agent:", robots)
-    wildcard_disallows = []
 
     for blk in blocks:
         head = blk.strip().lower()
@@ -155,9 +154,6 @@ def static_robots_allows_agents(page):
 
         is_agent_ua = any(a in ua for a in AGENT_UAS)
         is_wildcard = ua == "*"
-
-        if is_wildcard:
-            wildcard_disallows = disallows
 
         if is_agent_ua or is_wildcard:
             for d in disallows:
@@ -648,7 +644,6 @@ def static_checkout_proxy(page):
     """Proxy for RDY-019 browser check: can agents reach checkout?"""
     probe = page.get("checkout_probe")
     checkout_html = page.get("checkout_html")
-    cart_api = page.get("cart_api", False)
 
     if probe is None and checkout_html is None:
         return "UNKNOWN", "Checkout page not probed (local file mode)."
@@ -1095,7 +1090,7 @@ def static_copy_richness(page):
     try:
         import emotional_gap
         result = emotional_gap.analyze_emotional_gap(page)
-    except Exception as e:
+    except Exception:
         # Fall back to keyword check on any failure
         return _keyword_copy_richness(page)
 

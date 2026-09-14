@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Regenerate all leaderboard/post-assets from canonical scan data."""
 import json
-import os
 import pathlib
 import statistics
 from collections import defaultdict

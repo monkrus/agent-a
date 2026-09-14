@@ -50,7 +50,7 @@ import intel as intelmod   # noqa: E402
 import scorers             # noqa: E402
 import yaml                # noqa: E402
 import emailer             # noqa: E402
-from shopper import ask, ask_batch  # noqa: E402
+from shopper import ask_batch  # noqa: E402
 
 app = Flask(__name__)
 
@@ -91,7 +91,6 @@ def _detect_persistent_mount():
     """Check whether .scans/ is on a persistent volume mount."""
     # Railway volumes are mounted over the app directory — check if the
     # .scans dir is on a different device from the app root
-    import stat
     try:
         scans_stat = os.stat(str(SCANS_DIR))
         app_stat = os.stat(str(pathlib.Path(__file__).resolve().parent))
@@ -600,7 +599,7 @@ def scan_stream():
         except fetchmod._UnsafeURLError:
             yield "data: " + json.dumps({"type": "error", "message": "That URL points to a private or internal address and cannot be scanned."}) + "\n\n"
             return
-        except Exception as e:
+        except Exception:
             yield "data: " + json.dumps({"type": "error", "message": "Fetch failed. Check the URL and try again."}) + "\n\n"
             return
 
@@ -881,7 +880,6 @@ def _generate_jsonld_snippet(data: dict) -> str | None:
 
     import re as _re
     target = data.get("meta", {}).get("target", "")
-    intel = data.get("intel", {})
 
     # Extract product name from scan data
     name = "Your Product Name"
