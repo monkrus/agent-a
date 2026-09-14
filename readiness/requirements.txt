@@ -11,3 +11,6 @@ gunicorn>=23.0.0
 
 # OG images and leaderboard charts
 Pillow>=11.0.0
+
+# DNS-AID discovery check (RDY-040); degrades to UNKNOWN if missing
+dnspython>=2.4

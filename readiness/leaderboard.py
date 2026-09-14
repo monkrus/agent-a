@@ -218,7 +218,11 @@ def generate_chart(scans, output_path):
     return True
 
 
-def main():
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="Generate leaderboard.md and leaderboard.png from stored scans in .scans/")
+    ap.parse_args(argv)
     scans = load_all_scans()
     if not scans:
         print("No scans found in .scans/ directory.")
