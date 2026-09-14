@@ -452,6 +452,7 @@
         Stripe returned an unexpected payment status. If you completed checkout, please refresh this page or contact support.
         {% else %}
         Something went wrong verifying your payment with Stripe. Please try again, or contact support if this keeps happening.
+        {% if ':' in payment_error %}<br><code style="font-size:0.75rem;">{{ payment_error.split(':', 1)[1] }}</code>{% endif %}
         {% endif %}
       </p>
     </div>

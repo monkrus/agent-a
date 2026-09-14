@@ -1077,9 +1077,9 @@ def payment_success(scan_id):
                 _logger.warning("Payment NOT verified for scan %s: status=%s, meta_scan_id=%s",
                                 scan_id, cs.payment_status, cs.metadata.get("scan_id"))
                 payment_error = "payment_not_verified"
-        except Exception:
+        except Exception as exc:
             _logger.exception("Stripe verification failed for scan %s", scan_id)
-            payment_error = "verification_error"
+            payment_error = f"verification_error:{exc}"
     elif stripe_key and not stripe_session_id:
         payment_error = "missing_session"
     elif os.environ.get("DEV_MODE", "").lower() == "true":
