@@ -113,6 +113,51 @@ Every check maps to one category of agent readiness (41 checks total: 31 static 
 - `SCAN_COUNT_SEED` / `SCANS_PERSISTENT` — scan-counter seed and persistent-volume flag for the web app
 - `FIXES_MODULE` — import path of the private fix-recipe module (see `fixes.py`)
 
+## Known gaps and gotchas
+
+1. **CI runs only CodeQL, no pytest.** The test suite (`python -m pytest
+   readiness/tests/ -x -q`) must be run locally before pushing. A pytest
+   workflow should be added to `.github/workflows/`.
+
+2. **Live paths are never tested in CI.** Browser checks (`RENDER=playwright`),
+   Anthropic shopper (`SHOPPER=anthropic`), Stripe checkout
+   (`STRIPE_SECRET_KEY`/`STRIPE_PRICE_ID`), and SMTP email require real
+   credentials. To run a live-path smoke test locally:
+   ```
+   SHOPPER=anthropic RENDER=playwright SCAN_N=1 python readiness/scan.py \
+     --checks readiness/checks/shopify-v1.yaml --target <url> --n 1
+   ```
+   Stripe and email require `.env` secrets and a running web app.
+
+3. **Paid unlock is session-cookie-only.** `session[f"paid_{scan_id}"]` is set
+   by `/payment-success` and lives in Flask's signed client-side cookie. If the
+   cookie is lost (browser cleared, instance restart with different
+   `FLASK_SECRET_KEY`), the unlock is gone. A durable approach: write
+   `"paid": true` into the scan JSON in `.scans/` after Stripe verification,
+   and have `results()` check that field as a fallback.
+
+4. **Scan storage is ephemeral on Render/Railway free tier.** `.scans/` lives
+   on the container's filesystem. A redeploy or instance spin-down loses all
+   scan data. For persistence, attach a volume and set `SCANS_PERSISTENT=true`.
+
+5. **Layer naming drift.** The YAML categories are `data`, `extraction`,
+   `interaction`, `security`, `resilience`, `protocol_discovery`. The streaming
+   display in `app.py` uses `LAYER_CHECKS` (line ~534) with keys `access`,
+   `data`, `extraction`, `interaction`, `security`, `protocols`. "Resilience"
+   checks (RDY-030, RDY-031) are split: RDY-031 is in `access` (it's an access
+   gate), RDY-030 is in `data`. Read `LAYER_CHECKS` in `app.py` before
+   renaming or reorganising layers — the streaming UI depends on this mapping.
+
+6. **Two requirements files, intentionally identical.** `requirements.txt`
+   (repo root, used by `render.yaml`) and `readiness/requirements.txt` (used
+   by `pip install` inside `readiness/`). They must stay in sync — edit both
+   when adding or bumping a dependency.
+
+7. **Intentional pyflakes warning in fetch.py.** Line ~530:
+   `import requests  # noqa: F401` is a deliberate importability probe — if
+   `requests` is missing, the function returns early. The `noqa` silences it.
+   Do not "fix" this import.
+
 ## Common tasks
 
 - **Run a scan (CLI):** `SHOPPER=mock python readiness/scan.py --checks readiness/checks/shopify-v1.yaml --target <url> --n 5`
