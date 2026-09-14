@@ -428,6 +428,16 @@ footer {
   padding: 0.6rem 0.85rem;
   flex-wrap: wrap;
 }
+.verdict-icon {
+  font-size: 1rem;
+  font-weight: 700;
+  width: 1.4rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+.check-pass .verdict-icon { color: var(--green); }
+.check-fail .verdict-icon { color: var(--red); }
+.check-unknown .verdict-icon { color: var(--text-muted); }
 .check-id {
   font-size: 0.75rem;
   color: var(--text-muted);

@@ -273,28 +273,29 @@
 
       {% else %}
       {# Paid tier or access-blocked: show all checks with full detail #}
-      {% for r in data.results %}
-      <div class="check-block check-{{ r.verdict|lower }}">
+      {% set ns = namespace(fail_count=0, pass_count=0, unknown_count=0) %}
+      {% for r in data.results %}{% if r.verdict == 'FAIL' %}{% set ns.fail_count = ns.fail_count + 1 %}{% elif r.verdict == 'PASS' %}{% set ns.pass_count = ns.pass_count + 1 %}{% else %}{% set ns.unknown_count = ns.unknown_count + 1 %}{% endif %}{% endfor %}
+
+      {# Failing checks first #}
+      {% if ns.fail_count > 0 %}
+      <h3 style="color:var(--red); font-size:0.95rem; margin:1.25rem 0 0.5rem; font-weight:600;">{{ ns.fail_count }} issue{{ 's' if ns.fail_count != 1 }} to fix</h3>
+      {% endif %}
+      {% for r in data.results %}{% if r.verdict == 'FAIL' %}
+      <div class="check-block check-fail">
         <div class="check-header">
-          <span class="check-id">{{ r.id }}</span>
+          <span class="verdict-icon">✗</span>
           <span class="check-title">{{ r.title }}</span>
-          <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
-          <span class="verdict verdict-badge-{{ r.verdict|lower }}">{{ r.verdict }}</span>
-          {% if r.confidence is defined %}
-          <span class="confidence confidence-{{ r.confidence }}" title="{{ 'Direct observation of page content' if r.confidence == 'observed' else 'Based on self-asserted UA, redirect proxy, or heuristic' }}">{{ r.confidence }}</span>
-          {% endif %}
+          <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }} priority</span>
+          <span class="verdict verdict-badge-fail">Needs fix</span>
         </div>
 
         {% if paid %}
         <div class="check-detail">
-          <!-- What happened -->
           <div class="check-row">
             <span class="check-label">Result</span>
             <span>{{ r.detail }}</span>
           </div>
 
-          <!-- What it costs you — plain language impact -->
-          {% if r.verdict == 'FAIL' %}
           <div class="check-row check-impact">
             <span class="check-label">What you're losing</span>
             <span>
@@ -316,19 +317,24 @@
                 Your return window is ambiguous to AI agents &mdash; they give different answers each time a customer asks. Inconsistent info erodes trust.
               {% elif 'llms' in r.title|lower %}
                 Without an llms.txt file, AI agents have no instructions for your store. They default to guessing, which means worse results for your products.
+              {% elif 'javascript' in r.title|lower %}
+                Most of your page content only loads after JavaScript runs. AI shopping agents like ChatGPT and Perplexity don't execute JavaScript &mdash; they see a nearly blank page and move on to a competitor.
+              {% elif 'availability' in r.title|lower and 'consistent' in r.title|lower %}
+                Your page says the product is in stock in one place and out of stock in another. An AI agent seeing this conflict will either skip the product or tell the customer wrong information &mdash; both cost you the sale.
+              {% elif 'wallet' in r.title|lower or 'x402' in r.title|lower %}
+                AI agents that can pay autonomously (the next wave of e-commerce) have no way to complete a purchase on your site. You're invisible to agent-driven purchases.
+              {% elif 'markdown' in r.title|lower %}
+                AI agents prefer clean text over HTML. Without markdown support, agents spend more tokens parsing your page and extract less accurately.
+              {% elif 'link' in r.title|lower and 'header' in r.title|lower %}
+                Without Link headers, AI agents can't automatically discover your API, search, or product catalog. They have to guess &mdash; or give up.
+              {% elif 'dns' in r.title|lower %}
+                AI agents can't discover your store's capabilities via DNS. This emerging standard lets agents find you before they even visit your site.
               {% else %}
-                This issue makes your store less readable to AI shopping agents, potentially costing you sales from AI-assisted shoppers.
+                This issue makes your store harder for AI shopping agents to use, potentially costing you sales from AI-assisted shoppers.
               {% endif %}
             </span>
           </div>
-          {% elif r.verdict == 'UNKNOWN' %}
-          <div class="check-row check-impact">
-            <span class="check-label">Why this matters</span>
-            <span>We couldn't verify this because your page doesn't expose the data clearly enough. That's itself a problem &mdash; if our scanner can't find it, neither can a shopping agent.</span>
-          </div>
-          {% endif %}
 
-          <!-- Evidence -->
           {% if r.pass_rate %}
           <div class="check-row">
             <span class="check-label">Pass rate</span>
@@ -354,8 +360,7 @@
           </div>
           {% endif %}
 
-          <!-- Fix recipe -->
-          {% if r.verdict == 'FAIL' and r.fix_recipe is defined and r.fix_recipe %}
+          {% if r.fix_recipe is defined and r.fix_recipe %}
           <div class="fix-block">
             <div class="fix-header">
               <span class="fix-label">How to fix this</span>
@@ -364,7 +369,7 @@
             <p class="fix-instruction">{{ r.fix or '' }}</p>
             <pre class="fix-code"><code>{{ r.fix_recipe | e }}</code></pre>
           </div>
-          {% elif r.verdict == 'FAIL' and r.fix %}
+          {% elif r.fix %}
           <div class="fix-block">
             <span class="fix-label">How to fix this</span>
             <p class="fix-instruction">{{ r.fix }}</p>
@@ -373,7 +378,66 @@
         </div>
         {% endif %}
       </div>
-      {% endfor %}
+      {% endif %}{% endfor %}
+
+      {# Inconclusive checks #}
+      {% if ns.unknown_count > 0 %}
+      <h3 style="color:var(--text-muted); font-size:0.95rem; margin:1.25rem 0 0.5rem; font-weight:600;">{{ ns.unknown_count }} inconclusive</h3>
+      {% endif %}
+      {% for r in data.results %}{% if r.verdict == 'UNKNOWN' %}
+      <div class="check-block check-unknown">
+        <div class="check-header">
+          <span class="verdict-icon">?</span>
+          <span class="check-title">{{ r.title }}</span>
+          <span class="verdict verdict-badge-unknown">Inconclusive</span>
+        </div>
+        {% if paid %}
+        <div class="check-detail">
+          <div class="check-row">
+            <span class="check-label">Result</span>
+            <span>{{ r.detail }}</span>
+          </div>
+          <div class="check-row check-impact">
+            <span class="check-label">Why this matters</span>
+            <span>We couldn't verify this because your page doesn't expose the data clearly enough. That's itself a problem &mdash; if our scanner can't find it, neither can a shopping agent.</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}{% endfor %}
+
+      {# Passing checks — collapsed #}
+      {% if ns.pass_count > 0 %}
+      <details style="margin-top:1.25rem;">
+        <summary style="font-size:0.95rem; font-weight:600; color:var(--green); cursor:pointer; padding:0.5rem 0;">✓ {{ ns.pass_count }} checks passing <span style="font-size:0.8rem; color:var(--text-muted); font-weight:400;">(click to expand)</span></summary>
+      {% endif %}
+      {% for r in data.results %}{% if r.verdict == 'PASS' %}
+      <div class="check-block check-pass">
+        <div class="check-header">
+          <span class="verdict-icon">✓</span>
+          <span class="check-title">{{ r.title }}</span>
+          <span class="verdict verdict-badge-pass">Passing</span>
+        </div>
+
+        {% if paid %}
+        <div class="check-detail">
+          <div class="check-row">
+            <span class="check-label">Result</span>
+            <span>{{ r.detail }}</span>
+          </div>
+          {% if r.pass_rate %}
+          <div class="check-row">
+            <span class="check-label">Pass rate</span>
+            <span>{{ r.pass_rate }}</span>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}{% endfor %}
+      {% if ns.pass_count > 0 %}
+      </details>
+      {% endif %}
       {% endif %}
     </div>
 
