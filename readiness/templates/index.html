@@ -16,7 +16,7 @@
         <a href="#what-we-check">What we check</a>
         <a href="#how-it-works">How it works</a>
         <a href="#faq">FAQ</a>
-        <span style="font-size:0.9rem;color:#facc15;font-weight:600;letter-spacing:0.03em;"><span style="font-size:1.25rem;">{{ stats.total_scans }}</span> scans completed</span>
+        <span style="font-size:0.9rem;color:#facc15;font-weight:600;letter-spacing:0.03em;"><span style="font-size:1.25rem;" id="scan-counter">{{ stats.total_scans }}</span> scans completed</span>
         <a href="#scan-top" class="nav-cta" onclick="document.getElementById('url').focus();">Scan free</a>
       </div>
     </div>
@@ -172,6 +172,8 @@
                   + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
                   + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report &rarr;</a></div>';
               }
+              var ctr = document.getElementById('scan-counter');
+              if (ctr) ctr.textContent = parseInt(ctr.textContent || '0') + 1;
               document.getElementById('scan-btn').disabled = false;
               document.getElementById('scan-btn').textContent = 'Scan free';
               document.getElementById('clear-btn').style.display = '';
