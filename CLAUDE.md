@@ -140,10 +140,13 @@ Every check maps to one category of agent readiness (41 checks total: 31 static 
    on the container's filesystem. A redeploy or instance spin-down loses all
    scan data. For persistence, attach a volume and set `SCANS_PERSISTENT=true`.
 
-5. **Layer naming drift.** The YAML categories are `data`, `extraction`,
-   `interaction`, `security`, `resilience`, `protocol_discovery`. The streaming
-   display in `app.py` uses `LAYER_CHECKS` (line ~534) with keys `access`,
-   `data`, `extraction`, `interaction`, `security`, `protocols`. "Resilience"
+5. **Layer naming drift.** The six category names in this file (Data,
+   Extraction, Interaction, Security & Trust, Resilience, Protocol Discovery)
+   are a conceptual grouping — they do not appear in the YAML. The YAML
+   `category` field is fine-grained (19 values, e.g. `structured-data`,
+   `agent-performance`, `agent-access`). The streaming display in `app.py`
+   uses `LAYER_CHECKS` (line ~534) with keys `access`, `data`, `extraction`,
+   `interaction`, `security`, `protocols`. "Resilience"
    checks (RDY-030, RDY-031) are split: RDY-031 is in `access` (it's an access
    gate), RDY-030 is in `data`. Read `LAYER_CHECKS` in `app.py` before
    renaming or reorganising layers — the streaming UI depends on this mapping.
