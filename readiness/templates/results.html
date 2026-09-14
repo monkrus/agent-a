@@ -442,6 +442,21 @@
     </div>
     {% endif %}
 
+    {% if payment_error %}
+    <div class="card" style="border-left:4px solid #f87171;">
+      <p style="margin:0;color:#f87171;font-weight:600;">Payment could not be verified.</p>
+      <p style="margin:0.5rem 0 0;font-size:0.85rem;color:var(--text-muted);">
+        {% if payment_error == 'missing_session' %}
+        The payment session ID was missing from the redirect. Please try again, or contact support if this keeps happening.
+        {% elif payment_error == 'payment_not_verified' %}
+        Stripe returned an unexpected payment status. If you completed checkout, please refresh this page or contact support.
+        {% else %}
+        Something went wrong verifying your payment with Stripe. Please try again, or contact support if this keeps happening.
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
     <!-- PAYWALL -->
     <div class="card paywall-card">
       <h2>Deep Agent Audit — $49</h2>

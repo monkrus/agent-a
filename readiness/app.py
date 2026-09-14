@@ -73,9 +73,10 @@ if not _flask_secret and _flask_env != "development" and not _is_testing:
 app.secret_key = _flask_secret or secrets.token_hex(32)
 
 # ---- Session cookie security ------------------------------------------------
-app.config["SESSION_COOKIE_SECURE"] = True      # HTTPS only
-app.config["SESSION_COOKIE_HTTPONLY"] = True     # no JS access
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"   # sent on top-level navigations (Stripe redirect)
+_is_dev = _flask_env == "development" or os.environ.get("FLASK_DEBUG") == "1"
+app.config["SESSION_COOKIE_SECURE"] = not _is_dev  # HTTPS only in production
+app.config["SESSION_COOKIE_HTTPONLY"] = True        # no JS access
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"      # sent on top-level navigations (Stripe redirect)
 
 CHECKS_PATH = pathlib.Path(__file__).resolve().parent / "checks" / "shopify-v1.yaml"
 SCANS_DIR = pathlib.Path(__file__).resolve().parent / ".scans"
@@ -463,14 +464,21 @@ def index():
     return render_template("index.html", stats=stats)
 
 
+def _index_with_error(error, status=200):
+    """Render index.html with an error message, including stats."""
+    stats = _scan_stats()
+    stats["total_scans"] = _get_scan_count()
+    return render_template("index.html", error=error, stats=stats), status
+
+
 @app.route("/scan", methods=["POST"])
 def scan():
     # Rate limit: one scan per IP per SCAN_RATE_LIMIT seconds
     client_ip = request.remote_addr or "unknown"
     wait = _check_rate_limit(client_ip)
     if wait is not None:
-        return render_template("index.html",
-                               error=f"Please wait {wait} seconds before scanning again."), 429
+        return _index_with_error(
+            f"Please wait {wait} seconds before scanning again.", 429)
 
     url = request.form.get("url", "").strip()
     # Strip leading bullets, dashes, whitespace from copy-paste
@@ -486,40 +494,40 @@ def scan():
         _keep = {k: v for k, v in parse_qs(_p.query).items() if k == "variant"}
         url = urlunparse(_p._replace(query=urlencode(_keep, doseq=True)))
     if len(url) > 2000:
-        return render_template("index.html", error="That URL is too long (max 2,000 characters). Please paste just the product page URL.")
+        return _index_with_error("That URL is too long (max 2,000 characters). Please paste just the product page URL.")
     parsed = urlparse(url)
     if not parsed.hostname or "." not in parsed.hostname:
-        return render_template("index.html", error="That doesn't look like a valid URL. Please paste a product page URL like: your-store.com/products/product-name")
+        return _index_with_error("That doesn't look like a valid URL. Please paste a product page URL like: your-store.com/products/product-name")
     # Check if this looks like a product page
     path = parsed.path.rstrip("/")
     if not path or path.count("/") < 2:
-        return render_template("index.html", error=(
+        return _index_with_error(
             "That looks like a homepage or collection page. "
             "Please paste a specific product page URL instead — "
             "on your store, click on any product and copy the URL from your browser. "
             "It usually looks like: your-store.com/products/product-name"
-        ))
+        )
     # Fetch page and check for 404 / soft-404 before running full scan
     try:
         pre_page = fetchmod.fetch(url)
     except fetchmod._UnsafeURLError:
-        return render_template("index.html", error="That URL points to a private or internal address and cannot be scanned.")
+        return _index_with_error("That URL points to a private or internal address and cannot be scanned.")
     except Exception as e:
-        return render_template("index.html", error=f"Could not fetch that URL: {e}")
+        return _index_with_error(f"Could not fetch that URL: {e}")
 
     dead = fetchmod.is_dead_page(pre_page)
     if dead:
-        return render_template("index.html", error=dead)
+        return _index_with_error(dead)
 
     collection_warning = fetchmod.is_collection_page(pre_page)
     if collection_warning:
-        return render_template("index.html", error=collection_warning)
+        return _index_with_error(collection_warning)
 
     try:
         scan_id = _run_scan(url, pre_fetched_page=pre_page)
         _increment_scan_count()
     except Exception as e:
-        return render_template("index.html", error=f"Could not scan that URL: {e}")
+        return _index_with_error(f"Could not scan that URL: {e}")
     return redirect(url_for("results", scan_id=scan_id))
 
 
@@ -942,6 +950,7 @@ def results(scan_id):
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
     email_sent_to = session.get(f"email_{scan_id}")
     team_sent = session.pop(f"sent_{scan_id}", False)
+    payment_error = session.pop(f"payment_error_{scan_id}", None)
     has_email = emailer._is_configured()
     access_blocked = any(r.get("gated") for r in data.get("results", []))
     # Generate JSON-LD snippet if RDY-001 failed
@@ -951,6 +960,7 @@ def results(scan_id):
     scan_count = _get_scan_count()
     return render_template("results.html", data=data, paid=paid,
                            has_stripe=has_stripe, dev_mode=dev_mode,
+                           payment_error=payment_error,
                            email_sent_to=email_sent_to, team_sent=team_sent,
                            has_email=has_email, access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
@@ -1053,6 +1063,7 @@ def payment_success(scan_id):
     stripe_session_id = request.args.get("session_id", "")
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
     buyer_email = None
+    payment_error = None
     if stripe_key and stripe_session_id:
         try:
             import stripe
@@ -1067,8 +1078,12 @@ def payment_success(scan_id):
             else:
                 _logger.warning("Payment NOT verified for scan %s: status=%s, meta_scan_id=%s",
                                 scan_id, cs.payment_status, cs.metadata.get("scan_id"))
+                payment_error = "payment_not_verified"
         except Exception:
             _logger.exception("Stripe verification failed for scan %s", scan_id)
+            payment_error = "verification_error"
+    elif stripe_key and not stripe_session_id:
+        payment_error = "missing_session"
     elif os.environ.get("DEV_MODE", "").lower() == "true":
         session[f"paid_{scan_id}"] = True
 
@@ -1077,6 +1092,8 @@ def payment_success(scan_id):
         emailer.send_report(buyer_email, data)
         session[f"email_{scan_id}"] = buyer_email
 
+    if payment_error:
+        session[f"payment_error_{scan_id}"] = payment_error
     return redirect(url_for("results", scan_id=scan_id))
 
 
