@@ -22,8 +22,6 @@ not run JS. For JS-heavy targets, point `fetch_rendered` at a rendering backend
 from __future__ import annotations
 import ipaddress
 import json
-import os
-import pathlib
 import re
 import socket
 import sys
@@ -816,7 +814,6 @@ def is_dead_page(page: dict) -> str | None:
 def is_collection_page(page: dict) -> str | None:
     """Return a warning if the page looks like a collection/category, not a PDP."""
     url = page.get("url", "")
-    title = (page.get("title") or "").lower()
 
     # URL signals
     url_lower = url.lower()

@@ -126,14 +126,12 @@ def generate_chart(scans, output_path):
 
     W, H = 1600, 900
     BG = (10, 10, 15)
-    SURFACE = (20, 20, 25)
     BORDER = (35, 35, 45)
     TEXT = (228, 228, 231)
     MUTED = (139, 139, 150)
     GREEN = (34, 197, 94)
     YELLOW = (234, 179, 8)
     RED = (239, 68, 68)
-    ACCENT = (99, 102, 241)
 
     img = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)
@@ -218,7 +216,11 @@ def generate_chart(scans, output_path):
     return True
 
 
-def main():
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="Generate leaderboard.md and leaderboard.png from stored scans in .scans/")
+    ap.parse_args(argv)
     scans = load_all_scans()
     if not scans:
         print("No scans found in .scans/ directory.")

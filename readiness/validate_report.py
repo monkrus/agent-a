@@ -100,7 +100,6 @@ def validate(payload: dict, report_text: str) -> list[str]:
     # --- 4. Per-check verdicts ---
     for r in results:
         check_id = r.get("id", "???")
-        verdict = r.get("verdict", "???")
         # Check that the check ID appears in the report
         if check_id not in report_text:
             errors.append(f"MISSING CHECK: {check_id} not mentioned in report")

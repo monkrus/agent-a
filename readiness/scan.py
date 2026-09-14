@@ -33,7 +33,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod          # noqa: E402
 import scorers                    # noqa: E402
 import impact as impactmod        # noqa: E402
-from shopper import ask, ask_batch  # noqa: E402
+from shopper import ask_batch  # noqa: E402
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 

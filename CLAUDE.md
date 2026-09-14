@@ -79,7 +79,7 @@ readiness/
 
 ## The six check categories
 
-Every check maps to one category of agent readiness (40 checks total: 30 static + 5 shopper + 5 browser):
+Every check maps to one category of agent readiness (41 checks total: 31 static + 5 shopper + 5 browser):
 
 1. **Data** — can agents read and find the page? (JSON-LD, price in HTML, llms.txt, robots.txt, policy, JS ratio, sitemap, contradictory availability)
 2. **Extraction** — can agents extract correctly? (shopper simulation, N runs, pass rates — price, availability, product name, return window, shipping)
@@ -106,6 +106,12 @@ Every check maps to one category of agent readiness (40 checks total: 30 static 
 - `DEV_MODE` — set to `true` to enable demo unlock without Stripe (never in production)
 - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — for emailing reports after purchase
 - `FROM_EMAIL` — sender address (defaults to SMTP_USER)
+- `FLASK_SECRET_KEY` — required in production (app refuses to start without it unless `FLASK_ENV=development`)
+- `SCAN_RATE_LIMIT` — seconds between scans per IP in the web app (default: 30)
+- `BROWSER_ATTEMPTS` — browser-flow attempts per check, majority vote (default: 3; `0` skips browser checks)
+- `BROWSER_AGENT_MODEL` — model for browser-agent flows (default: `claude-haiku-4-5-20251001`)
+- `SCAN_COUNT_SEED` / `SCANS_PERSISTENT` — scan-counter seed and persistent-volume flag for the web app
+- `FIXES_MODULE` — import path of the private fix-recipe module (see `fixes.py`)
 
 ## Common tasks
 
