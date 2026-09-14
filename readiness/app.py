@@ -526,7 +526,8 @@ def scan():
 LAYER_CHECKS = {
     "access":      {"RDY-003", "RDY-031"},
     "data":        {"RDY-001", "RDY-002", "RDY-004", "RDY-005", "RDY-011",
-                    "RDY-012", "RDY-013", "RDY-029", "RDY-030", "RDY-033"},
+                    "RDY-012", "RDY-013", "RDY-029", "RDY-030", "RDY-033",
+                    "RDY-046"},
     "extraction":  {"RDY-006", "RDY-007", "RDY-008", "RDY-009", "RDY-010"},
     "interaction": {"RDY-014", "RDY-015", "RDY-017", "RDY-018", "RDY-019",
                     "RDY-020", "RDY-021", "RDY-022", "RDY-023", "RDY-032"},
