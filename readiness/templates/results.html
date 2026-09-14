@@ -31,7 +31,7 @@
       {% endif %}
       <div class="meta-row">
         <span>{{ data.meta.target }}</span>
-        <span>{% if paid %}{{ data.meta.n }} AI agent visits simulated{% else %}{{ data.results|length }} structural checks completed{% endif %}{% if data.meta.duration_seconds %} &middot; {{ data.meta.duration_seconds }}s{% endif %}</span>
+        <span>{% if data.meta.tier == 'paid' %}{{ data.results|length }} checks &middot; {{ data.meta.n }} AI agent visits{% else %}{{ data.results|length }} structural checks completed{% endif %}{% if data.meta.duration_seconds %} &middot; {{ data.meta.duration_seconds }}s{% endif %}</span>
       </div>
     </div>
 
@@ -202,7 +202,7 @@
     <div class="card">
       {% if paid %}
       <h2>Deep Agent Audit — Full Results</h2>
-      <p class="intel-subtitle">Each check was run {{ data.meta.n }} times with a live AI agent. Failing checks include evidence, what it costs you, and a ready-to-use fix.</p>
+      <p class="intel-subtitle">{{ data.results|length }} checks run{% if data.meta.shopper == 'anthropic' %}, including {{ data.meta.n }} real AI agent visits{% endif %}. Failing checks include what it costs you and how to fix it.</p>
       {% elif access_blocked %}
       <h2>Structural Readiness Check</h2>
       <p class="intel-subtitle">Only 2 access checks ran. The remaining {{ data.results|selectattr('gated')|list|length }} checks were skipped because agents can't reach the page.</p>
@@ -516,6 +516,13 @@
 
     {% if payment_error %}
     <div class="card" style="border-left:4px solid #f87171;">
+      {% if payment_error.startswith('rescan_failed') %}
+      <p style="margin:0;color:#f87171;font-weight:600;">Payment received, but the deep scan failed.</p>
+      <p style="margin:0.5rem 0 0;font-size:0.85rem;color:var(--text-muted);">
+        Your payment went through, but we hit an error running the AI agent checks. Showing your structural results below. Contact <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">sergeigodev@gmail.com</a> and we'll re-run your scan manually.
+        {% if ':' in payment_error %}<br><code style="font-size:0.75rem;">{{ payment_error.split(':', 1)[1] }}</code>{% endif %}
+      </p>
+      {% else %}
       <p style="margin:0;color:#f87171;font-weight:600;">Payment could not be verified.</p>
       <p style="margin:0.5rem 0 0;font-size:0.85rem;color:var(--text-muted);">
         {% if payment_error == 'missing_session' %}
@@ -527,6 +534,7 @@
         {% if ':' in payment_error %}<br><code style="font-size:0.75rem;">{{ payment_error.split(':', 1)[1] }}</code>{% endif %}
         {% endif %}
       </p>
+      {% endif %}
     </div>
     {% endif %}
 

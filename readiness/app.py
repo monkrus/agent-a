@@ -1032,8 +1032,21 @@ def checkout(scan_id):
     if not stripe_key or not price_id:
         # Only allow demo unlock if DEV_MODE is explicitly enabled
         if os.environ.get("DEV_MODE", "").lower() == "true":
-            session[f"paid_{scan_id}"] = True
-            return redirect(url_for("results", scan_id=scan_id))
+            # Re-run scan as paid tier with real shopper
+            target_url = data.get("meta", {}).get("target", "")
+            try:
+                new_scan_id = _run_scan(target_url, tier="paid")
+                new_data = _load_scan(new_scan_id)
+                if new_data:
+                    new_data["meta"]["paid"] = True
+                    (SCANS_DIR / f"{new_scan_id}.json").write_text(
+                        json.dumps(new_data, indent=2))
+                session[f"paid_{new_scan_id}"] = True
+                return redirect(url_for("results", scan_id=new_scan_id))
+            except Exception:
+                _logger.exception("Paid re-scan failed in DEV_MODE")
+                session[f"paid_{scan_id}"] = True
+                return redirect(url_for("results", scan_id=scan_id))
         abort(503, description="Payment system is not configured.")
 
     import stripe
@@ -1062,6 +1075,7 @@ def payment_success(scan_id):
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
     buyer_email = None
     payment_error = None
+    payment_verified = False
     if stripe_key and stripe_session_id:
         try:
             import stripe
@@ -1071,7 +1085,7 @@ def payment_success(scan_id):
             _logger.info("Stripe session %s: payment_status=%s, metadata=%s",
                          stripe_session_id, cs.payment_status, meta)
             if cs.payment_status in ("paid", "no_payment_required") and meta.get("scan_id") == scan_id:
-                session[f"paid_{scan_id}"] = True
+                payment_verified = True
                 buyer_email = cs.customer_details.email if cs.customer_details else None
                 _logger.info("Payment verified for scan %s — unlocked", scan_id)
             else:
@@ -1084,12 +1098,32 @@ def payment_success(scan_id):
     elif stripe_key and not stripe_session_id:
         payment_error = "missing_session"
     elif os.environ.get("DEV_MODE", "").lower() == "true":
-        session[f"paid_{scan_id}"] = True
+        payment_verified = True
 
-    # Auto-send report to buyer's email
-    if buyer_email and session.get(f"paid_{scan_id}"):
-        emailer.send_report(buyer_email, data)
-        session[f"email_{scan_id}"] = buyer_email
+    # Payment verified — re-run the scan as paid tier with real AI shopper
+    if payment_verified:
+        target_url = data.get("meta", {}).get("target", "")
+        try:
+            _logger.info("Re-running scan for %s as paid tier", target_url)
+            new_scan_id = _run_scan(target_url, tier="paid")
+            # Mark the new scan as paid
+            new_data = _load_scan(new_scan_id)
+            if new_data:
+                new_data["meta"]["paid"] = True
+                new_data["meta"]["free_scan_id"] = scan_id
+                (SCANS_DIR / f"{new_scan_id}.json").write_text(
+                    json.dumps(new_data, indent=2))
+            session[f"paid_{new_scan_id}"] = True
+            # Auto-send report to buyer's email
+            if buyer_email:
+                emailer.send_report(buyer_email, new_data or data)
+                session[f"email_{new_scan_id}"] = buyer_email
+            return redirect(url_for("results", scan_id=new_scan_id))
+        except Exception as exc:
+            _logger.exception("Paid re-scan failed for %s", target_url)
+            # Fall back to showing free results with paid flag
+            session[f"paid_{scan_id}"] = True
+            payment_error = f"rescan_failed:{exc}"
 
     if payment_error:
         session[f"payment_error_{scan_id}"] = payment_error
