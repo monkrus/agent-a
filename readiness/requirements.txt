@@ -14,3 +14,6 @@ Pillow>=11.0.0
 
 # DNS-AID discovery check (RDY-040); degrades to UNKNOWN if missing
 dnspython>=2.4
+
+# Browser agent checks (RDY-017–021); Chromium installed via playwright install
+playwright>=1.40.0

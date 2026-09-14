@@ -771,6 +771,103 @@ pages — you want agents to read your products, just not auto-checkout
 without proper authentication.'''
 
 
+def _fix_017(cr, page):
+    detail = cr.get("detail", "")
+    return f'''An AI agent could not complete the Add-to-Cart flow on your page.
+
+{detail}
+
+This means AI shopping assistants can recommend your product but can't
+help the customer actually buy it.
+
+Common causes:
+1. ATC button only appears after JS loads — use server-rendered forms
+2. Popup modals (cookie consent, newsletter) block the ATC button
+3. Variant must be selected before ATC appears — pre-select a default
+4. ATC is a custom JS component, not a standard <form> + <button>
+
+Fix for Shopify:
+- Use a standard product form (most themes have this by default)
+- Ensure the form works without JS: method="post" action="/cart/add"
+- Dismiss popups with a close button that has clear aria-label
+- Pre-select the first available variant'''
+
+
+def _fix_018(cr, page):
+    detail = cr.get("detail", "")
+    return f'''An AI agent could not find your product via site search.
+
+{detail}
+
+Fix:
+1. Ensure your search bar is visible (not hidden behind an icon that
+   requires hover or JS interaction)
+2. Use a standard <input type="search"> or <input type="text"> with
+   a clear placeholder like "Search products..."
+3. Search results should show product titles, prices, and links
+4. Shopify: check your theme's search template — ensure it returns
+   product results, not just blog posts or pages'''
+
+
+def _fix_019(cr, page):
+    detail = cr.get("detail", "")
+    return f'''An AI agent could not reach the checkout page.
+
+{detail}
+
+This is critical — if agents can't get to checkout, they can't
+complete purchases on behalf of customers.
+
+Common causes:
+1. Cart page requires JS to load the checkout button
+2. Cart is a slide-out drawer with no direct link to /checkout
+3. Checkout requires login (enable guest checkout)
+4. Checkout redirect is blocked by bot protection
+
+Fix for Shopify:
+1. Settings > Checkout > enable guest checkout
+2. Ensure /cart page has a visible "Checkout" button/link
+3. Check that bot protection allows the checkout flow
+4. Test: can you go from /cart to /checkout without JS?'''
+
+
+def _fix_020(cr, page):
+    detail = cr.get("detail", "")
+    return f'''An AI agent could not navigate from your homepage to a product page.
+
+{detail}
+
+Fix:
+1. Use clear, hierarchical navigation menus with descriptive labels
+   (not just icons or images)
+2. Collection/category links should be in <nav> with <a> elements
+3. Product cards in collections should be standard <a> links with
+   clear product names, not JS-only click handlers
+4. Avoid mega-menus that only appear on hover — agents can't hover
+
+Shopify: Most themes handle this well. Check that your navigation
+uses proper HTML links, not JS-rendered dynamic menus.'''
+
+
+def _fix_021(cr, page):
+    detail = cr.get("detail", "")
+    return f'''An AI agent could not find or navigate to a related product.
+
+{detail}
+
+Fix:
+1. Add a visible "You may also like" or "Related products" section
+   on product pages
+2. Use standard <a> links to related products (not JS carousels
+   that require interaction to reveal links)
+3. Include product names in the link text or alt attributes
+
+Shopify: Most themes include a related products section. Check:
+- Online Store > Themes > Customize > Product page
+- Look for "Related products" or "You may also like" section
+- Enable it if it's turned off'''
+
+
 # Map check IDs to recipe functions
 _RECIPES = {
     "RDY-001": _fix_001,
@@ -789,6 +886,11 @@ _RECIPES = {
     "RDY-014": _fix_014,
     "RDY-015": _fix_015,
     "RDY-016": _fix_016,
+    "RDY-017": _fix_017,
+    "RDY-018": _fix_018,
+    "RDY-019": _fix_019,
+    "RDY-020": _fix_020,
+    "RDY-021": _fix_021,
     "RDY-022": _fix_022,
     "RDY-023": _fix_023,
     "RDY-029": _fix_029,
