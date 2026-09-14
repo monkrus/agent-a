@@ -25,9 +25,16 @@ def _load_private():
         except ImportError:
             pass
 
-    # 2. Co-located private file
+    # 2. Co-located private file (package import)
     try:
         from . import _fixes_private
+        return _fixes_private
+    except (ImportError, SystemError):
+        pass
+
+    # 3. Co-located private file (direct import — when run outside package)
+    try:
+        import _fixes_private
         return _fixes_private
     except ImportError:
         pass
