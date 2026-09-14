@@ -398,8 +398,16 @@
             <span>{{ r.detail }}</span>
           </div>
           <div class="check-row check-impact">
-            <span class="check-label">Why this matters</span>
-            <span>We couldn't verify this because your page doesn't expose the data clearly enough. That's itself a problem &mdash; if our scanner can't find it, neither can a shopping agent.</span>
+            <span class="check-label">Why inconclusive</span>
+            <span>
+              {% if 'not probed' in r.detail|lower or 'local file mode' in r.detail|lower %}
+                Our scanner doesn't test this endpoint yet &mdash; this is a limitation of the current scan, not a problem with your site.
+              {% elif 'not a meaningful' in r.detail|lower %}
+                We couldn't run enough test requests to draw a reliable conclusion. This check needs a longer test window.
+              {% else %}
+                We couldn't determine this from the available page data. If our scanner can't find it, an AI shopping agent may not be able to either.
+              {% endif %}
+            </span>
           </div>
         </div>
         {% endif %}

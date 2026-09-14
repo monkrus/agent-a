@@ -4,7 +4,7 @@ Test that the scanner works when private fix recipes are absent.
 The public fixes.py stub must:
 1. Import without error
 2. Return None for passing checks
-3. Return a placeholder string for failing checks
+3. Return None for failing checks (no placeholder — YAML 'fix' field provides advice)
 """
 import sys
 import os
@@ -19,12 +19,11 @@ def test_generate_fix_returns_none_for_pass():
     assert result is None
 
 
-def test_generate_fix_returns_placeholder_for_fail():
+def test_generate_fix_returns_none_for_fail_without_private():
     from fixes import generate_fix
     result = generate_fix({"id": "RDY-001", "verdict": "FAIL"}, {})
-    assert result is not None
-    assert isinstance(result, str)
-    assert len(result) > 0
+    # Without private module, no fix recipe — the YAML 'fix' field provides advice
+    assert result is None
 
 
 def test_generate_fix_returns_none_for_unknown():

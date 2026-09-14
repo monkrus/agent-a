@@ -37,10 +37,7 @@ def _load_private():
 
 _private = _load_private()
 
-_PLACEHOLDER = (
-    "Detailed fix recipe available in the full report.\n"
-    "Contact sergeigodev@gmail.com for the complete agent-readiness audit."
-)
+_PLACEHOLDER = None  # No stub text — the YAML 'fix' field provides the advice
 
 
 def generate_fix(check_result: dict, page: dict) -> str | None:
