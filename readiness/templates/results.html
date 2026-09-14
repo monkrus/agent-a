@@ -244,16 +244,47 @@
       {% for r in failing[:5] %}
       <div class="check-block check-fail">
         <div class="check-header">
-          <span class="check-id">{{ r.id }}</span>
+          <span class="verdict-icon">✗</span>
           <span class="check-title">{{ r.title }}</span>
-          <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
-          <span class="verdict verdict-badge-fail">FAIL</span>
+          <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }} priority</span>
+          <span class="verdict verdict-badge-fail">Needs fix</span>
         </div>
+        {% if teaser_fix and r.id == teaser_check_id %}
+        <div class="check-detail">
+          <div class="check-row">
+            <span class="check-label">Result</span>
+            <span>{{ r.detail }}</span>
+          </div>
+          <div class="fix-block">
+            <div class="fix-header">
+              <span class="fix-label">How to fix this</span>
+              <button class="btn-copy" onclick="copyFix(this)" data-code="{{ teaser_fix | e }}">Copy fix</button>
+            </div>
+            <p class="fix-instruction">{{ r.fix or '' }}</p>
+            <pre class="fix-code"><code>{{ teaser_fix | e }}</code></pre>
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">This is a free preview. The Deep Agent Audit includes fixes for all {{ failing|length }} issues.</p>
+        </div>
+        {% elif not loop.first %}
+        <div style="padding:0.5rem 0.85rem; border-top:1px solid var(--border); display:flex; align-items:center; gap:0.5rem;">
+          <span style="font-size:0.8rem; color:var(--text-muted);">🔒 Fix recipe available in the Deep Agent Audit</span>
+        </div>
+        {% else %}
+        <div style="padding:0.5rem 0.85rem; border-top:1px solid var(--border);">
+          <div class="check-row">
+            <span class="check-label">Result</span>
+            <span>{{ r.detail }}</span>
+          </div>
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
       {% if failing|length > 5 %}
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem;">+ {{ failing|length - 5 }} more issues found. Unlock the Deep Agent Audit for details and fixes.</p>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem;">+ {{ failing|length - 5 }} more issues found.</p>
       {% endif %}
+      <div style="text-align:center; margin-top:1rem;">
+        <a href="#paywall" style="color:var(--accent); font-weight:600; font-size:0.9rem;">Unlock all {{ failing|length }} fixes — Deep Agent Audit $49 ↓</a>
+      </div>
       {% endif %}
 
       {% if jsonld_snippet %}
@@ -453,7 +484,7 @@
     <!-- REVENUE IMPACT (paid only) -->
     <div class="card">
       <h2>Estimated Revenue Impact</h2>
-      <p class="intel-subtitle">What these failures may be costing you each month from AI-referred shoppers.</p>
+      <p class="intel-subtitle">Estimate — based on industry benchmarks and your scan results, not measured from your actual traffic.</p>
       <div style="display:flex; gap:2rem; margin:1rem 0; flex-wrap:wrap; justify-content:center;">
         <div style="text-align:center;">
           <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.25rem;">Monthly</div>
@@ -464,13 +495,16 @@
           <div style="font-size:1.8rem; font-weight:700; color:#f87171;">${{ "{:,}".format(data.impact.estimated_annual_loss.low) }} – ${{ "{:,}".format(data.impact.estimated_annual_loss.high) }}</div>
         </div>
       </div>
-      <details style="margin-top:0.75rem;">
-        <summary style="font-size:0.8rem; color:var(--text-muted); cursor:pointer;">How we calculated this</summary>
-        <ul style="font-size:0.8rem; color:var(--text-muted); padding-left:1.25rem; margin-top:0.5rem; line-height:1.7;">
+      <div style="margin-top:0.75rem; font-size:0.8rem; color:var(--text-muted); line-height:1.7;">
+        <p style="font-weight:600; margin-bottom:0.25rem;">Assumptions</p>
+        <ul style="padding-left:1.25rem; margin:0;">
           {% for a in data.impact.assumptions %}<li>{{ a }}</li>{% endfor %}
           <li>Agent failure rate: {{ (data.impact.agent_failure_rate * 100)|round(0)|int }}% of checks failing</li>
         </ul>
-      </details>
+        {% if 'fallback' in (data.impact.derivation.price_source|default('')) %}
+        <p style="margin-top:0.5rem; color:#facc15;">We used a $50 default AOV. For a more accurate estimate, email your actual AOV to <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">sergeigodev@gmail.com</a> and we'll recalculate.</p>
+        {% endif %}
+      </div>
     </div>
     {% endif %}
 
@@ -564,7 +598,7 @@
     {% endif %}
 
     <!-- PAYWALL -->
-    <div class="card paywall-card">
+    <div class="card paywall-card" id="paywall">
       <h2>Deep Agent Audit — $49</h2>
       <p>Your free scan checks page structure. The Deep Audit sends a <strong>real AI shopping agent</strong> to your page {{ data.meta.n }} times — the same way ChatGPT or Perplexity would visit — and shows you exactly what it sees.</p>
       <ul>

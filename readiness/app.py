@@ -227,6 +227,14 @@ def _load_checks():
     return data.get("pack", "pack"), data.get("version", ""), data.get("checks", [])
 
 
+def _check_counts():
+    """Derive check counts from YAML — single source of truth."""
+    _, _, checks = _load_checks()
+    free = len(checks_for_tier("free", checks))
+    paid = len(checks_for_tier("paid", checks))
+    return {"free": free, "paid": paid, "total": len(checks)}
+
+
 # ---- Live stats from stored scans ------------------------------------------
 STATS_CACHE_TTL = 300  # recompute every 5 minutes
 
@@ -465,6 +473,7 @@ def _load_scan(scan_id):
 def index():
     stats = _scan_stats()
     stats["total_scans"] = _get_scan_count()
+    stats["check_counts"] = _check_counts()
     return render_template("index.html", stats=stats)
 
 
@@ -472,6 +481,7 @@ def _index_with_error(error, status=200):
     """Render index.html with an error message, including stats."""
     stats = _scan_stats()
     stats["total_scans"] = _get_scan_count()
+    stats["check_counts"] = _check_counts()
     return render_template("index.html", error=error, stats=stats), status
 
 
@@ -958,6 +968,17 @@ def results(scan_id):
     access_blocked = any(r.get("gated") for r in data.get("results", []))
     # Generate JSON-LD snippet if RDY-001 failed
     jsonld_snippet = _generate_jsonld_snippet(data) if not paid else None
+    # Free-tier fix teaser: one real recipe for the highest-weighted failing check
+    teaser_fix = None
+    teaser_check_id = None
+    if not paid:
+        SEV_WEIGHT = {"critical": 100, "high": 10, "medium": 5, "low": 1}
+        failing = [r for r in data.get("results", []) if r.get("verdict") == "FAIL"]
+        failing.sort(key=lambda r: -(r.get("weight", 0) or 0) * SEV_WEIGHT.get(r.get("severity_if_fail"), 1))
+        if failing:
+            top = failing[0]
+            teaser_check_id = top.get("id")
+            teaser_fix = fixesmod.generate_fix(top, {})
     # Load comparison if one exists
     comparison = session.get(f"compare_{scan_id}")
     scan_count = _get_scan_count()
@@ -967,7 +988,8 @@ def results(scan_id):
                            email_sent_to=email_sent_to, team_sent=team_sent,
                            has_email=has_email, access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
-                           scan_count=scan_count)
+                           scan_count=scan_count,
+                           teaser_fix=teaser_fix, teaser_check_id=teaser_check_id)
 
 
 @app.route("/compare/<scan_id>", methods=["POST"])

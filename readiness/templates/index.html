@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Agent‑A — Is your store ready for AI shoppers?</title>
-  <meta name="description" content="Free scan: find out if ChatGPT, Gemini, and AI shopping agents can read, extract from, and buy on your product pages. 31 checks across 6 categories, instant results.">
+  <meta name="description" content="Free scan: find out if ChatGPT, Gemini, and AI shopping agents can read, extract from, and buy on your product pages. {{ stats.check_counts.free }} free checks across 6 categories, instant results.">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -205,11 +205,11 @@
     <div class="card" style="padding:1rem 1.5rem;">
       <div class="stat-row" style="gap:1rem;">
         <div class="stat-item">
-          <span class="stat-number" style="color:#4ade80;">31</span>
+          <span class="stat-number" style="color:#4ade80;">{{ stats.check_counts.free }}</span>
           <span class="stat-label"><span style="color:#4ade80;font-weight:600;">Free</span> checks</span>
         </div>
         <div class="stat-item">
-          <span class="stat-number" style="background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">41</span>
+          <span class="stat-number" style="background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">{{ stats.check_counts.paid }}</span>
           <span class="stat-label"><span style="color:#a78bfa;font-weight:600;">Deep Audit</span> checks ($49)</span>
         </div>
         <div class="stat-item">
@@ -248,7 +248,7 @@
         <div class="check-item">
           <span class="check-num">03</span>
           <strong>Can agents act on it?</strong>
-          <span>Add-to-cart semantics, variant selectors, guest checkout, cart API, and checkout reachability.</span>
+          <span>Add-to-cart semantics, variant selectors, guest checkout, and cart API (free). The Deep Audit adds browser walkthroughs: a real AI agent tries to add to cart, search, reach checkout, navigate, and find related products.</span>
           <span class="check-tier"><span style="color:#4ade80;font-weight:600;">Free</span> + <span style="color:#a78bfa;font-weight:600;">Deep Audit</span></span>
         </div>
         <div class="check-item">
@@ -286,7 +286,7 @@
         <div class="step">
           <span class="step-num">2</span>
           <div>
-            <strong>We run 31 checks live</strong>
+            <strong>We run {{ stats.check_counts.free }} checks live</strong>
             <p>Structural probes across data, interaction, security, resilience, and protocol discovery — streamed in real time as they finish.</p>
           </div>
         </div>
@@ -294,7 +294,7 @@
           <span class="step-num">3</span>
           <div>
             <strong>Get your readiness score</strong>
-            <p>A 0–100 structural readiness score with your top issues. The Deep Agent Audit ($49) adds real AI extraction testing, revenue impact estimates, and platform-specific fix guidance.</p>
+            <p>A 0–100 structural readiness score with your top issues. The Deep Agent Audit ($49) re-scans with a real AI agent: extraction accuracy, browser purchase flows, estimated revenue impact, and copy-paste fix recipes.</p>
           </div>
         </div>
       </div>
@@ -320,7 +320,7 @@
       <div class="faq">
         <details>
           <summary>Is the scan really free?</summary>
-          <p>Yes. The free scan runs 31 structural checks and gives you your readiness score, headline findings, and per-check pass/fail verdicts. The Deep Agent Audit ($49) sends a real AI shopper to your page and adds verified extraction results, sample agent responses, revenue impact estimates, and platform-specific fix guidance.</p>
+          <p>Yes. The free scan runs {{ stats.check_counts.free }} structural checks and gives you your readiness score, headline findings, and per-check pass/fail verdicts. The Deep Agent Audit ($49) runs {{ stats.check_counts.paid }} checks total — adding real AI extraction tests (price, availability, product name, return policy, shipping accuracy across multiple visits), browser agent flows (can an agent actually add to cart and reach checkout?), estimated revenue impact, sample agent responses, and copy-paste Shopify fix recipes for every failure.</p>
         </details>
         <details>
           <summary>What stores do you support?</summary>

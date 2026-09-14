@@ -86,10 +86,11 @@ results across six categories:
 ## How it works
 
 1. Fetches the product page (raw HTML + optional Playwright rendered DOM)
-2. Free tier: 31 static checks. Paid tier: adds 5 real AI shopper extractions (+ 5 browser flows if Playwright is installed)
-3. Shopper checks run N times (default 5) to report **pass rates**, not binary
-4. Computes a weighted readiness score (0–100)
-5. Paid report includes revenue impact estimates and platform-specific fix guidance
+2. **Free tier**: 31 static structural checks (no API cost)
+3. **Paid tier** ($49 Deep Agent Audit): 41 checks — 31 static + 5 real AI shopper extractions (Claude, N runs) + 5 browser agent flows (Playwright). Browser flows included when Playwright is installed; gracefully skipped otherwise
+4. Shopper checks run N times (default 5) to report **pass rates**, not binary
+5. Computes a weighted readiness score (0–100)
+6. Paid report includes revenue impact estimates and copy-paste Shopify fix recipes
 
 ## Quick start
 
