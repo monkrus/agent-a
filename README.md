@@ -86,7 +86,7 @@ results across six categories:
 ## How it works
 
 1. Fetches the product page (raw HTML + optional Playwright rendered DOM)
-2. Runs 40 checks — 30 static probes + 5 shopper simulations + 5 browser agent flows
+2. Runs 41 checks — 31 static probes + 5 shopper simulations + 5 browser agent flows
 3. Shopper checks run N times (default 5) to report **pass rates**, not binary
 4. Computes a weighted readiness score (0–100)
 5. Generates platform-specific copy-paste fix recipes for every failure
