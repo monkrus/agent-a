@@ -22,8 +22,8 @@ extract from, interact with, and stay safe on it.
 
 AI agents (ChatGPT Shopping, Google Gemini, Perplexity, Amazon) are becoming
 a major sales channel for e-commerce. But most product pages were built for
-humans, not machines. This scanner tells merchants what's broken and gives
-them copy-paste fixes.
+humans, not machines. This scanner tells merchants what's broken and how to
+fix it.
 
 ## What it does
 
@@ -86,10 +86,10 @@ results across six categories:
 ## How it works
 
 1. Fetches the product page (raw HTML + optional Playwright rendered DOM)
-2. Runs 41 checks — 31 static probes + 5 shopper simulations + 5 browser agent flows
+2. Free tier: 31 static checks. Paid tier: adds 5 real AI shopper extractions (+ 5 browser flows if Playwright is installed)
 3. Shopper checks run N times (default 5) to report **pass rates**, not binary
 4. Computes a weighted readiness score (0–100)
-5. Generates platform-specific copy-paste fix recipes for every failure
+5. Paid report includes revenue impact estimates and platform-specific fix guidance
 
 ## Quick start
 
@@ -158,7 +158,7 @@ runners/                   Scenario runner + adapters
 ## Cost
 
 - **Mock scan** (SHOPPER=mock): free, offline, instant
-- **Shopper-only scan** (SHOPPER=anthropic, no browser): ~$0.05/scan
+- **Shopper-only scan** (SHOPPER=anthropic, no browser): ~$0.20–0.35/scan
 - **Full scan with browser checks**: ~$0.50–1.00/scan (browser vision calls are ~90% of cost)
 - Cost varies by page size and number of browser steps
 
