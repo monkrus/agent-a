@@ -1067,15 +1067,16 @@ def payment_success(scan_id):
             import stripe
             stripe.api_key = stripe_key
             cs = stripe.checkout.Session.retrieve(stripe_session_id)
+            meta = cs.metadata.to_dict() if hasattr(cs.metadata, "to_dict") else dict(cs.metadata or {})
             _logger.info("Stripe session %s: payment_status=%s, metadata=%s",
-                         stripe_session_id, cs.payment_status, cs.metadata)
-            if cs.payment_status in ("paid", "no_payment_required") and cs.metadata.get("scan_id") == scan_id:
+                         stripe_session_id, cs.payment_status, meta)
+            if cs.payment_status in ("paid", "no_payment_required") and meta.get("scan_id") == scan_id:
                 session[f"paid_{scan_id}"] = True
                 buyer_email = cs.customer_details.email if cs.customer_details else None
                 _logger.info("Payment verified for scan %s — unlocked", scan_id)
             else:
                 _logger.warning("Payment NOT verified for scan %s: status=%s, meta_scan_id=%s",
-                                scan_id, cs.payment_status, cs.metadata.get("scan_id"))
+                                scan_id, cs.payment_status, meta.get("scan_id"))
                 payment_error = "payment_not_verified"
         except Exception as exc:
             _logger.exception("Stripe verification failed for scan %s", scan_id)
