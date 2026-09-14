@@ -1010,7 +1010,7 @@ def compare(scan_id):
         }
     except Exception:
         session[f"compare_{scan_id}"] = None
-    return redirect(url_for("results", scan_id=scan_id))
+    return redirect(url_for("results", scan_id=scan_id) + "#compare")
 
 
 @app.route("/checkout/<scan_id>", methods=["POST"])
