@@ -449,6 +449,31 @@
       {% endif %}
     </div>
 
+    {% if paid and data.impact and data.impact.estimated_monthly_loss %}
+    <!-- REVENUE IMPACT (paid only) -->
+    <div class="card">
+      <h2>Estimated Revenue Impact</h2>
+      <p class="intel-subtitle">What these failures may be costing you each month from AI-referred shoppers.</p>
+      <div style="display:flex; gap:2rem; margin:1rem 0; flex-wrap:wrap; justify-content:center;">
+        <div style="text-align:center;">
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.25rem;">Monthly</div>
+          <div style="font-size:1.8rem; font-weight:700; color:#f87171;">${{ "{:,}".format(data.impact.estimated_monthly_loss.low) }} – ${{ "{:,}".format(data.impact.estimated_monthly_loss.high) }}</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.25rem;">Annual</div>
+          <div style="font-size:1.8rem; font-weight:700; color:#f87171;">${{ "{:,}".format(data.impact.estimated_annual_loss.low) }} – ${{ "{:,}".format(data.impact.estimated_annual_loss.high) }}</div>
+        </div>
+      </div>
+      <details style="margin-top:0.75rem;">
+        <summary style="font-size:0.8rem; color:var(--text-muted); cursor:pointer;">How we calculated this</summary>
+        <ul style="font-size:0.8rem; color:var(--text-muted); padding-left:1.25rem; margin-top:0.5rem; line-height:1.7;">
+          {% for a in data.impact.assumptions %}<li>{{ a }}</li>{% endfor %}
+          <li>Agent failure rate: {{ (data.impact.agent_failure_rate * 100)|round(0)|int }}% of checks failing</li>
+        </ul>
+      </details>
+    </div>
+    {% endif %}
+
     {% if not paid %}
     <!-- COMPETITOR COMPARISON -->
     <div class="card">
@@ -541,13 +566,12 @@
     <!-- PAYWALL -->
     <div class="card paywall-card">
       <h2>Deep Agent Audit — $49</h2>
-      <p>Your free scan checks <strong>structural readiness</strong> — whether your page is set up for AI agents. The Deep Agent Audit sends a real AI shopper to your page {{ data.meta.n }} times and shows you exactly what it sees.</p>
+      <p>Your free scan checks page structure. The Deep Audit sends a <strong>real AI shopping agent</strong> to your page {{ data.meta.n }} times — the same way ChatGPT or Perplexity would visit — and shows you exactly what it sees.</p>
       <ul>
-        <li><strong>Verified agent-shoppability</strong> — does a real AI agent extract the right price, availability, and product name?</li>
-        <li><strong>Emotional gap analysis</strong> — what your photos make shoppers feel vs. what your text tells AI agents. If the words don't carry the mood, agents can't sell it</li>
-        <li>Plain-language explanation of each failure and what it costs you</li>
-        <li>Evidence: sample AI agent responses across {{ data.meta.n }} visits</li>
-        <li>Copy-paste code fixes for your platform</li>
+        <li><strong>Real AI extraction test</strong> — does the agent get the right price, availability, and product name? See the pass rate and actual agent responses</li>
+        <li><strong>Estimated revenue impact</strong> — how much these failures may be costing you monthly from AI-referred shoppers</li>
+        <li><strong>Plain-language explanation</strong> of each failure and what it costs you in lost sales</li>
+        <li><strong>Platform-specific guidance</strong> on how to fix each issue</li>
       </ul>
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
         <button type="submit" class="btn-pay">Run Deep Agent Audit — $49</button>

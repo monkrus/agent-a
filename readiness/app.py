@@ -211,10 +211,15 @@ def resolve_tier(scan_id: str | None) -> str:
 
 
 def checks_for_tier(tier: str, checks: list[dict]) -> list[dict]:
-    """Free tier = static checks only. Paid = all checks."""
+    """Free tier = static checks only. Paid = static + shopper (+ browser if available)."""
     if tier == "free":
         return [c for c in checks if c.get("type") == "static"]
-    return checks
+    # Paid: include browser checks only if Playwright is installed
+    try:
+        import browser_agent  # noqa: F401
+        return checks
+    except ImportError:
+        return [c for c in checks if c.get("type") != "browser"]
 
 
 def _load_checks():
