@@ -132,7 +132,8 @@ def _init_store():
         key TEXT PRIMARY KEY, value TEXT, ts REAL)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS counters (
         key TEXT PRIMARY KEY, value INTEGER DEFAULT 0)""")
-    conn.execute("""INSERT OR IGNORE INTO counters (key, value) VALUES ('total_scans', 70)""")
+    seed = int(os.environ.get("SCAN_COUNT_SEED", "0"))
+    conn.execute("""INSERT OR IGNORE INTO counters (key, value) VALUES ('total_scans', ?)""", (seed,))
     conn.commit()
     conn.close()
 
