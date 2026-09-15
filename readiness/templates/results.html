@@ -600,13 +600,19 @@
     <!-- PAYWALL -->
     <div class="card paywall-card" id="paywall">
       <h2>Deep Agent Audit — $49</h2>
-      <p>Your free scan checks page structure. The Deep Audit sends a <strong>real AI shopping agent</strong> to your page {{ data.meta.n }} times — the same way ChatGPT or Perplexity would visit — and shows you exactly what it sees.</p>
+      <p>Your free scan checked page structure. The Deep Audit re-scans with a <strong>real AI shopping agent</strong> and shows you exactly what it sees.</p>
+
+      <p style="font-size:0.85rem; font-weight:600; color:var(--text); margin:0.75rem 0 0.25rem;">What you get:</p>
       <ul>
-        <li><strong>Real AI extraction test</strong> — does the agent get the right price, availability, and product name? See the pass rate and actual agent responses</li>
-        <li><strong>Estimated revenue impact</strong> — how much these failures may be costing you monthly from AI-referred shoppers</li>
-        <li><strong>Plain-language explanation</strong> of each failure and what it costs you in lost sales</li>
-        <li><strong>Copy-paste fix recipes</strong> — Shopify Liquid snippets, config changes, and step-by-step instructions for each issue</li>
+        <li><strong>{{ stats.check_counts.paid }} checks</strong> (vs {{ stats.check_counts.free }} free) — adds AI extraction + browser agent flows</li>
+        <li><strong>Real AI extraction</strong> — Claude visits your page {{ data.meta.n }} times, extracts price, availability, product name, return policy, and shipping. See pass rates and sample responses</li>
+        <li><strong>Browser purchase test</strong> — an AI agent tries to add to cart, search for your product, reach checkout, navigate from homepage, and find related products</li>
+        <li><strong>Revenue impact estimate</strong> — monthly/annual range based on your failure rate and industry benchmarks (not measured from your traffic)</li>
+        <li><strong>Copy-paste fix recipes</strong> — Shopify Liquid code, config steps, and plain-language instructions for every failing check</li>
+        <li><strong>Report emailed</strong> to you automatically</li>
       </ul>
+
+      <p style="font-size:0.8rem; color:var(--text-muted); margin:0.5rem 0;">Not included: ongoing monitoring, PDF download, or measured analytics integration. This is a one-time diagnostic report.</p>
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
         <button type="submit" class="btn-pay">Run Deep Agent Audit — $49</button>
       </form>

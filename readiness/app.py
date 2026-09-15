@@ -982,13 +982,14 @@ def results(scan_id):
     # Load comparison if one exists
     comparison = session.get(f"compare_{scan_id}")
     scan_count = _get_scan_count()
+    check_counts = _check_counts()
     return render_template("results.html", data=data, paid=paid,
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            payment_error=payment_error,
                            email_sent_to=email_sent_to, team_sent=team_sent,
                            has_email=has_email, access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
-                           scan_count=scan_count,
+                           scan_count=scan_count, stats={"check_counts": check_counts},
                            teaser_fix=teaser_fix, teaser_check_id=teaser_check_id)
 
 
