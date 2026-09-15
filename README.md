@@ -83,14 +83,36 @@ results across six categories:
 - llms.txt protocol and feature parsing
 - Meta directive analysis (noindex detection)
 
+## Two tiers
+
+### Free scan (31 checks, $0)
+- Readiness score (0–100)
+- 31 structural checks: data, interaction, security, resilience, protocols
+- Pass/fail/inconclusive per check with top issues listed
+- One free fix recipe for the highest-priority failure
+- Competitor head-to-head comparison
+- Intel: platform, AI agents, commerce protocols detected
+- Shareable results link
+- No API cost, no account, instant
+
+### Deep Agent Audit (41 checks, $49)
+Everything in free, plus:
+- **5 AI extraction checks** — Claude visits the page N times, extracts price, availability, product name, return window, shipping. Shows pass rate, ground truth, sample responses
+- **5 browser agent flows** — AI agent tries to: add to cart, search, reach checkout, navigate, find related products
+- **Revenue impact estimate** — monthly/annual dollar range (benchmark-based, not measured from your traffic)
+- **Copy-paste fix recipes** for every failing check — Shopify Liquid, config steps, plain-language instructions
+- **Full detail** on every check: result, what you're losing, how to fix
+- **Report emailed** automatically
+
+**Not included:** ongoing monitoring, PDF download, or analytics integration. One-time diagnostic report.
+
 ## How it works
 
 1. Fetches the product page (raw HTML + optional Playwright rendered DOM)
-2. **Free tier**: 31 static structural checks (no API cost)
-3. **Paid tier** ($49 Deep Agent Audit): 41 checks — 31 static + 5 real AI shopper extractions (Claude, N runs) + 5 browser agent flows (Playwright). Browser flows included when Playwright is installed; gracefully skipped otherwise
+2. Free tier runs 31 static structural checks (no API cost)
+3. Paid tier re-scans with all 41 checks: static + AI shopper + browser flows
 4. Shopper checks run N times (default 5) to report **pass rates**, not binary
 5. Computes a weighted readiness score (0–100)
-6. Paid report includes revenue impact estimates and copy-paste Shopify fix recipes
 
 ## Quick start
 
@@ -146,7 +168,8 @@ readiness/                 The scanner (primary product)
   shopper.py               Simulated shopping agent
   scorers.py               Check probes + grading
   intel.py                 Agent intelligence module
-  fixes.py                 Fix recipe stub (full recipes in agent-a-private)
+  fixes.py                 Fix recipe loader (auto-loads _fixes_private.py)
+  _fixes_private.py        Copy-paste fix recipes for all 41 checks
   og_image.py              OG image generator for shareable results
   checks/shopify-v1.yaml   Check pack (weights sum to 100)
   templates/               Web frontend templates
@@ -165,14 +188,15 @@ runners/                   Scenario runner + adapters
 
 ## Open-core model
 
-The scanner framework, check definitions, and scoring methodology are
-**open source** (this repo). Fix recipes, report templates, and client
-materials live in a separate private repository (`agent-a-private/`).
+The scanner framework, check definitions, scoring methodology, and fix
+recipes are **open source** (this repo). Client deliverables and report
+templates live in a separate private repository (`agent-a-private/`).
 
-| Public (this repo)              | Private (`agent-a-private/`)       |
-|---------------------------------|------------------------------------|
-| Scanner engine & CLI            | Copy-paste fix recipes             |
-| Check pack (IDs, weights, YAML) | Report templates                   |
-| Scoring & grading logic         | Playbook & client templates        |
-| Web frontend                    | Client deliverables                |
-| Prompt-injection detection      | Outreach materials                 |
+| Public (this repo)                | Private (`agent-a-private/`)       |
+|-----------------------------------|------------------------------------|
+| Scanner engine & CLI              | Report templates                   |
+| Check pack (IDs, weights, YAML)   | Playbook & client templates        |
+| Scoring & grading logic           | Client deliverables                |
+| Web frontend                      | Outreach materials                 |
+| Fix recipes (`_fixes_private.py`) |                                    |
+| Prompt-injection detection        |                                    |
