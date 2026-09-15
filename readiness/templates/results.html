@@ -372,7 +372,7 @@
             <span>{{ r.pass_rate }} (agent got it right {{ r.pass_rate }} times)</span>
           </div>
           {% endif %}
-          {% if r.ground_truth is defined and r.ground_truth is not none %}
+          {% if r.ground_truth is defined and r.ground_truth is not none and r.ground_truth != '' %}
           <div class="check-row">
             <span class="check-label">Correct answer</span>
             <span>{{ r.ground_truth }}</span>

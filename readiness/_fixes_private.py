@@ -144,13 +144,14 @@ or create a page at /pages/llms-txt and set up a URL redirect from /llms.txt.'''
 
 def _fix_006(cr, page):
     gt = cr.get("ground_truth", "")
-    return f'''The AI agent extracted the wrong price or couldn't find it.
-Expected: {gt}
+    gt_line = f"Expected price: {gt}\n" if gt else ""
+    gt_example = gt if gt else "29.99"
+    return f'''{gt_line}{"The AI agent extracted the wrong price or couldn't find it." if gt else "The AI agent could not extract the price (site may be blocking agent access)."}
 
 Fix: Make the canonical price unambiguous.
 
 1. Ensure JSON-LD has the correct price:
-   "offers": {{ "price": "{gt}", "priceCurrency": "USD" }}
+   "offers": {{ "price": "{gt_example}", "priceCurrency": "USD" }}
 
 2. Remove stale or secondary prices that confuse agents:
    - Strike-through "compare at" prices should use <del> or <s> tags
@@ -186,7 +187,8 @@ Also check:
 
 def _fix_008(cr, page):
     gt = cr.get("ground_truth", "")
-    return f'''The AI agent couldn't identify the correct product name.
+    if gt:
+        return f'''The AI agent couldn't identify the correct product name.
 Expected: {gt}
 
 Fix: Use one canonical name consistently across:
@@ -198,6 +200,17 @@ Fix: Use one canonical name consistently across:
 
 If these all say different things, agents get confused. Pick one canonical
 name and use it everywhere. Avoid stuffing keywords into the product title.'''
+    return '''The AI agent could not identify the product name (site may be blocking agent access).
+
+Fix: Use one canonical name consistently across:
+
+1. <title> tag: "Your Product Name | Your Store"
+2. og:title meta tag
+3. JSON-LD "name" field
+4. <h1> on the page
+
+If these all say different things, agents get confused. Pick one canonical
+name and use it everywhere.'''
 
 
 def _fix_009(cr, page):
