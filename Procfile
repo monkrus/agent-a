@@ -1,1 +1,1 @@
-web: gunicorn readiness.app:app --bind 0.0.0.0:$PORT
+web: gunicorn readiness.app:app --bind 0.0.0.0:$PORT --timeout 180
