@@ -1,4 +1,4 @@
- name: Tests
+name: Tests
 
   on:
     push:
@@ -18,4 +18,4 @@
           with:
             python-version: ${{ matrix.python-version }}
         - run: pip install -r requirements.txt
-        - run: cd readiness && TESTING=1 python -m pytest tests -q
+        - run: cd readiness && TESTING=1 python -m pytest tests -q 
