@@ -183,6 +183,38 @@ def _check_rate_limit(client_ip: str) -> int | None:
         conn.close()
 
 
+def _normalize_and_validate_url(raw: str) -> tuple[str | None, str | None]:
+    """Normalize and validate a user-supplied URL.
+
+    Returns (url, None) on success or (None, error_message) on failure.
+    Shared by /scan, /scan-stream, and /compare so validation cannot drift.
+    """
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+    url = raw.strip().lstrip("-*•· \t")
+    if not url:
+        return None, "No URL provided."
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    # Strip tracking/marketing params — keep only variant
+    p = urlparse(url)
+    if p.query:
+        keep = {k: v for k, v in parse_qs(p.query).items() if k == "variant"}
+        url = urlunparse(p._replace(query=urlencode(keep, doseq=True)))
+    if len(url) > 2000:
+        return None, "That URL is too long (max 2,000 characters). Please paste just the product page URL."
+    p = urlparse(url)
+    if not p.hostname or "." not in p.hostname:
+        return None, ("That doesn't look like a valid URL. Please paste a product page URL "
+                      "like: your-store.com/products/product-name")
+    path = p.path.rstrip("/")
+    if not path or path.count("/") < 2:
+        return None, ("That looks like a homepage or collection page. "
+                      "Please paste a specific product page URL instead — "
+                      "on your store, click on any product and copy the URL from your browser. "
+                      "It usually looks like: your-store.com/products/product-name")
+    return url, None
+
+
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 
 
@@ -494,33 +526,12 @@ def scan():
         return _index_with_error(
             f"Please wait {wait} seconds before scanning again.", 429)
 
-    url = request.form.get("url", "").strip()
-    # Strip leading bullets, dashes, whitespace from copy-paste
-    url = url.lstrip("-*•· \t")
-    if not url:
-        return redirect(url_for("index"))
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-    # Strip tracking/marketing params — keep only variant
-    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-    _p = urlparse(url)
-    if _p.query:
-        _keep = {k: v for k, v in parse_qs(_p.query).items() if k == "variant"}
-        url = urlunparse(_p._replace(query=urlencode(_keep, doseq=True)))
-    if len(url) > 2000:
-        return _index_with_error("That URL is too long (max 2,000 characters). Please paste just the product page URL.")
-    parsed = urlparse(url)
-    if not parsed.hostname or "." not in parsed.hostname:
-        return _index_with_error("That doesn't look like a valid URL. Please paste a product page URL like: your-store.com/products/product-name")
-    # Check if this looks like a product page
-    path = parsed.path.rstrip("/")
-    if not path or path.count("/") < 2:
-        return _index_with_error(
-            "That looks like a homepage or collection page. "
-            "Please paste a specific product page URL instead — "
-            "on your store, click on any product and copy the URL from your browser. "
-            "It usually looks like: your-store.com/products/product-name"
-        )
+    url, err = _normalize_and_validate_url(request.form.get("url", ""))
+    if err:
+        if not request.form.get("url", "").strip():
+            return redirect(url_for("index"))
+        return _index_with_error(err)
+
     # Fetch page and check for 404 / soft-404 before running full scan
     try:
         pre_page = fetchmod.fetch(url)
@@ -578,25 +589,9 @@ def scan_stream():
                                    "message": f"Please wait {wait} seconds before scanning again."}) + "\n\n",
             content_type="text/event-stream", status=429)
 
-    url = request.args.get("url", "").strip().lstrip("-*•· \t")
-    if not url:
-        return Response("data: " + json.dumps({"type": "error", "message": "No URL"}) + "\n\n",
-                        content_type="text/event-stream")
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-    # Strip tracking/marketing params — keep only variant
-    from urllib.parse import urlparse as _urlp, parse_qs as _pqs, urlencode as _ue, urlunparse as _uu
-    _pp = _urlp(url)
-    if _pp.query:
-        _keep = {k: v for k, v in _pqs(_pp.query).items() if k == "variant"}
-        url = _uu(_pp._replace(query=_ue(_keep, doseq=True)))
-    if len(url) > 2000:
-        return Response("data: " + json.dumps({"type": "error", "message": "That URL is too long (max 2,000 characters). Please paste just the product page URL."}) + "\n\n",
-                        content_type="text/event-stream")
-    from urllib.parse import urlparse as _urlparse
-    _parsed = _urlparse(url)
-    if not _parsed.hostname or "." not in _parsed.hostname:
-        return Response("data: " + json.dumps({"type": "error", "message": "That doesn't look like a valid URL. Please paste a product page URL like: your-store.com/products/product-name"}) + "\n\n",
+    url, err = _normalize_and_validate_url(request.args.get("url", ""))
+    if err:
+        return Response("data: " + json.dumps({"type": "error", "message": err}) + "\n\n",
                         content_type="text/event-stream")
 
     def generate():
@@ -1001,17 +996,20 @@ def compare(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    comp_url = request.form.get("competitor_url", "").strip().lstrip("-*•· \t")
-    if not comp_url:
-        return redirect(url_for("results", scan_id=scan_id))
-    if not comp_url.startswith(("http://", "https://")):
-        comp_url = "https://" + comp_url
-    # Strip tracking params — keep only variant
-    from urllib.parse import urlparse as _urlp2, parse_qs as _pqs2, urlencode as _ue2, urlunparse as _uu2
-    _cp = _urlp2(comp_url)
-    if _cp.query:
-        _keep = {k: v for k, v in _pqs2(_cp.query).items() if k == "variant"}
-        comp_url = _uu2(_cp._replace(query=_ue2(_keep, doseq=True)))
+
+    # Validate URL first (cheap), then rate limit (consumes quota)
+    comp_url, err = _normalize_and_validate_url(
+        request.form.get("competitor_url", ""))
+    if err:
+        session[f"compare_error_{scan_id}"] = err
+        return redirect(url_for("results", scan_id=scan_id) + "#compare")
+
+    # Rate limit: same per-IP limit as /scan
+    client_ip = request.remote_addr or "unknown"
+    wait = _check_rate_limit(client_ip)
+    if wait is not None:
+        session[f"compare_error_{scan_id}"] = f"Please wait {wait} seconds before comparing again."
+        return redirect(url_for("results", scan_id=scan_id) + "#compare")
 
     try:
         comp_page = fetchmod.fetch(comp_url)
@@ -1019,6 +1017,11 @@ def compare(scan_id):
         if dead:
             session[f"compare_{scan_id}"] = None
             session[f"compare_error_{scan_id}"] = f"Could not scan that URL: {dead}"
+            return redirect(url_for("results", scan_id=scan_id) + "#compare")
+        collection_warning = fetchmod.is_collection_page(comp_page)
+        if collection_warning:
+            session[f"compare_{scan_id}"] = None
+            session[f"compare_error_{scan_id}"] = collection_warning
             return redirect(url_for("results", scan_id=scan_id) + "#compare")
         comp_scan_id = _run_scan(comp_url, pre_fetched_page=comp_page)
         _increment_scan_count()

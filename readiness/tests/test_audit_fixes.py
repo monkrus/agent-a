@@ -426,3 +426,95 @@ class TestConfidenceBadge:
             assert "confidence" in result, f"{c['id']} missing confidence field"
             assert result["confidence"] in ("observed", "estimated"), \
                 f"{c['id']} has unexpected confidence: {result['confidence']}"
+
+
+# ---- Item 2: Compare rate limit and URL validation ---------------------------
+
+class TestCompareRateLimit:
+    def _create_fixture_scan(self, client):
+        """Create a minimal scan JSON in .scans/ and return its scan_id."""
+        from app import SCANS_DIR
+        import json, hashlib, datetime
+        scan_id = hashlib.sha256(
+            f"fixture:{datetime.datetime.now().isoformat()}".encode()
+        ).hexdigest()[:12]
+        payload = {
+            "scan_id": scan_id,
+            "meta": {"target": "https://example.com/products/test",
+                     "pack": "test", "version": "test", "n": 1,
+                     "shopper": "mock", "tier": "free",
+                     "timestamp": datetime.datetime.now().isoformat()},
+            "readiness_score": 50.0,
+            "headline": "test",
+            "results": [{"id": "RDY-001", "verdict": "PASS",
+                         "pass_fraction": 1.0, "weight": 5}],
+        }
+        (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(payload))
+        return scan_id
+
+    def test_compare_rejects_homepage(self):
+        """POST to /compare with a homepage URL is rejected (before rate limit)."""
+        from app import app as flask_app
+        flask_app.config["TESTING"] = True
+        client = flask_app.test_client()
+        scan_id = self._create_fixture_scan(client)
+        url = f"/compare/{scan_id}"
+        data = {"competitor_url": "https://example.com/"}
+        r = client.post(url, data=data)
+        assert r.status_code in (302, 303)
+        with client.session_transaction() as sess:
+            err = sess.get(f"compare_error_{scan_id}", "")
+            assert "homepage" in err.lower() or "collection" in err.lower()
+
+    def test_compare_rate_limited(self):
+        """POST to /compare/<id> twice within SCAN_RATE_LIMIT → second is rate limited."""
+        from app import app as flask_app
+        flask_app.config["TESTING"] = True
+        client = flask_app.test_client()
+        scan_id = self._create_fixture_scan(client)
+        url = f"/compare/{scan_id}"
+        data = {"competitor_url": "https://other-store.com/products/widget"}
+        # First request (will likely fail to fetch, but rate limit is recorded)
+        r1 = client.post(url, data=data)
+        # Second immediate request — should be rate-limited
+        r2 = client.post(url, data=data)
+        # compare returns a redirect (302/303), but the session will have the error
+        assert r2.status_code in (302, 303, 429)
+        # Verify rate limit error is in session
+        with client.session_transaction() as sess:
+            err = sess.get(f"compare_error_{scan_id}", "")
+            assert "wait" in err.lower() or r2.status_code == 429
+
+
+class TestNormalizeAndValidateUrl:
+    def test_valid_product_url(self):
+        from app import _normalize_and_validate_url
+        url, err = _normalize_and_validate_url("example.com/products/test")
+        assert err is None
+        assert url == "https://example.com/products/test"
+
+    def test_strips_tracking_params(self):
+        from app import _normalize_and_validate_url
+        url, err = _normalize_and_validate_url(
+            "https://example.com/products/test?utm_source=google&variant=123")
+        assert err is None
+        assert "utm_source" not in url
+        assert "variant=123" in url
+
+    def test_rejects_homepage(self):
+        from app import _normalize_and_validate_url
+        url, err = _normalize_and_validate_url("https://example.com/")
+        assert url is None
+        assert "homepage" in err.lower() or "collection" in err.lower()
+
+    def test_rejects_too_long(self):
+        from app import _normalize_and_validate_url
+        url, err = _normalize_and_validate_url("https://example.com/products/" + "x" * 2000)
+        assert url is None
+        assert "too long" in err.lower()
+
+    def test_rejects_no_dot_in_hostname(self):
+        from app import _normalize_and_validate_url
+        url, err = _normalize_and_validate_url("localhost/products/test")
+        assert url is None
+        assert "valid URL" in err
