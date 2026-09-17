@@ -957,7 +957,8 @@ def results(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    paid = session.get(f"paid_{scan_id}", False)
+    paid = (session.get(f"paid_{scan_id}", False)
+            or data.get("meta", {}).get("paid", False))
     stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
     has_stripe = bool(stripe_key)
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
@@ -1432,14 +1433,15 @@ def paid_scan_stream(scan_id):
             json.dumps(payload, indent=2))
         _increment_scan_count()
 
-        # Mark paid in session
-        session[f"paid_{new_scan_id}"] = True
+        # NOTE: cannot write to Flask session inside an SSE generator — the
+        # response headers (including the session cookie) are already sent.
+        # The paid flag is stored in the scan JSON at meta.paid=True instead.
+        # The results() route checks this as a fallback.
 
         # Send report email
         if buyer_email:
             try:
                 emailer.send_report(buyer_email, payload)
-                session[f"email_{new_scan_id}"] = buyer_email
             except Exception:
                 _logger.exception("Failed to email report for %s", new_scan_id)
 
