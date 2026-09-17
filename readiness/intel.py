@@ -39,22 +39,42 @@ KNOWN_AGENTS = {
 }
 
 # ---- Chat / support agent widgets detectable from script URLs ---------------
+# Each entry has a "src" pattern (matched against <script src="..."> URLs)
+# and/or an "html" pattern (matched against the full page HTML with word
+# boundaries). Agents with short generic names (ada, crisp, drift) use
+# script-src-only detection to avoid false positives from UUIDs and other
+# products' namespaces.
 CHAT_AGENTS = {
-    "gorgias": {"name": "Gorgias", "type": "support agent", "desc": "AI-powered e-commerce support"},
-    "zendesk": {"name": "Zendesk", "type": "support agent", "desc": "Customer service platform"},
-    "intercom": {"name": "Intercom", "type": "support agent", "desc": "AI customer messaging"},
-    "drift": {"name": "Drift", "type": "sales agent", "desc": "Conversational AI for sales"},
-    "tidio": {"name": "Tidio", "type": "chatbot", "desc": "AI chatbot for e-commerce"},
-    "crisp": {"name": "Crisp", "type": "chatbot", "desc": "Customer messaging platform"},
-    "livechat": {"name": "LiveChat", "type": "support agent", "desc": "Live chat + AI"},
-    "freshchat": {"name": "Freshchat", "type": "support agent", "desc": "Freshworks messaging"},
-    "gladly": {"name": "Gladly", "type": "support agent", "desc": "People-centered customer service"},
-    "kustomer": {"name": "Kustomer", "type": "support agent", "desc": "AI customer service CRM"},
-    "ada": {"name": "Ada", "type": "AI agent", "desc": "AI-first customer service automation"},
-    "forethought": {"name": "Forethought", "type": "AI agent", "desc": "Generative AI for support"},
-    "dixa": {"name": "Dixa", "type": "support agent", "desc": "Conversational customer service"},
-    "reamaze": {"name": "Re:amaze", "type": "support agent", "desc": "Helpdesk for e-commerce"},
-    "shopify-inbox": {"name": "Shopify Inbox", "type": "support agent", "desc": "Shopify native chat"},
+    "gorgias":       {"name": "Gorgias",       "type": "support agent", "desc": "AI-powered e-commerce support",
+                      "src": r"gorgias"},
+    "zendesk":       {"name": "Zendesk",       "type": "support agent", "desc": "Customer service platform",
+                      "src": r"zendesk|zopim"},
+    "intercom":      {"name": "Intercom",      "type": "support agent", "desc": "AI customer messaging",
+                      "src": r"intercom"},
+    "drift":         {"name": "Drift",         "type": "sales agent",   "desc": "Conversational AI for sales",
+                      "src": r"drift\.com|driftt\.com"},
+    "tidio":         {"name": "Tidio",         "type": "chatbot",       "desc": "AI chatbot for e-commerce",
+                      "src": r"tidio"},
+    "crisp":         {"name": "Crisp",         "type": "chatbot",       "desc": "Customer messaging platform",
+                      "src": r"crisp\.chat"},
+    "livechat":      {"name": "LiveChat",      "type": "support agent", "desc": "Live chat + AI",
+                      "src": r"livechatinc\.com"},
+    "freshchat":     {"name": "Freshchat",     "type": "support agent", "desc": "Freshworks messaging",
+                      "src": r"freshchat|freshworks"},
+    "gladly":        {"name": "Gladly",        "type": "support agent", "desc": "People-centered customer service",
+                      "src": r"gladly"},
+    "kustomer":      {"name": "Kustomer",      "type": "support agent", "desc": "AI customer service CRM",
+                      "src": r"kustomer"},
+    "ada":           {"name": "Ada",           "type": "AI agent",      "desc": "AI-first customer service automation",
+                      "src": r"ada\.cx|ada\.support"},
+    "forethought":   {"name": "Forethought",   "type": "AI agent",      "desc": "Generative AI for support",
+                      "src": r"forethought"},
+    "dixa":          {"name": "Dixa",          "type": "support agent", "desc": "Conversational customer service",
+                      "src": r"dixa"},
+    "reamaze":       {"name": "Re:amaze",      "type": "support agent", "desc": "Helpdesk for e-commerce",
+                      "src": r"reamaze"},
+    "shopify-inbox": {"name": "Shopify Inbox", "type": "support agent", "desc": "Shopify native chat",
+                      "src": r"shopify.*inbox"},
 }
 
 
@@ -167,12 +187,23 @@ def _analyze_llms_txt(page: dict, content: str | None) -> dict:
 def _detect_chat_agents(page: dict) -> list[dict]:
     html = (page.get("html", "") or "").lower()
     scripts = re.findall(r'<script[^>]{0,500}src=["\']([^"\']{1,500})["\']', html, re.I)
-    script_text = " ".join(scripts).lower()
+    script_urls = " ".join(scripts).lower()
     found = []
 
     for key, info in CHAT_AGENTS.items():
-        if key in html or key in script_text:
-            found.append(info)
+        src_pat = info.get("src")
+        if src_pat and re.search(src_pat, script_urls):
+            found.append({"name": info["name"], "type": info["type"],
+                          "desc": info["desc"]})
+            continue
+        # Fallback: check HTML for function loaders like loadZendesk()
+        # but only with a script-context pattern (function name or config key)
+        loader_pat = re.compile(
+            r'(?:load|init|setup|config)' + re.escape(key.replace("-", "")),
+            re.I)
+        if loader_pat.search(html):
+            found.append({"name": info["name"], "type": info["type"],
+                          "desc": info["desc"]})
 
     return found
 

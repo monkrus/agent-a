@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Running Deep Audit — {{ target }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Deep Agent Audit</h1>
+    </header>
+
+    <div class="card">
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.25rem;">Payment received. Running full scan on:</p>
+      <p style="font-size:0.95rem; font-weight:600; color:var(--text); margin-bottom:1.5rem; word-break:break-all;">{{ target }}</p>
+
+      <div id="stream-legend" style="font-size:0.75rem; color:#8b8b96; margin-bottom:0.75rem;">
+        <span style="color:#4ade80;">&#10003;</span> pass &nbsp;
+        <span style="color:#f87171;">&#10007;</span> fail &nbsp;
+        <span style="color:#facc15;">?</span> inconclusive
+      </div>
+
+      <div id="stream-log" style="font-family:monospace; font-size:0.85rem; line-height:1.8; color:#c8c8d0;"></div>
+
+      <div id="stream-score" style="display:none; text-align:center; margin-top:1.5rem;"></div>
+
+      <p id="timer" style="font-size:0.85rem; color:#8b8b96; margin-top:1rem;">0s</p>
+    </div>
+  </div>
+
+  <script>
+    var scanStart = Date.now();
+    var timerEl = document.getElementById('timer');
+    var timerInterval = setInterval(function() {
+      var elapsed = Math.floor((Date.now() - scanStart) / 1000);
+      var m = Math.floor(elapsed / 60);
+      var s = elapsed % 60;
+      timerEl.textContent = m > 0 ? m + ':' + (s < 10 ? '0' : '') + s : s + 's';
+    }, 1000);
+
+    var log = document.getElementById('stream-log');
+    var scoreDiv = document.getElementById('stream-score');
+
+    function addLine(html) {
+      var div = document.createElement('div');
+      div.innerHTML = html;
+      log.appendChild(div);
+      div.scrollIntoView({behavior: 'smooth', block: 'end'});
+    }
+
+    var es = new EventSource('/paid-scan-stream/{{ scan_id }}');
+
+    es.onmessage = function(event) {
+      var d = JSON.parse(event.data);
+
+      if (d.type === 'status') {
+        var div = document.createElement('div');
+        div.id = 'status-msg';
+        div.innerHTML = '<span style="color:#8b8b96;">' + d.message + '</span>';
+        log.appendChild(div);
+      }
+      else if (d.type === 'layer') {
+        var statusMsg = document.getElementById('status-msg');
+        if (statusMsg) statusMsg.remove();
+        addLine('<br><strong style="color:#e0e0e8;">' + d.label + '</strong>');
+      }
+      else if (d.type === 'check') {
+        var icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">&#10003;</span>'
+                 : d.verdict === 'FAIL' ? '<span style="color:#f87171;">&#10007;</span>'
+                 : '<span style="color:#facc15;">?</span>';
+        var detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.75rem;">&mdash; ' + d.detail.substring(0, 120) + '</span>' : '';
+        var html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + detail;
+        var existing = document.getElementById('running-' + d.id);
+        if (existing) {
+          existing.innerHTML = html;
+          existing.removeAttribute('id');
+        } else {
+          addLine(html);
+        }
+      }
+      else if (d.type === 'check_running') {
+        var rid = 'running-' + d.id;
+        var div = document.createElement('div');
+        div.id = rid;
+        div.innerHTML = '&nbsp;&nbsp;<span style="color:#60a5fa;">&#8635;</span> <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + ' <span style="color:#60a5fa;">running...</span>';
+        log.appendChild(div);
+        div.scrollIntoView({behavior: 'smooth', block: 'end'});
+      }
+      else if (d.type === 'gate_blocked') {
+        addLine('<br><div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:1.25rem;margin:0.5rem 0;">'
+          + '<div style="font-size:1.1rem;font-weight:700;color:#f87171;">Access blocked</div>'
+          + '<p style="color:#c8c8d0;font-size:0.9rem;">' + d.message + '</p>'
+          + '</div>');
+      }
+      else if (d.type === 'gate_passed') {
+        addLine('&nbsp;&nbsp;<span style="color:#4ade80;">&#10003; ' + d.message + '</span>');
+      }
+      else if (d.type === 'done') {
+        es.close();
+        clearInterval(timerInterval);
+        var elapsed = Math.floor((Date.now() - scanStart) / 1000);
+        var em = Math.floor(elapsed / 60);
+        var es2 = elapsed % 60;
+        var finalTime = em > 0 ? em + 'm ' + es2 + 's' : es2 + 's';
+        timerEl.textContent = finalTime;
+        addLine('<br><span style="color:#4ade80;font-weight:bold;">Scan complete &mdash; ' + finalTime + '</span>');
+        scoreDiv.style.display = 'block';
+        var color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
+        scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
+          + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
+          + '<div style="color:#8b8b96;font-size:0.85rem;margin:1rem 0;">Redirecting to your full report...</div>';
+        setTimeout(function() {
+          window.location.href = '/results/' + d.scan_id;
+        }, 2000);
+      }
+      else if (d.type === 'error') {
+        es.close();
+        clearInterval(timerInterval);
+        addLine('<span style="color:#f87171;">Error: ' + d.message + '</span>');
+      }
+    };
+
+    es.onerror = function() {
+      es.close();
+      clearInterval(timerInterval);
+      addLine('<span style="color:#f87171;">Connection lost. Your payment has been received — please contact support.</span>');
+    };
+  </script>
+</body>
+</html>

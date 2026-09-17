@@ -981,6 +981,7 @@ def results(scan_id):
             teaser_fix = fixesmod.generate_fix(top, {})
     # Load comparison if one exists
     comparison = session.get(f"compare_{scan_id}")
+    compare_error = session.pop(f"compare_error_{scan_id}", None)
     scan_count = _get_scan_count()
     check_counts = _check_counts()
     return render_template("results.html", data=data, paid=paid,
@@ -989,6 +990,7 @@ def results(scan_id):
                            email_sent_to=email_sent_to, team_sent=team_sent,
                            has_email=has_email, access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
+                           compare_error=compare_error,
                            scan_count=scan_count, stats={"check_counts": check_counts},
                            teaser_fix=teaser_fix, teaser_check_id=teaser_check_id)
 
@@ -1016,7 +1018,8 @@ def compare(scan_id):
         dead = fetchmod.is_dead_page(comp_page)
         if dead:
             session[f"compare_{scan_id}"] = None
-            return redirect(url_for("results", scan_id=scan_id))
+            session[f"compare_error_{scan_id}"] = f"Could not scan that URL: {dead}"
+            return redirect(url_for("results", scan_id=scan_id) + "#compare")
         comp_scan_id = _run_scan(comp_url, pre_fetched_page=comp_page)
         _increment_scan_count()
         comp_data = _load_scan(comp_scan_id)
@@ -1044,8 +1047,14 @@ def compare(scan_id):
             "both_fail": both_fail[:5],
             "you_behind": you_behind[:5],
         }
-    except Exception:
+        session.pop(f"compare_error_{scan_id}", None)
+    except fetchmod._UnsafeURLError:
         session[f"compare_{scan_id}"] = None
+        session[f"compare_error_{scan_id}"] = "That URL points to a private or internal address and cannot be scanned."
+    except Exception:
+        _logger.exception("Compare scan failed for %s", comp_url)
+        session[f"compare_{scan_id}"] = None
+        session[f"compare_error_{scan_id}"] = "Could not scan that URL. Check that it's a valid product page and try again."
     return redirect(url_for("results", scan_id=scan_id) + "#compare")
 
 
@@ -1060,21 +1069,8 @@ def checkout(scan_id):
     if not stripe_key or not price_id:
         # Only allow demo unlock if DEV_MODE is explicitly enabled
         if os.environ.get("DEV_MODE", "").lower() == "true":
-            # Re-run scan as paid tier with real shopper
-            target_url = data.get("meta", {}).get("target", "")
-            try:
-                new_scan_id = _run_scan(target_url, tier="paid")
-                new_data = _load_scan(new_scan_id)
-                if new_data:
-                    new_data["meta"]["paid"] = True
-                    (SCANS_DIR / f"{new_scan_id}.json").write_text(
-                        json.dumps(new_data, indent=2))
-                session[f"paid_{new_scan_id}"] = True
-                return redirect(url_for("results", scan_id=new_scan_id))
-            except Exception:
-                _logger.exception("Paid re-scan failed in DEV_MODE")
-                session[f"paid_{scan_id}"] = True
-                return redirect(url_for("results", scan_id=scan_id))
+            session[f"paid_verified_{scan_id}"] = True
+            return redirect(url_for("processing", scan_id=scan_id))
         abort(503, description="Payment system is not configured.")
 
     import stripe
@@ -1128,34 +1124,338 @@ def payment_success(scan_id):
     elif os.environ.get("DEV_MODE", "").lower() == "true":
         payment_verified = True
 
-    # Payment verified — re-run the scan as paid tier with real AI shopper
+    # Payment verified — redirect to processing page (scan runs async via SSE)
     if payment_verified:
-        target_url = data.get("meta", {}).get("target", "")
-        try:
-            _logger.info("Re-running scan for %s as paid tier", target_url)
-            new_scan_id = _run_scan(target_url, tier="paid")
-            # Mark the new scan as paid
-            new_data = _load_scan(new_scan_id)
-            if new_data:
-                new_data["meta"]["paid"] = True
-                new_data["meta"]["free_scan_id"] = scan_id
-                (SCANS_DIR / f"{new_scan_id}.json").write_text(
-                    json.dumps(new_data, indent=2))
-            session[f"paid_{new_scan_id}"] = True
-            # Auto-send report to buyer's email
-            if buyer_email:
-                emailer.send_report(buyer_email, new_data or data)
-                session[f"email_{new_scan_id}"] = buyer_email
-            return redirect(url_for("results", scan_id=new_scan_id))
-        except Exception as exc:
-            _logger.exception("Paid re-scan failed for %s", target_url)
-            # Fall back to showing free results with paid flag
-            session[f"paid_{scan_id}"] = True
-            payment_error = f"rescan_failed:{exc}"
+        session[f"paid_verified_{scan_id}"] = True
+        if buyer_email:
+            session[f"buyer_email_{scan_id}"] = buyer_email
+        return redirect(url_for("processing", scan_id=scan_id))
 
     if payment_error:
         session[f"payment_error_{scan_id}"] = payment_error
     return redirect(url_for("results", scan_id=scan_id))
+
+
+@app.route("/processing/<scan_id>")
+def processing(scan_id):
+    """Show a streaming progress page while the paid scan runs."""
+    if not session.get(f"paid_verified_{scan_id}"):
+        abort(403)
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+    target = data.get("meta", {}).get("target", "")
+    return render_template("processing.html", scan_id=scan_id, target=target)
+
+
+@app.route("/paid-scan-stream/<scan_id>")
+def paid_scan_stream(scan_id):
+    """SSE endpoint: streams paid-tier check results as they complete."""
+    if not session.get(f"paid_verified_{scan_id}"):
+        return Response(
+            "data: " + json.dumps({"type": "error",
+                                   "message": "Payment not verified."}) + "\n\n",
+            content_type="text/event-stream", status=403)
+    data = _load_scan(scan_id)
+    if not data:
+        return Response(
+            "data: " + json.dumps({"type": "error",
+                                   "message": "Scan not found."}) + "\n\n",
+            content_type="text/event-stream", status=404)
+
+    target_url = data.get("meta", {}).get("target", "")
+    buyer_email = session.get(f"buyer_email_{scan_id}")
+
+    def generate():
+        from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
+        import time as t
+
+        _t0 = t.time()
+        n = int(os.environ.get("SCAN_N", "5"))
+        ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
+
+        yield "data: " + json.dumps({"type": "status",
+                                     "message": "Fetching page..."}) + "\n\n"
+
+        try:
+            page = fetchmod.fetch(target_url)
+        except Exception:
+            yield "data: " + json.dumps({"type": "error",
+                                         "message": "Could not fetch the page. Please contact support."}) + "\n\n"
+            return
+
+        dead = fetchmod.is_dead_page(page)
+        if dead:
+            yield "data: " + json.dumps({"type": "error", "message": dead}) + "\n\n"
+            return
+
+        pack, version, checks = _load_checks()
+        tier = "paid"
+        checks = checks_for_tier(tier, checks)
+
+        def _base(c):
+            return {k: c.get(k) for k in
+                    ("id", "type", "category", "title", "weight",
+                     "severity_if_fail", "fix")}
+
+        static_checks = [c for c in checks if c.get("type") == "static"]
+        browser_checks = [c for c in checks if c.get("type") == "browser"]
+        shopper_checks = [c for c in checks if c.get("type") == "shopper"]
+        total_checks = len(checks)
+
+        results = []
+        completed = 0
+
+        # --- Layer 0: Access ---
+        yield "data: " + json.dumps({"type": "layer", "layer": "access",
+                                     "label": "Layer 0: Access"}) + "\n\n"
+
+        access_checks = [c for c in static_checks if c.get("id") in ACCESS_GATE_IDS]
+        other_static = [c for c in static_checks if c.get("id") not in ACCESS_GATE_IDS]
+
+        for c in access_checks:
+            r = scorers.run_static(c, page)
+            result = {**_base(c), **r}
+            results.append(result)
+            completed += 1
+            yield "data: " + json.dumps({
+                "type": "check", "id": c["id"], "title": c["title"],
+                "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                "layer": "access", "progress": f"{completed}/{total_checks}",
+            }) + "\n\n"
+
+        access_blocked = any(r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL"
+                             for r in results)
+
+        if access_blocked:
+            gate_reasons = []
+            for r in results:
+                if r.get("id") in ACCESS_GATE_IDS and r.get("verdict") == "FAIL":
+                    if r.get("id") == "RDY-031":
+                        gate_reasons.append("site blocks agent-like traffic")
+                    elif r.get("id") == "RDY-003":
+                        gate_reasons.append("robots.txt blocks AI crawlers")
+                    else:
+                        gate_reasons.append(r.get("title"))
+            gate_reason = ("Skipped: site blocks agent access "
+                           f"({'; '.join(gate_reasons)}). Fix access first.")
+            yield "data: " + json.dumps({
+                "type": "gate_blocked",
+                "message": f"ACCESS BLOCKED — {'; '.join(gate_reasons)}",
+                "skipped": len(other_static) + len(browser_checks) + len(shopper_checks),
+            }) + "\n\n"
+            for c in other_static + browser_checks + shopper_checks:
+                results.append({**_base(c), "verdict": "FAIL", "detail": gate_reason,
+                                "pass_fraction": 0.0, "gated": True})
+                completed += 1
+        else:
+            yield "data: " + json.dumps({
+                "type": "gate_passed", "message": "Access OK — continuing scan..."
+            }) + "\n\n"
+
+            LAYER_LABELS = {
+                "data": "Layer 1: Data",
+                "extraction": "Layer 2: Extraction",
+                "interaction": "Layer 3: Interaction",
+                "security": "Layer 4: Security",
+                "protocols": "Layer 5: Protocol Discovery",
+            }
+            data_static = [c for c in other_static if _check_layer(c.get("id", "")) == "data"]
+            interaction_static = [c for c in other_static if _check_layer(c.get("id", "")) == "interaction"]
+            security_static = [c for c in other_static if _check_layer(c.get("id", "")) == "security"]
+            protocol_static = [c for c in other_static if _check_layer(c.get("id", "")) == "protocols"]
+
+            def _run_static_batch(label_key, checks_list):
+                nonlocal completed
+                if not checks_list:
+                    return
+                yield "data: " + json.dumps({
+                    "type": "layer", "layer": label_key,
+                    "label": LAYER_LABELS[label_key],
+                }) + "\n\n"
+                for c in checks_list:
+                    r = scorers.run_static(c, page)
+                    result = {**_base(c), **r}
+                    results.append(result)
+                    completed += 1
+                    yield "data: " + json.dumps({
+                        "type": "check", "id": c["id"], "title": c["title"],
+                        "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                        "layer": label_key, "progress": f"{completed}/{total_checks}",
+                    }) + "\n\n"
+
+            # Layer 1: Data
+            yield from _run_static_batch("data", data_static)
+
+            # Layer 2: Extraction (shopper checks)
+            if shopper_checks:
+                yield "data: " + json.dumps({
+                    "type": "layer", "layer": "extraction",
+                    "label": "Layer 2: Extraction (AI shopper)",
+                }) + "\n\n"
+
+                shopper_mode = "anthropic"
+                tasks = {c["id"]: c["task"] for c in shopper_checks}
+                with ThreadPoolExecutor(max_workers=n) as pool:
+                    batch_results = list(pool.map(
+                        lambda _: ask_batch(page, tasks, shopper=shopper_mode),
+                        range(n)))
+                answers_by_check = {cid: [br[cid] for br in batch_results]
+                                    for cid in tasks}
+                for c in shopper_checks:
+                    answers = answers_by_check[c["id"]]
+                    g = scorers.grade_shopper(c, page, answers)
+                    result = {**_base(c), **g, "sample_answers": answers[:3]}
+                    results.append(result)
+                    completed += 1
+                    yield "data: " + json.dumps({
+                        "type": "check", "id": c["id"], "title": c["title"],
+                        "verdict": g["verdict"], "detail": g.get("detail", "")[:120],
+                        "layer": "extraction",
+                        "progress": f"{completed}/{total_checks}",
+                    }) + "\n\n"
+
+            # Layer 3: Interaction (static + browser)
+            has_interaction = interaction_static or browser_checks
+            if has_interaction:
+                yield "data: " + json.dumps({
+                    "type": "layer", "layer": "interaction",
+                    "label": "Layer 3: Interaction",
+                }) + "\n\n"
+                for c in interaction_static:
+                    r = scorers.run_static(c, page)
+                    result = {**_base(c), **r}
+                    results.append(result)
+                    completed += 1
+                    yield "data: " + json.dumps({
+                        "type": "check", "id": c["id"], "title": c["title"],
+                        "verdict": r["verdict"], "detail": r.get("detail", "")[:120],
+                        "layer": "interaction",
+                        "progress": f"{completed}/{total_checks}",
+                    }) + "\n\n"
+                if browser_checks:
+                    for c in browser_checks:
+                        yield "data: " + json.dumps({
+                            "type": "check_running", "id": c["id"],
+                            "title": c["title"], "layer": "interaction",
+                        }) + "\n\n"
+                    with ThreadPoolExecutor(max_workers=len(browser_checks)) as pool:
+                        future_to_check = {
+                            pool.submit(scorers.run_browser, c, page): c
+                            for c in browser_checks
+                        }
+                        for future in _as_completed(future_to_check):
+                            c = future_to_check[future]
+                            try:
+                                r = future.result()
+                            except Exception as exc:
+                                r = {"verdict": "UNKNOWN",
+                                     "detail": f"Browser check error: {exc}",
+                                     "pass_fraction": None}
+                            result = {**_base(c), **r}
+                            results.append(result)
+                            completed += 1
+                            yield "data: " + json.dumps({
+                                "type": "check", "id": c["id"],
+                                "title": c["title"],
+                                "verdict": r["verdict"],
+                                "detail": r.get("detail", "")[:120],
+                                "layer": "interaction",
+                                "progress": f"{completed}/{total_checks}",
+                            }) + "\n\n"
+
+            # Layer 4: Security
+            yield from _run_static_batch("security", security_static)
+
+            # Layer 5: Protocol Discovery
+            yield from _run_static_batch("protocols", protocol_static)
+
+        # --- Final score ---
+        results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
+
+        for r in results:
+            recipe = fixesmod.generate_fix(r, page)
+            if recipe:
+                r["fix_recipe"] = recipe
+
+        num = den = 0.0
+        for r in results:
+            pf = r.get("pass_fraction")
+            if pf is None:
+                continue
+            w = r.get("weight", 0) or 0
+            num += w * pf
+            den += w
+        readiness_score = round(100 * num / den, 1) if den else None
+
+        now = datetime.datetime.now()
+        new_scan_id = hashlib.sha256(
+            f"{target_url}:{now.isoformat()}:paid".encode()
+        ).hexdigest()[:12]
+
+        from scan import confidence_band
+        margin = confidence_band(results, n)
+        impact_est = impactmod.estimate(results)
+        _elapsed = round(t.time() - _t0, 1)
+
+        payload = {
+            "scan_id": new_scan_id,
+            "meta": {
+                "target": target_url, "pack": pack, "version": version,
+                "n": n, "shopper": "anthropic", "tier": "paid",
+                "timestamp": now.isoformat(timespec="seconds"),
+                "page_status": page.get("status"),
+                "duration_seconds": _elapsed,
+                "paid": True,
+                "free_scan_id": scan_id,
+            },
+            "readiness_score": readiness_score,
+            "confidence_margin": margin,
+            "headline": _headline(results),
+            "results": results,
+            "impact": impact_est,
+            "intel": intelmod.analyze(page, page.get("llms_txt_content")),
+            "meta_price": page.get("meta", {}).get("og:price:amount")
+                          or page.get("meta", {}).get("product:price:amount"),
+            "meta_currency": page.get("meta", {}).get("og:price:currency")
+                             or page.get("meta", {}).get("product:price:currency", "USD"),
+        }
+        (SCANS_DIR / f"{new_scan_id}.json").write_text(
+            json.dumps(payload, indent=2))
+        _increment_scan_count()
+
+        # Mark paid in session
+        session[f"paid_{new_scan_id}"] = True
+
+        # Send report email
+        if buyer_email:
+            try:
+                emailer.send_report(buyer_email, payload)
+                session[f"email_{new_scan_id}"] = buyer_email
+            except Exception:
+                _logger.exception("Failed to email report for %s", new_scan_id)
+
+        yield "data: " + json.dumps({
+            "type": "done",
+            "score": readiness_score,
+            "headline": payload["headline"],
+            "scan_id": new_scan_id,
+            "duration": _elapsed,
+        }) + "\n\n"
+
+    def safe_generate():
+        try:
+            yield from generate()
+        except Exception:
+            _logger.exception("Paid scan stream failed for %s", scan_id)
+            yield "data: " + json.dumps({
+                "type": "error",
+                "message": "Scan failed unexpectedly. Your payment has been received — please contact support."
+            }) + "\n\n"
+
+    return Response(safe_generate(), content_type="text/event-stream",
+                    headers={"Cache-Control": "no-cache",
+                             "X-Accel-Buffering": "no"})
 
 
 @app.route("/send-report/<scan_id>", methods=["POST"])

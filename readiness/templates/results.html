@@ -518,6 +518,9 @@
                style="flex:1; min-width:200px; padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-size:0.85rem; background:var(--bg); color:var(--text);">
         <button type="submit" class="btn-pay" style="white-space:nowrap; padding:0.6rem 1.2rem;">Compare</button>
       </form>
+      {% if compare_error %}
+      <p style="color:#f87171; font-size:0.85rem; margin-top:0.75rem;">{{ compare_error }}</p>
+      {% endif %}
     </div>
 
     {% if comparison %}
