@@ -145,8 +145,19 @@ Submodules add complexity to deploys. Prefer Option A.
 
 ## Production notes
 
-- gunicorn runs with default workers (2x CPU + 1). Railway hobby
-  gives 1 vCPU, so 3 workers — fine for moderate traffic.
+- gunicorn runs with `--workers 2 --threads 4 --worker-class gthread`.
+  This prevents a single slow scan from blocking all other requests.
+  Railway hobby gives 1 vCPU — 2 workers × 4 threads handles concurrent
+  scans comfortably. Each worker forks the app, so:
+  - **Rate limits and scan counts** are sqlite-backed (cross-worker safe).
+  - **Fetch cache** (`_fetch_cache`) is per-process — acceptable, each worker
+    builds its own short-lived cache.
+  - **`FLASK_SECRET_KEY`** must be set in production — without it, each
+    worker generates its own random key and sessions break across workers.
+  - Playwright browser instances are per-thread — budget ~150 MB per
+    concurrent browser check. With 2 workers × 4 threads, worst case is
+    8 concurrent browser instances (~1.2 GB). Tune `--threads` down if
+    memory-constrained.
 - Pillow works out of the box with Nixpacks (system libs included).
 - No database migration needed — scan store is flat JSON files.
 - The app binds to `0.0.0.0:$PORT` (Railway sets PORT automatically).

@@ -5,7 +5,7 @@
     "nixpacksConfigPath": "nixpacks.toml"
   },
   "deploy": {
-    "startCommand": "gunicorn readiness.app:app --bind 0.0.0.0:$PORT --timeout 180",
+    "startCommand": "gunicorn readiness.app:app --bind 0.0.0.0:$PORT --timeout 180 --workers 2 --threads 4 --worker-class gthread",
     "healthcheckPath": "/",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3

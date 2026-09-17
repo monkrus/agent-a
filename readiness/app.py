@@ -70,6 +70,9 @@ if not _flask_secret and _flask_env != "development" and not _is_testing:
             "FLASK_SECRET_KEY is not set. Set it in .env or environment, "
             "or set FLASK_ENV=development for local dev."
         )
+# In multi-worker mode (gthread), each worker gets its own random key —
+# sessions will break across workers if FLASK_SECRET_KEY is not set.
+# This fallback is only for single-worker debug/dev mode.
 app.secret_key = _flask_secret or secrets.token_hex(32)
 
 # ---- Session cookie security ------------------------------------------------
