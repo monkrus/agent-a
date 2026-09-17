@@ -115,9 +115,9 @@ Every check maps to one category of agent readiness (41 checks total: 31 static 
 
 ## Known gaps and gotchas
 
-1. **CI runs only CodeQL, no pytest.** The test suite (`python -m pytest
-   readiness/tests/ -x -q`) must be run locally before pushing. A pytest
-   workflow should be added to `.github/workflows/`.
+1. **CI runs CodeQL and pytest.** `.github/workflows/tests.yml` runs
+   `cd readiness && TESTING=1 python -m pytest tests -q` on push and PR
+   (Python 3.11 and 3.12). Run locally before pushing to catch issues early.
 
 2. **Live paths are never tested in CI.** Browser checks (`RENDER=playwright`),
    Anthropic shopper (`SHOPPER=anthropic`), Stripe checkout
@@ -151,10 +151,9 @@ Every check maps to one category of agent readiness (41 checks total: 31 static 
    gate), RDY-030 is in `data`. Read `LAYER_CHECKS` in `app.py` before
    renaming or reorganising layers — the streaming UI depends on this mapping.
 
-6. **Two requirements files, intentionally identical.** `requirements.txt`
-   (repo root, used by `render.yaml`) and `readiness/requirements.txt` (used
-   by `pip install` inside `readiness/`). They must stay in sync — edit both
-   when adding or bumping a dependency.
+6. **One requirements file.** `requirements.txt` at the repo root is used by
+   `render.yaml`, `railway.json`, `nixpacks.toml`, and the CI workflow.
+   There is no `readiness/requirements.txt` (it was a duplicate, now deleted).
 
 7. **Intentional pyflakes warning in fetch.py.** Line ~530:
    `import requests  # noqa: F401` is a deliberate importability probe — if

@@ -135,6 +135,8 @@ def _init_store():
         key TEXT PRIMARY KEY, value TEXT, ts REAL)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS counters (
         key TEXT PRIMARY KEY, value INTEGER DEFAULT 0)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS send_limits (
+        scan_id TEXT, ts REAL)""")
     seed = max(int(os.environ.get("SCAN_COUNT_SEED", "0")), _scan_count)
     conn.execute("""INSERT OR IGNORE INTO counters (key, value) VALUES ('total_scans', ?)""", (seed,))
     conn.commit()
@@ -1464,6 +1466,38 @@ def paid_scan_stream(scan_id):
                              "X-Accel-Buffering": "no"})
 
 
+def _check_send_limit(scan_id: str, max_sends: int = 3, window: int = 3600) -> bool:
+    """Return True if scan_id has exceeded max_sends in the past window seconds."""
+    now = _time.time()
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        # Prune old entries
+        conn.execute("DELETE FROM send_limits WHERE ts < ?", (now - window,))
+        row = conn.execute(
+            "SELECT COUNT(*) FROM send_limits WHERE scan_id = ? AND ts > ?",
+            (scan_id, now - window)).fetchone()
+        if row and row[0] >= max_sends:
+            return True
+        conn.execute("INSERT INTO send_limits (scan_id, ts) VALUES (?, ?)",
+                     (scan_id, now))
+        conn.commit()
+        return False
+    finally:
+        conn.close()
+
+
+def _validate_email(addr: str) -> str | None:
+    """Basic email validation. Returns cleaned address or None."""
+    from email.utils import parseaddr
+    _, email = parseaddr(addr.strip())
+    if not email or "@" not in email:
+        return None
+    local, domain = email.rsplit("@", 1)
+    if not local or "." not in domain:
+        return None
+    return email
+
+
 @app.route("/send-report/<scan_id>", methods=["POST"])
 def send_report(scan_id):
     """Send the full report to an additional email (e.g. developer)."""
@@ -1472,8 +1506,10 @@ def send_report(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    to_email = request.form.get("email", "").strip()
-    if not to_email or "@" not in to_email:
+    to_email = _validate_email(request.form.get("email", ""))
+    if not to_email:
+        return redirect(url_for("results", scan_id=scan_id))
+    if _check_send_limit(scan_id):
         return redirect(url_for("results", scan_id=scan_id))
     target = data.get("meta", {}).get("target", "")
     emailer.send_report(to_email, data,
@@ -1615,10 +1651,13 @@ if __name__ == "__main__":
     app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", port=5000)
 else:
     # Production guard: DEV_MODE must not be enabled outside debug mode
-    if os.environ.get("DEV_MODE", "").lower() == "true" and not app.debug:
-        import warnings
-        warnings.warn(
-            "DEV_MODE=true is set but app is not in debug mode. "
-            "Demo unlock is active — unset DEV_MODE in production.",
-            stacklevel=1,
+    _dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
+    _is_debug = (os.environ.get("FLASK_ENV", "") == "development"
+                 or os.environ.get("FLASK_DEBUG", "") == "1")
+    if _dev_mode and not _is_debug and not _is_testing:
+        raise RuntimeError(
+            "DEV_MODE=true is set but FLASK_ENV is not 'development' and "
+            "FLASK_DEBUG is not '1'. DEV_MODE allows unauthenticated paid "
+            "report access — it must never be enabled in production. "
+            "Either unset DEV_MODE or set FLASK_ENV=development."
         )

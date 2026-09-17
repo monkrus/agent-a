@@ -168,10 +168,16 @@ readiness/                 The scanner (primary product)
   shopper.py               Simulated shopping agent
   scorers.py               Check probes + grading
   intel.py                 Agent intelligence module
+  browser_agent.py         LLM-driven Playwright interaction agent
+  impact.py                Revenue-at-risk estimator
+  emotional_gap.py         Emotional framing for findings
+  emailer.py               Report email delivery
   fixes.py                 Fix recipe loader (loads private recipes via FIXES_MODULE)
+  validate_report.py       Report-vs-payload validator
   og_image.py              OG image generator for shareable results
   checks/shopify-v1.yaml   Check pack (weights sum to 100)
   templates/               Web frontend templates
+  tests/                   Test suite (328+ tests)
   .scans/                  Scan results (gitignored)
 
 scenarios/                 Reusable test scenario packs
