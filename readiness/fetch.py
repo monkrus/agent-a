@@ -81,9 +81,14 @@ def _safe_get(url, headers=None, timeout=30, max_redirects=5):
     raise _UnsafeURLError("too many redirects")
 
 
-# ---- Per-domain fetch cache (prevents rate-limit garbage on rapid rescans) ---
-_fetch_cache: dict[str, tuple[float, dict]] = {}  # domain -> (timestamp, page)
+# ---- Per-URL fetch cache (prevents rate-limit garbage on rapid rescans) ------
+# Keyed on the full normalized URL (scheme + host + path + kept query), not
+# just the domain — otherwise two different product pages on the same domain
+# would return the first page's data. Per-process; acceptable in multi-worker
+# gthread mode since each process has its own cache (item 4 note).
+_fetch_cache: dict[str, tuple[float, dict]] = {}  # url -> (timestamp, page)
 CACHE_TTL = 120  # seconds
+_CACHE_MAX = 200  # evict oldest when exceeded
 
 
 # ---- minimal HTML -> text + meta + jsonld --------------------------------
@@ -252,18 +257,16 @@ def fetch(target: str, timeout: int = 30) -> dict:
         if not _is_safe_url(target):
             raise _UnsafeURLError(f"URL targets a private or reserved IP: {target}")
         # Check cache — prevent garbage results from rapid repeated scans
-        domain = urlparse(target).netloc
-        cached = _fetch_cache.get(domain)
+        cache_key = target  # full URL, not just domain
+        cached = _fetch_cache.get(cache_key)
         if cached:
             ts, cached_page = cached
             if time.time() - ts < CACHE_TTL:
-                # Return cached page with updated URL
                 page = dict(cached_page)
-                page["url"] = target
                 page["_cached"] = True
                 return page
             else:
-                del _fetch_cache[domain]
+                del _fetch_cache[cache_key]
         import requests  # local import so offline/file mode needs no network dep
         headers = {"User-Agent": "agent-a-readiness-scanner/0.1 (+contact)"}
         try:
@@ -389,9 +392,13 @@ def fetch(target: str, timeout: int = 30) -> dict:
                 page["rendered_jsonld"] = rendered["jsonld"]
                 page["rendered_links"] = rendered["links"]
                 page["rendered_meta"] = rendered["meta"]
-        # Cache successful fetch for this domain
+        # Cache successful fetch for this URL
         if page.get("status") == 200:
-            _fetch_cache[domain] = (time.time(), page)
+            # Evict oldest entries when cache exceeds max size
+            if len(_fetch_cache) >= _CACHE_MAX:
+                oldest_key = min(_fetch_cache, key=lambda k: _fetch_cache[k][0])
+                del _fetch_cache[oldest_key]
+            _fetch_cache[cache_key] = (time.time(), page)
     else:
         # Local file mode (CLI only, not web-facing)
         safe_name = os.path.basename(target)

@@ -233,3 +233,73 @@ class TestIsCollectionPage:
         page = {"url": "https://store.com/shop", "title": "Shop",
                 "text": "", "jsonld": [], "links": links}
         assert is_collection_page(page) is not None
+
+
+# ---- Fetch cache keyed by URL ------------------------------------------------
+
+class TestFetchCache:
+    def test_different_urls_same_domain_not_cached(self):
+        """Two different product URLs on the same domain must fetch independently."""
+        from unittest.mock import patch, MagicMock
+        import fetch as fetchmod
+
+        # Clear cache before test
+        fetchmod._fetch_cache.clear()
+
+        page_a = {"title": "Product A", "status": 200, "html": "<html>A</html>",
+                  "text": "A", "jsonld": [], "meta": {}, "links": [], "images": [],
+                  "url": "https://x.com/products/a"}
+        page_b = {"title": "Product B", "status": 200, "html": "<html>B</html>",
+                  "text": "B", "jsonld": [], "meta": {}, "links": [], "images": [],
+                  "url": "https://x.com/products/b"}
+
+        call_count = 0
+
+        def mock_safe_get(url, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.url = url
+            resp.elapsed.total_seconds.return_value = 0.1
+            if "/products/a" in url:
+                resp.text = "<html><head><title>Product A</title></head><body>A</body></html>"
+            else:
+                resp.text = "<html><head><title>Product B</title></head><body>B</body></html>"
+            resp.headers = {}
+            return resp
+
+        with patch.object(fetchmod, '_safe_get', side_effect=mock_safe_get):
+            with patch.object(fetchmod, '_is_safe_url', return_value=True):
+                result_a = fetchmod.fetch("https://x.com/products/a")
+                result_b = fetchmod.fetch("https://x.com/products/b")
+
+        # Both must hit the network (call_count >= 2 for primary fetches)
+        assert result_a["title"] != result_b["title"], \
+            "Different URLs returned same page — cache is still keyed by domain"
+        assert result_a["title"] == "Product A"
+        assert result_b["title"] == "Product B"
+
+        # Clean up
+        fetchmod._fetch_cache.clear()
+
+    def test_same_url_uses_cache(self):
+        """Same URL within TTL should return cached result."""
+        import fetch as fetchmod
+
+        fetchmod._fetch_cache.clear()
+
+        # Pre-populate cache with a fake page
+        import time
+        fake_page = {"title": "Cached Widget", "status": 200,
+                     "html": "<html>cached</html>", "text": "cached",
+                     "jsonld": [], "meta": {}, "links": [], "images": [],
+                     "url": "https://x.com/products/widget"}
+        fetchmod._fetch_cache["https://x.com/products/widget"] = (
+            time.time(), fake_page)
+
+        # This should return the cached page without any network call
+        result = fetchmod.fetch("https://x.com/products/widget")
+        assert result.get("_cached") is True
+        assert result["title"] == "Cached Widget"
+        fetchmod._fetch_cache.clear()
