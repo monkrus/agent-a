@@ -116,6 +116,33 @@ curl https://YOUR-DOMAIN/r/SOME_SCAN_ID
 
 **Total: ~15 minutes hands-on.**
 
+## Private fix recipes
+
+Full fix recipes (`_fixes_private.py`) live in the `agent-a-private` repo,
+not in the public scanner. To make them available at deploy time:
+
+**Option A — FIXES_MODULE env var (recommended):**
+
+1. In `agent-a-private/`, create a pip-installable package containing the
+   private recipes module.
+2. Add a Railway build command that installs it:
+   ```
+   pip install -r requirements.txt && pip install git+https://<PAT>@github.com/monkrus/agent-a-private.git
+   ```
+3. Set `FIXES_MODULE=agent_a_private.fixes` (or whatever the module path is)
+   in Railway env vars.
+
+**Option B — Copy the file at build time:**
+
+1. Add the file to a Railway volume or build step:
+   ```
+   cp /mnt/private/_fixes_private.py readiness/_fixes_private.py
+   ```
+2. `fixes.py` auto-discovers the co-located file — no env var needed.
+
+**Option C — Git submodule (not recommended):**
+Submodules add complexity to deploys. Prefer Option A.
+
 ## Production notes
 
 - gunicorn runs with default workers (2x CPU + 1). Railway hobby

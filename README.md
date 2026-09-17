@@ -168,8 +168,7 @@ readiness/                 The scanner (primary product)
   shopper.py               Simulated shopping agent
   scorers.py               Check probes + grading
   intel.py                 Agent intelligence module
-  fixes.py                 Fix recipe loader (auto-loads _fixes_private.py)
-  _fixes_private.py        Copy-paste fix recipes for all 41 checks
+  fixes.py                 Fix recipe loader (loads private recipes via FIXES_MODULE)
   og_image.py              OG image generator for shareable results
   checks/shopify-v1.yaml   Check pack (weights sum to 100)
   templates/               Web frontend templates
@@ -198,5 +197,5 @@ templates live in a separate private repository (`agent-a-private/`).
 | Check pack (IDs, weights, YAML)   | Playbook & client templates        |
 | Scoring & grading logic           | Client deliverables                |
 | Web frontend                      | Outreach materials                 |
-| Fix recipes (`_fixes_private.py`) |                                    |
+| Fix recipe loader (`fixes.py`)    | Fix recipes (`_fixes_private.py`)  |
 | Prompt-injection detection        |                                    |

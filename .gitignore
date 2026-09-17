@@ -14,6 +14,15 @@ venv/
 # Scan results (per-run, like client data — never commit)
 readiness/.scans/
 
+# Private fix recipes (belong in agent-a-private, not this repo)
+readiness/_fixes_private.py
+
+# Launch / marketing materials (business content, not code)
+readiness/launch/
+
+# Outreach generator (business tool, not part of the open-source scanner)
+readiness/outreach.py
+
 # Outreach drafts (generated, contain scan data)
 outreach/
 
@@ -24,6 +33,7 @@ leaderboard/post-assets/article-skims-vs-thirdlove.md
 leaderboard/post-assets/linkedin-skims-vs-thirdlove.md
 leaderboard/post-assets/email-*.md
 leaderboard/post-assets/*-fix-document.md
+leaderboard/post-assets/evidence-*.md
 
 # Leaderboard output (generated data, not post-assets)
 leaderboard/*
