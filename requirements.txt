@@ -17,3 +17,6 @@ dnspython>=2.4
 
 # Browser agent checks (RDY-017–021); Chromium installed via playwright install
 playwright>=1.40.0
+
+# Testing
+pytest>=8.0
