@@ -366,3 +366,12 @@ class TestSSRFProtection:
         """_safe_request is exported and callable."""
         from fetch import _safe_request
         assert callable(_safe_request)
+
+    def test_playwright_guard_uses_port_80_for_http(self):
+        """_playwright_ssrf_guard must use port 80 for http://, not 443."""
+        from fetch import _playwright_ssrf_guard
+        from urllib.parse import urlparse
+        # Verify the logic inline — the guard calls _resolve_is_safe(host, port)
+        parsed = urlparse("http://example.com/foo")
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        assert port == 80

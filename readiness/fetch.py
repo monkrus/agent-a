@@ -273,8 +273,8 @@ def _playwright_ssrf_guard(route):
         if parsed.scheme not in ("http", "https"):
             route.abort("blockedbyclient")
             return
-        if parsed.hostname and not _resolve_is_safe(
-                parsed.hostname, parsed.port or 443):
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        if parsed.hostname and not _resolve_is_safe(parsed.hostname, port):
             route.abort("blockedbyclient")
             return
     except Exception:
