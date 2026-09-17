@@ -50,7 +50,7 @@ class TestSsrfRedirectBypass:
         redirect_resp.is_permanent_redirect = False
         redirect_resp.headers = {"Location": "http://169.254.169.254/latest/meta-data/"}
 
-        with patch("requests.get", return_value=redirect_resp):
+        with patch("requests.request", return_value=redirect_resp):
             import pytest
             with pytest.raises(_UnsafeURLError):
                 _safe_get("https://www.example.com/redirect")
@@ -66,7 +66,7 @@ class TestSsrfRedirectBypass:
         redirect_resp.is_permanent_redirect = False
         redirect_resp.headers = {"Location": "http://127.0.0.1/admin"}
 
-        with patch("requests.get", return_value=redirect_resp):
+        with patch("requests.request", return_value=redirect_resp):
             import pytest
             with pytest.raises(_UnsafeURLError):
                 _safe_get("https://www.example.com/redirect")
@@ -89,7 +89,7 @@ class TestSsrfRedirectBypass:
         final_resp.is_redirect = False
         final_resp.is_permanent_redirect = False
 
-        with patch("requests.get", side_effect=[redirect_resp, final_resp]):
+        with patch("requests.request", side_effect=[redirect_resp, final_resp]):
             r = _safe_get("https://www.example.com/old-path")
             assert r.status_code == 200
 
@@ -109,7 +109,7 @@ class TestSsrfRedirectBypass:
         final_resp.is_redirect = False
         final_resp.is_permanent_redirect = False
 
-        with patch("requests.get", side_effect=[redirect_resp, final_resp]):
+        with patch("requests.request", side_effect=[redirect_resp, final_resp]):
             r = _safe_get("https://www.example.com/old")
             assert r.status_code == 200
 
@@ -124,7 +124,7 @@ class TestSsrfRedirectBypass:
         redirect_resp.is_permanent_redirect = False
         redirect_resp.headers = {"Location": "https://www.example.com/loop"}
 
-        with patch("requests.get", return_value=redirect_resp):
+        with patch("requests.request", return_value=redirect_resp):
             import pytest
             with pytest.raises(_UnsafeURLError, match="too many redirects"):
                 _safe_get("https://www.example.com/start", max_redirects=3)

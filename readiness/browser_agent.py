@@ -388,6 +388,9 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
                            "Chrome/120.0.0.0 Safari/537.36",
             )
             page = ctx.new_page()
+            # SSRF guard: abort requests to private/reserved IPs
+            from fetch import _playwright_ssrf_guard
+            page.route("**/*", _playwright_ssrf_guard)
             page.goto(url, timeout=timeout * 1000, wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
 
@@ -868,6 +871,9 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
                            "AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
             )
             pg = ctx.new_page()
+            # SSRF guard: abort requests to private/reserved IPs
+            from fetch import _playwright_ssrf_guard
+            pg.route("**/*", _playwright_ssrf_guard)
             pg.goto(start_url, timeout=timeout * 1000, wait_until="domcontentloaded")
             pg.wait_for_timeout(3000)
             _dismiss_popups(pg)

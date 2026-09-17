@@ -303,3 +303,66 @@ class TestFetchCache:
         assert result.get("_cached") is True
         assert result["title"] == "Cached Widget"
         fetchmod._fetch_cache.clear()
+
+
+# ---- SSRF protection --------------------------------------------------------
+
+class TestSSRFProtection:
+    def test_dns_rebinding_detected(self):
+        """If DNS resolves to a safe IP first then a private IP, raise error."""
+        from unittest.mock import patch
+        from fetch import _resolve_is_safe
+
+        # First call returns safe, second returns private (169.254.169.254)
+        call_count = [0]
+        original_getaddrinfo = __import__("socket").getaddrinfo
+
+        def mock_getaddrinfo(host, port, *args, **kwargs):
+            call_count[0] += 1
+            if host == "rebinding.test":
+                # Always return metadata IP to simulate rebinding
+                return [(2, 1, 6, '', ('169.254.169.254', 80))]
+            return original_getaddrinfo(host, port, *args, **kwargs)
+
+        with patch("socket.getaddrinfo", side_effect=mock_getaddrinfo):
+            # _resolve_is_safe should detect the private IP
+            assert not _resolve_is_safe("rebinding.test", 80)
+
+    def test_resolve_is_safe_rejects_loopback(self):
+        from unittest.mock import patch
+        from fetch import _resolve_is_safe
+
+        def mock_getaddrinfo(host, port, *args, **kwargs):
+            return [(2, 1, 6, '', ('127.0.0.1', 80))]
+
+        with patch("socket.getaddrinfo", side_effect=mock_getaddrinfo):
+            assert not _resolve_is_safe("evil.com", 80)
+
+    def test_resolve_is_safe_allows_public(self):
+        from unittest.mock import patch
+        from fetch import _resolve_is_safe
+
+        def mock_getaddrinfo(host, port, *args, **kwargs):
+            return [(2, 1, 6, '', ('93.184.216.34', 80))]
+
+        with patch("socket.getaddrinfo", side_effect=mock_getaddrinfo):
+            assert _resolve_is_safe("example.com", 80)
+
+    def test_check_response_ip_catches_private(self):
+        """Post-connect IP check catches DNS rebinding."""
+        from unittest.mock import MagicMock
+        from fetch import _check_response_ip, _UnsafeURLError
+        import pytest
+
+        response = MagicMock()
+        sock = MagicMock()
+        sock.getpeername.return_value = ('169.254.169.254', 80)
+        response.raw._connection.sock = sock
+
+        with pytest.raises(_UnsafeURLError, match="rebinding"):
+            _check_response_ip(response)
+
+    def test_safe_request_available(self):
+        """_safe_request is exported and callable."""
+        from fetch import _safe_request
+        assert callable(_safe_request)

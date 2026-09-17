@@ -46,8 +46,22 @@ def _is_safe_url(url: str) -> bool:
     hostname = parsed.hostname
     if not hostname:
         return False
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    return _resolve_is_safe(hostname, port)
+
+
+class _UnsafeURLError(ValueError):
+    """Raised when a URL targets a private/internal host."""
+    pass
+
+
+def _resolve_is_safe(hostname: str, port: int = 443) -> bool:
+    """Check if a hostname resolves to a safe (non-private) IP.
+
+    Factored out of _is_safe_url so Playwright route guards can reuse it.
+    """
     try:
-        infos = socket.getaddrinfo(hostname, parsed.port or (443 if parsed.scheme == "https" else 80))
+        infos = socket.getaddrinfo(hostname, port)
     except socket.gaierror:
         return False
     for family, _type, _proto, _canon, sockaddr in infos:
@@ -57,28 +71,57 @@ def _is_safe_url(url: str) -> bool:
     return True
 
 
-class _UnsafeURLError(ValueError):
-    """Raised when a URL targets a private/internal host."""
-    pass
+def _check_response_ip(response) -> None:
+    """Post-connect DNS rebinding check.
+
+    After a request completes, verify the actual connected IP is safe.
+    This closes the TOCTOU window between _is_safe_url (resolve) and
+    the actual connection (which may hit a different IP if DNS changes).
+    """
+    try:
+        sock = response.raw._connection.sock
+        if sock is None:
+            return
+        peer = sock.getpeername()
+        if peer:
+            ip = ipaddress.ip_address(peer[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                raise _UnsafeURLError(
+                    f"DNS rebinding detected: resolved to private IP {peer[0]}")
+    except _UnsafeURLError:
+        raise  # re-raise SSRF detection, don't swallow it
+    except (AttributeError, OSError, TypeError, ValueError):
+        # Socket may be closed or unavailable — can't check, proceed
+        pass
 
 
-def _safe_get(url, headers=None, timeout=30, max_redirects=5):
-    """GET that re-runs _is_safe_url on every redirect hop."""
+def _safe_request(method, url, headers=None, timeout=30, max_redirects=5, **kwargs):
+    """HTTP request that re-runs _is_safe_url on every redirect hop.
+
+    Supports GET, HEAD, POST. All outbound requests in fetch.py must go
+    through this function (or _safe_get) so every hop is SSRF-checked.
+    """
     import requests as _req
     current = url
     for _ in range(max_redirects):
         if not _is_safe_url(current):
             raise _UnsafeURLError(f"unsafe redirect target: {current}")
-        r = _req.get(current, headers=headers, timeout=timeout,
-                     allow_redirects=False)
+        r = _req.request(method, current, headers=headers, timeout=timeout,
+                         allow_redirects=False, **kwargs)
         if r.is_redirect or r.is_permanent_redirect:
             loc = r.headers.get("Location", "")
             current = urljoin(current, loc)
             continue
-        # Attach the final URL so callers can use r.url as before
         r.url = current
+        _check_response_ip(r)
         return r
     raise _UnsafeURLError("too many redirects")
+
+
+def _safe_get(url, headers=None, timeout=30, max_redirects=5):
+    """GET that re-runs _is_safe_url on every redirect hop."""
+    return _safe_request("GET", url, headers=headers, timeout=timeout,
+                         max_redirects=max_redirects)
 
 
 # ---- Per-URL fetch cache (prevents rate-limit garbage on rapid rescans) ------
@@ -222,6 +265,24 @@ def _parse_html(html: str, url: str = "") -> dict:
     }
 
 
+def _playwright_ssrf_guard(route):
+    """Playwright route handler that aborts requests to private/reserved IPs."""
+    req_url = route.request.url
+    try:
+        parsed = urlparse(req_url)
+        if parsed.scheme not in ("http", "https"):
+            route.abort("blockedbyclient")
+            return
+        if parsed.hostname and not _resolve_is_safe(
+                parsed.hostname, parsed.port or 443):
+            route.abort("blockedbyclient")
+            return
+    except Exception:
+        route.abort("blockedbyclient")
+        return
+    route.continue_()
+
+
 def _fetch_rendered(url: str, timeout: int = 30) -> dict | None:
     """Fetch URL with Playwright headless browser. Returns parsed page or None."""
     if not _is_safe_url(url):
@@ -237,6 +298,8 @@ def _fetch_rendered(url: str, timeout: int = 30) -> dict | None:
             ctx = browser.new_context(
                 user_agent="agent-a-readiness-scanner/0.1 (+contact)")
             pg = ctx.new_page()
+            # SSRF guard: intercept all requests and abort if target is private
+            pg.route("**/*", _playwright_ssrf_guard)
             pg.goto(url, timeout=timeout * 1000, wait_until="domcontentloaded")
             # Wait for JS to render product content
             pg.wait_for_timeout(3000)
@@ -595,15 +658,12 @@ def _probe_checkout(url: str, timeout: int) -> dict | None:
     final_url, and redirect_reason if redirected to /cart or /account/login.
     """
     try:
-        if not _is_safe_url(url):
-            return None
-        import requests
-        r = requests.get(url, timeout=timeout, allow_redirects=False,
-                         headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+        r = _safe_request("GET", url, timeout=timeout, max_redirects=1,
+                          headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
         result = {
             "status": r.status_code,
             "location": r.headers.get("Location"),
-            "final_url": url,
+            "final_url": r.url,
             "html": None,
             "redirect_reason": None,
         }
@@ -621,11 +681,10 @@ def _probe_checkout(url: str, timeout: int) -> dict | None:
                 result["redirect_reason"] = "redirected_other"
             # Follow one hop to capture the final page content
             try:
-                if _is_safe_url(abs_loc):
-                    r2 = requests.get(abs_loc, timeout=timeout, allow_redirects=True,
-                                      headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
-                    result["html"] = r2.text if r2.status_code == 200 else None
-                    result["final_url"] = r2.url
+                r2 = _safe_get(abs_loc, timeout=timeout,
+                               headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+                result["html"] = r2.text if r2.status_code == 200 else None
+                result["final_url"] = r2.url
             except Exception:
                 pass
         return result
@@ -665,10 +724,7 @@ def _get_json(url: str, timeout: int) -> dict | None:
 def _probe_link_headers(url: str, timeout: int) -> dict | None:
     """Check response headers for Link rel=describedby, rel=api-catalog, etc."""
     try:
-        if not _is_safe_url(url):
-            return None
-        import requests
-        r = requests.head(url, timeout=timeout, allow_redirects=False,
+        r = _safe_request("HEAD", url, timeout=timeout,
                           headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
         link_header = r.headers.get("Link", "")
         return {
@@ -710,14 +766,10 @@ def _probe_dns_aid(domain: str) -> dict | None:
 def _probe_cart_rate(cart_url: str, timeout: int) -> dict | None:
     """Probe cart API endpoint multiple times rapidly to test rate limiting."""
     try:
-        if not _is_safe_url(cart_url):
-            return None
-        import requests
         statuses = []
         for _ in range(5):
             try:
-                r = requests.post(cart_url, timeout=timeout,
-                                  allow_redirects=False,
+                r = _safe_request("POST", cart_url, timeout=timeout,
                                   headers={"User-Agent": "agent-a-readiness-scanner/0.1",
                                            "Content-Type": "application/json"},
                                   json={"id": 0, "quantity": 1})
@@ -744,9 +796,6 @@ def _probe_admin_paths(origin: str, timeout: int) -> dict | None:
     length differs by >30%).
     """
     try:
-        if not _is_safe_url(origin + "/"):
-            return None
-        import requests
         import secrets as _secrets
         headers = {"User-Agent": "agent-a-readiness-scanner/0.1"}
 
@@ -754,8 +803,7 @@ def _probe_admin_paths(origin: str, timeout: int) -> dict | None:
         probe_path = f"/agent-a-probe-{_secrets.token_hex(6)}"
         baseline = {"status": None, "length": 0}
         try:
-            rb = requests.get(origin + probe_path, timeout=timeout,
-                              allow_redirects=False, headers=headers)
+            rb = _safe_get(origin + probe_path, timeout=timeout, headers=headers)
             baseline = {"status": rb.status_code, "length": len(rb.text)}
         except Exception:
             pass
@@ -764,8 +812,7 @@ def _probe_admin_paths(origin: str, timeout: int) -> dict | None:
         exposed = []
         for p in paths:
             try:
-                r = requests.get(origin + p, timeout=timeout, allow_redirects=False,
-                                 headers=headers)
+                r = _safe_get(origin + p, timeout=timeout, headers=headers)
                 # Skip if response matches soft-404 baseline
                 if r.status_code == baseline["status"]:
                     blen = baseline["length"]
