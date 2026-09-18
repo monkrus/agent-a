@@ -407,6 +407,8 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
                     consecutive_fails = 0
 
                 elements = _extract_elements(page)
+                if elements is None:
+                    elements = []  # page.evaluate returned null
                 screenshot = _screenshot_b64(page)
                 action = _ask_agent(elements, screenshot, goal, steps, step_num)
 
@@ -888,6 +890,8 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
                     consecutive_fails = 0
 
                 elements = _extract_all_elements(pg)
+                if elements is None:
+                    elements = []  # page.evaluate returned null
                 screenshot = _screenshot_b64(pg)
                 action = _ask_flow_agent(elements, screenshot, goal, steps,
                                          step_num, system_prompt, max_steps)
@@ -942,6 +946,8 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
             if not success:
                 try:
                     diagnostics = _diagnose_page(pg)
+                    if diagnostics is None:
+                        diagnostics = {}
                 except Exception:
                     pass
 
