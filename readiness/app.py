@@ -983,6 +983,7 @@ def results(scan_id):
     # Load comparison if one exists
     comparison = session.get(f"compare_{scan_id}")
     compare_error = session.pop(f"compare_error_{scan_id}", None)
+    rescan_promo = data.get("meta", {}).get("rescan_promo_code")
     scan_count = _get_scan_count()
     check_counts = _check_counts()
     return render_template("results.html", data=data, paid=paid,
@@ -991,7 +992,7 @@ def results(scan_id):
                            email_sent_to=email_sent_to, team_sent=team_sent,
                            has_email=has_email, access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
-                           compare_error=compare_error,
+                           compare_error=compare_error, rescan_promo=rescan_promo,
                            scan_count=scan_count, stats={"check_counts": check_counts},
                            teaser_fix=teaser_fix, teaser_check_id=teaser_check_id)
 
@@ -1174,6 +1175,8 @@ def paid_scan_stream(scan_id):
 
     target_url = data.get("meta", {}).get("target", "")
     buyer_email = session.get(f"buyer_email_{scan_id}")
+    # Capture base URL before entering generator (request context unavailable inside)
+    _base_url = request.host_url.rstrip("/")
 
     def generate():
         from concurrent.futures import ThreadPoolExecutor, as_completed as _as_completed
@@ -1438,10 +1441,29 @@ def paid_scan_stream(scan_id):
         # The paid flag is stored in the scan JSON at meta.paid=True instead.
         # The results() route checks this as a fallback.
 
+        # Generate a unique single-use promo code for a free re-scan
+        rescan_coupon_id = os.environ.get("STRIPE_RESCAN_COUPON_ID")
+        if stripe_key and rescan_coupon_id:
+            try:
+                import stripe as _stripe
+                _stripe.api_key = stripe_key
+                promo = _stripe.PromotionCode.create(
+                    coupon=rescan_coupon_id,
+                    max_redemptions=1,
+                )
+                payload["meta"]["rescan_promo_code"] = promo.code
+                (SCANS_DIR / f"{new_scan_id}.json").write_text(
+                    json.dumps(payload, indent=2))
+                _logger.info("Created rescan promo code %s for scan %s",
+                             promo.code, new_scan_id)
+            except Exception:
+                _logger.exception("Failed to create rescan promo code for %s",
+                                  new_scan_id)
+
         # Send report email
         if buyer_email:
             try:
-                emailer.send_report(buyer_email, payload)
+                emailer.send_report(buyer_email, payload, base_url=_base_url)
             except Exception:
                 _logger.exception("Failed to email report for %s", new_scan_id)
 
@@ -1515,7 +1537,8 @@ def send_report(scan_id):
         return redirect(url_for("results", scan_id=scan_id))
     target = data.get("meta", {}).get("target", "")
     emailer.send_report(to_email, data,
-                        subject=f"Agent Readiness Report for {target} (shared with you)")
+                        subject=f"Agent Readiness Report for {target} (shared with you)",
+                        base_url=request.host_url.rstrip("/"))
     session[f"sent_{scan_id}"] = True
     return redirect(url_for("results", scan_id=scan_id))
 

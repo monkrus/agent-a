@@ -36,7 +36,7 @@ def _verdict_color(verdict: str) -> str:
     return {"PASS": "#22c55e", "FAIL": "#ef4444", "UNKNOWN": "#6b7280"}.get(verdict, "#6b7280")
 
 
-def _build_html(scan_data: dict) -> str:
+def _build_html(scan_data: dict, base_url: str = "") -> str:
     """Build an HTML email body from scan data."""
     score = scan_data.get("readiness_score", 0) or 0
     target = scan_data.get("meta", {}).get("target", "")
@@ -44,7 +44,10 @@ def _build_html(scan_data: dict) -> str:
     results = scan_data.get("results", [])
     n = scan_data.get("meta", {}).get("n", 5)
     timestamp = scan_data.get("meta", {}).get("timestamp", "")
+    scan_id = scan_data.get("scan_id", "")
+    rescan_promo = scan_data.get("meta", {}).get("rescan_promo_code", "")
     color = _score_color(score)
+    report_url = f"{base_url}/results/{scan_id}" if base_url and scan_id else ""
 
     checks_html = ""
     for r in results:
@@ -129,6 +132,26 @@ def _build_html(scan_data: dict) -> str:
         </table>
       </div>
 
+      <!-- Report link + re-scan -->
+      {"" if not report_url else f'''
+      <div style="padding:24px 32px;background:#0f0f13;border-top:1px solid #e5e7eb;text-align:center;">
+        <p style="margin:0 0 12px;color:#e5e7eb;font-size:14px;font-weight:600;">Your full report is always available at:</p>
+        <a href="{report_url}" style="color:#60a5fa;font-size:14px;word-break:break-all;">{report_url}</a>
+        <p style="margin:12px 0 0;color:#9ca3af;font-size:13px;">Bookmark this link. After you fix issues, come back and re-scan for free.</p>
+      </div>
+      '''}
+
+      <!-- Promo code for free re-scan -->
+      {"" if not rescan_promo else f'''
+      <div style="padding:24px 32px;background:#0a1a0a;border-top:1px solid #22c55e;">
+        <p style="margin:0 0 8px;color:#22c55e;font-size:14px;font-weight:600;">Scan another page — on us</p>
+        <p style="margin:0 0 12px;color:#9ca3af;font-size:13px;">Use this one-time code at checkout to get a free Deep Agent Audit on a different product page:</p>
+        <div style="text-align:center;margin:8px 0;">
+          <span style="display:inline-block;padding:8px 16px;background:#1a1a2e;border-radius:6px;font-size:18px;font-weight:700;color:#facc15;letter-spacing:0.05em;">{rescan_promo}</span>
+        </div>
+      </div>
+      '''}
+
       <!-- Footer -->
       <div style="padding:24px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
         <p style="margin:0;color:#6b7280;font-size:13px;">
@@ -142,7 +165,8 @@ def _build_html(scan_data: dict) -> str:
 </html>"""
 
 
-def send_report(to_email: str, scan_data: dict, subject: str | None = None) -> bool:
+def send_report(to_email: str, scan_data: dict, subject: str | None = None,
+                base_url: str = "") -> bool:
     """Send the full scan report to the given email. Returns True on success."""
     if not _is_configured():
         return False
@@ -164,7 +188,7 @@ def send_report(to_email: str, scan_data: dict, subject: str | None = None) -> b
     msg["From"] = from_email
     msg["To"] = to_email
 
-    html_body = _build_html(scan_data)
+    html_body = _build_html(scan_data, base_url=base_url)
     msg.attach(MIMEText(html_body, "html"))
 
     try:

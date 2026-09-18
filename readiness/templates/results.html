@@ -680,6 +680,13 @@
           <button type="submit" class="btn-pay" style="padding:0.7rem 1.5rem;">Re-scan this page (free)</button>
         </form>
       </div>
+      {% if rescan_promo %}
+      <div style="margin-top:1.25rem; padding:1rem 1.25rem; background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); border-radius:8px;">
+        <p style="margin:0 0 0.5rem; font-weight:600; color:#22c55e;">Scan a different product page — on us</p>
+        <p style="margin:0 0 0.5rem; font-size:0.9rem; color:var(--text-muted);">Use this one-time code at checkout to get a free Deep Agent Audit on another page:</p>
+        <code style="display:inline-block; padding:0.4rem 0.8rem; background:#1a1a2e; border-radius:4px; font-size:1rem; font-weight:600; letter-spacing:0.05em; color:#facc15; user-select:all;">{{ rescan_promo }}</code>
+      </div>
+      {% endif %}
     </div>
 
     <!-- PAID: consulting CTA -->
