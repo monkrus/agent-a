@@ -1448,7 +1448,7 @@ def paid_scan_stream(scan_id):
                 import stripe as _stripe
                 _stripe.api_key = stripe_key
                 promo = _stripe.PromotionCode.create(
-                    coupon=rescan_coupon_id,
+                    promotion={"type": "coupon", "coupon": rescan_coupon_id},
                     max_redemptions=1,
                 )
                 payload["meta"]["rescan_promo_code"] = promo.code
