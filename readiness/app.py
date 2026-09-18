@@ -1520,6 +1520,27 @@ def send_report(scan_id):
     return redirect(url_for("results", scan_id=scan_id))
 
 
+@app.route("/rescan/<scan_id>", methods=["POST"])
+def rescan(scan_id):
+    """Free re-scan for paid customers — re-runs the full paid scan."""
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+    # Only allow re-scan if the original scan was paid
+    is_paid = (session.get(f"paid_{scan_id}", False)
+               or data.get("meta", {}).get("paid", False))
+    if not is_paid:
+        abort(403)
+    # Rate limit re-scans same as regular scans
+    client_ip = request.remote_addr or "unknown"
+    wait = _check_rate_limit(client_ip)
+    if wait is not None:
+        return redirect(url_for("results", scan_id=scan_id))
+    # Re-use the paid scan streaming flow
+    session[f"paid_verified_{scan_id}"] = True
+    return redirect(url_for("processing", scan_id=scan_id))
+
+
 # ---- Shareable public results (/r/<scan_id>) --------------------------------
 
 SEV_RANK_SHARE = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}

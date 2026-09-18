@@ -668,19 +668,30 @@
     </div>
     {% endif %}
 
-    <!-- PAID: next steps -->
+    <!-- PAID: next steps + re-scan -->
     <div class="card">
       <h2>What to do next</h2>
-      <ol>
-        <li><strong>Fix the critical issues first</strong> &mdash; these are the ones that silently lose you sales from AI shoppers right now.</li>
-        <li><strong>Re-scan after fixing</strong> &mdash; we'll show you the before/after comparison to confirm the fixes worked.</li>
-        <li><strong>Consider a full catalog scan</strong> &mdash; this report covers one page. Most stores have issues across many products.</li>
+      <ol style="line-height:2;">
+        <li><strong>Fix the critical issues first</strong> &mdash; start with the red items above. Each one has copy-paste code you can apply today.</li>
+        <li><strong>Re-scan for free</strong> &mdash; after you've made changes, re-scan to verify the fixes worked. Paid customers get unlimited re-scans.</li>
       </ol>
+      <div style="margin-top:1rem;">
+        <form action="{{ url_for('rescan', scan_id=data.scan_id) }}" method="post" style="display:inline;">
+          <button type="submit" class="btn-pay" style="padding:0.7rem 1.5rem;">Re-scan this page (free)</button>
+        </form>
+      </div>
     </div>
 
-    <div class="card">
-      <h2>Need help implementing?</h2>
-      <p>If you'd like hands-on help fixing these issues or want a full catalog scan across all your products, reach out at <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">sergeigodev@gmail.com</a>.</p>
+    <!-- PAID: consulting CTA -->
+    <div class="card" style="border:1px solid rgba(96,165,250,0.3); background:rgba(96,165,250,0.04);">
+      <h2 style="color:#60a5fa;">Want us to fix it for you?</h2>
+      <p style="font-size:0.95rem; line-height:1.7; margin-bottom:1rem;">Most fixes take a Shopify developer 1&ndash;2 hours. We can implement every fix in this report, re-scan to verify, and hand you a store that scores 85+.</p>
+      <ul style="font-size:0.9rem; color:var(--text-muted); padding-left:1.25rem; line-height:2; margin-bottom:1.25rem;">
+        <li>All fixes from this report implemented in your theme</li>
+        <li>Full catalog scan across all products (not just one page)</li>
+        <li>Before/after verification scan</li>
+      </ul>
+      <a href="mailto:sergeigodev@gmail.com?subject=Fix%20implementation%20for%20{{ data.meta.target | urlencode }}&body=Hi%20Sergei%2C%0A%0AI%20just%20ran%20a%20Deep%20Agent%20Audit%20on%20my%20store%20and%20scored%20{{ data.readiness_score }}%2F100.%20I%E2%80%99d%20like%20help%20implementing%20the%20fixes.%0A%0AScan%20ID%3A%20{{ data.scan_id }}" class="btn-pay" style="display:inline-block; padding:0.7rem 1.5rem; text-decoration:none;">Get in touch &rarr;</a>
     </div>
     {% endif %}
 
