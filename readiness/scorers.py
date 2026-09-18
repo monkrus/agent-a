@@ -87,6 +87,11 @@ def _script_sizes(html_str):
 
 from shopper import _jsonld_offers, _jsonld_price, _jsonld_availability
 
+def _is_web_scan(page: dict) -> bool:
+    """True if the page was fetched from a URL (not a local file)."""
+    return (page.get("url", "") or "").startswith("http")
+
+
 POLICY_WORDS = ("return", "refund", "exchange")
 AGENT_UAS = ("gptbot", "oai-searchbot", "google-extended", "perplexitybot",
              "claudebot", "anthropic-ai", "ccbot")
@@ -869,6 +874,8 @@ def static_mcp_server_card(page):
     """RDY-034: MCP Server Card at /.well-known/mcp.json."""
     mcp = page.get("mcp_json")
     if mcp is None:
+        if _is_web_scan(page):
+            return "FAIL", "No MCP server card at /.well-known/mcp.json — agents cannot discover tools via Model Context Protocol."
         return "UNKNOWN", "MCP endpoint not probed (local file mode)."
     if mcp:
         name = mcp.get("name", "unnamed")
@@ -903,6 +910,8 @@ def static_a2a_agent_card(page):
     """RDY-037: A2A Agent Card at /.well-known/agent.json (Google A2A protocol)."""
     a2a = page.get("a2a_agent_card")
     if a2a is None:
+        if _is_web_scan(page):
+            return "FAIL", "No A2A agent card found at /.well-known/agent.json."
         return "UNKNOWN", "A2A endpoint not probed (local file mode)."
     if a2a:
         name = a2a.get("name", a2a.get("agent_name", ""))
@@ -915,6 +924,8 @@ def static_auth_md(page):
     """RDY-038: Auth.md authentication documentation."""
     auth = page.get("auth_md")
     if auth is None:
+        if _is_web_scan(page):
+            return "FAIL", "No auth.md at site root — agents have no authentication documentation."
         return "UNKNOWN", "Auth.md not probed (local file mode)."
     if auth:
         return "PASS", "auth.md found — agents have machine-readable authentication documentation."

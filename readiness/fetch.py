@@ -658,12 +658,18 @@ def _probe_checkout(url: str, timeout: int) -> dict | None:
     final_url, and redirect_reason if redirected to /cart or /account/login.
     """
     try:
-        r = _safe_request("GET", url, timeout=timeout, max_redirects=1,
-                          headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+        if not _is_safe_url(url):
+            return None
+        # Initial request WITHOUT following redirects — we need to see the
+        # raw redirect to classify it (cart? login? other?)
+        import requests as _req
+        r = _req.request("GET", url, timeout=timeout, allow_redirects=False,
+                         headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+        _check_response_ip(r)
         result = {
             "status": r.status_code,
             "location": r.headers.get("Location"),
-            "final_url": r.url,
+            "final_url": url,
             "html": None,
             "redirect_reason": None,
         }
@@ -679,7 +685,7 @@ def _probe_checkout(url: str, timeout: int) -> dict | None:
                 result["redirect_reason"] = "redirected_to_login"
             else:
                 result["redirect_reason"] = "redirected_other"
-            # Follow one hop to capture the final page content
+            # Follow one hop via _safe_get to capture the final page content
             try:
                 r2 = _safe_get(abs_loc, timeout=timeout,
                                headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
