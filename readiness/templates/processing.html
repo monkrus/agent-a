@@ -26,7 +26,7 @@
 
       <div id="stream-score" style="display:none; text-align:center; margin-top:1.5rem;"></div>
 
-      <p id="timer" style="font-size:0.85rem; color:#8b8b96; margin-top:1rem;">0s</p>
+      <p id="timer" style="font-size:0.85rem; color:#8b8b96; margin-top:1rem;">Scan is running… 0s</p>
     </div>
   </div>
 
@@ -37,7 +37,7 @@
       var elapsed = Math.floor((Date.now() - scanStart) / 1000);
       var m = Math.floor(elapsed / 60);
       var s = elapsed % 60;
-      timerEl.textContent = m > 0 ? m + ':' + (s < 10 ? '0' : '') + s : s + 's';
+      timerEl.textContent = 'Scan is running… ' + (m > 0 ? m + ':' + (s < 10 ? '0' : '') + s : s + 's');
     }, 1000);
 
     var log = document.getElementById('stream-log');

@@ -78,7 +78,7 @@
             timerSpan.style.cssText = 'color:#8b8b96;font-size:0.85rem;margin-left:0.75rem;';
             document.getElementById('scan-btn').parentNode.appendChild(timerSpan);
           }
-          timerSpan.textContent = '0s';
+          timerSpan.textContent = 'Scan is running… 0s';
 
           const log = document.getElementById('stream-log');
           const scoreDiv = document.getElementById('stream-score');
@@ -90,7 +90,7 @@
             const m = Math.floor(elapsed / 60);
             const s = elapsed % 60;
             const ts = m > 0 ? m + ':' + (s < 10 ? '0' : '') + s : s + 's';
-            timerSpan.textContent = ts;
+            timerSpan.textContent = 'Scan is running… ' + ts;
           }, 1000);
 
           const es = new EventSource('/scan-stream?url=' + encodeURIComponent(url));
