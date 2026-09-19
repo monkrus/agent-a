@@ -165,12 +165,12 @@
               if (isBlocked) {
                 scoreDiv.innerHTML = '<div style="font-size:2rem;font-weight:bold;color:#f87171;">BLOCKED</div>'
                   + '<div style="color:#c8c8d0;margin:0.5rem 0;">AI shopping agents cannot access your store</div>'
-                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report &rarr;</a></div>';
+                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">View full report &rarr;</a></div>';
               } else {
                 const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
                 scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
                   + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
-                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" style="color:#60a5fa;text-decoration:underline;">View full report &rarr;</a></div>';
+                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">View full report &rarr;</a></div>';
               }
               var ctr = document.getElementById('scan-counter');
               if (ctr) ctr.textContent = parseInt(ctr.textContent || '0') + 1;
