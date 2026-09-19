@@ -1443,10 +1443,11 @@ def paid_scan_stream(scan_id):
 
         # Generate a unique single-use promo code for a free re-scan
         rescan_coupon_id = os.environ.get("STRIPE_RESCAN_COUPON_ID")
-        if stripe_key and rescan_coupon_id:
+        _stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
+        if _stripe_key and rescan_coupon_id:
             try:
                 import stripe as _stripe
-                _stripe.api_key = stripe_key
+                _stripe.api_key = _stripe_key
                 promo = _stripe.PromotionCode.create(
                     promotion={"type": "coupon", "coupon": rescan_coupon_id},
                     max_redemptions=1,
