@@ -203,6 +203,11 @@
       {% if paid %}
       <h2>Deep Agent Audit — Full Results</h2>
       <p class="intel-subtitle">{{ data.results|length }} checks run{% if data.meta.shopper == 'anthropic' %}, including {{ data.meta.n }} real AI agent visits{% endif %}. Failing checks include what it costs you and how to fix it.</p>
+      {% if data.meta.get('browser_unavailable') %}
+      <div style="background:#1e1b4b; border:1px solid #6366f1; border-radius:8px; padding:0.75rem 1rem; margin:0.75rem 0; font-size:0.85rem; color:#c7d2fe;">
+        <strong style="color:#a5b4fc;">Note:</strong> 5 browser interaction checks (add-to-cart, search, checkout, navigation, product comparison) were unavailable during this scan. Your score is based on {{ data.results|length }} static + AI extraction checks. To request a complimentary re-scan with browser checks, reply to your receipt email or contact <a href="mailto:sergeigodev@gmail.com" style="color:#818cf8;">sergeigodev@gmail.com</a>.
+      </div>
+      {% endif %}
       {% elif access_blocked %}
       <h2>Structural Readiness Check</h2>
       <p class="intel-subtitle">Only 2 access checks ran. The remaining {{ data.results|selectattr('gated')|list|length }} checks were skipped because agents can't reach the page.</p>
@@ -283,7 +288,11 @@
       <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem;">+ {{ failing|length - 5 }} more issues found.</p>
       {% endif %}
       <div style="text-align:center; margin-top:1rem;">
+        {% if browser_available %}
         <a href="#paywall" style="color:var(--accent); font-weight:600; font-size:0.9rem;">Unlock all {{ failing|length }} fixes — Deep Agent Audit $49 ↓</a>
+        {% else %}
+        <span style="color:var(--text-muted); font-size:0.9rem;">Deep Agent Audit temporarily unavailable — <a href="#paywall" style="color:#818cf8;">details ↓</a></span>
+        {% endif %}
       </div>
       {% endif %}
 
@@ -635,11 +644,18 @@
       </ul>
 
       <p style="font-size:0.8rem; color:var(--text-muted); margin:0.5rem 0;">Not included: ongoing monitoring, PDF download, or measured analytics integration. This is a one-time diagnostic report.</p>
+      {% if browser_available %}
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
         <button type="submit" class="btn-pay">Run Deep Agent Audit — $49</button>
       </form>
       {% if dev_mode and not has_stripe %}
       <p class="note">DEV MODE — clicking unlocks the report without payment.</p>
+      {% endif %}
+      {% else %}
+      <div style="background:#1e1b4b; border:1px solid #6366f1; border-radius:8px; padding:1rem; margin:0.75rem 0; font-size:0.9rem; color:#c7d2fe;">
+        <strong style="color:#a5b4fc;">Temporarily unavailable</strong><br>
+        Browser interaction checks are down for maintenance. The Deep Agent Audit requires all 40 checks to run. Please check back soon or email <a href="mailto:sergeigodev@gmail.com" style="color:#818cf8;">sergeigodev@gmail.com</a> to be notified when it's back.
+      </div>
       {% endif %}
     </div>
     {% else %}

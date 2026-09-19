@@ -247,16 +247,24 @@ def resolve_tier(scan_id: str | None) -> str:
     return "free"
 
 
+def _browser_available() -> bool:
+    """Check whether the browser_agent module (Playwright) is importable."""
+    try:
+        import browser_agent  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 def checks_for_tier(tier: str, checks: list[dict]) -> list[dict]:
     """Free tier = static checks only. Paid = static + shopper (+ browser if available)."""
     if tier == "free":
         return [c for c in checks if c.get("type") == "static"]
     # Paid: include browser checks only if Playwright is installed
-    try:
-        import browser_agent  # noqa: F401
+    if _browser_available():
         return checks
-    except ImportError:
-        return [c for c in checks if c.get("type") != "browser"]
+    _logger.warning("browser_agent not available — 5 browser checks will be skipped for paid scan")
+    return [c for c in checks if c.get("type") != "browser"]
 
 
 def _load_checks():
@@ -994,7 +1002,8 @@ def results(scan_id):
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
                            compare_error=compare_error, rescan_promo=rescan_promo,
                            scan_count=scan_count, stats={"check_counts": check_counts},
-                           teaser_fix=teaser_fix, teaser_check_id=teaser_check_id)
+                           teaser_fix=teaser_fix, teaser_check_id=teaser_check_id,
+                           browser_available=_browser_available())
 
 
 @app.route("/compare/<scan_id>", methods=["POST"])
@@ -1073,6 +1082,11 @@ def checkout(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
+
+    if not _browser_available():
+        abort(503, description="Browser checks are temporarily unavailable. "
+              "The Deep Agent Audit requires browser interaction checks. "
+              "Please try again later or contact sergeigodev@gmail.com.")
 
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
     price_id = os.environ.get("STRIPE_PRICE_ID")
@@ -1203,7 +1217,17 @@ def paid_scan_stream(scan_id):
 
         pack, version, checks = _load_checks()
         tier = "paid"
+        browser_ok = _browser_available()
         checks = checks_for_tier(tier, checks)
+
+        if not browser_ok:
+            yield "data: " + json.dumps({
+                "type": "browser_unavailable",
+                "message": ("Browser interaction checks (add-to-cart, search, "
+                            "checkout, navigation, product comparison) are "
+                            "temporarily unavailable. Your scan includes all "
+                            "static and AI extraction checks."),
+            }) + "\n\n"
 
         def _base(c):
             return {k: c.get(k) for k in
@@ -1420,6 +1444,7 @@ def paid_scan_stream(scan_id):
                 "duration_seconds": _elapsed,
                 "paid": True,
                 "free_scan_id": scan_id,
+                "browser_unavailable": not browser_ok,
             },
             "readiness_score": readiness_score,
             "confidence_margin": margin,

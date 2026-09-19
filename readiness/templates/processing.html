@@ -55,7 +55,11 @@
     es.onmessage = function(event) {
       var d = JSON.parse(event.data);
 
-      if (d.type === 'status') {
+      if (d.type === 'browser_unavailable') {
+        addLine('<div style="background:#1e1b4b;border:1px solid #6366f1;border-radius:8px;padding:0.75rem 1rem;margin:0.5rem 0;font-size:0.85rem;color:#c7d2fe;">'
+          + '<strong style="color:#a5b4fc;">Note:</strong> ' + d.message + '</div>');
+      }
+      else if (d.type === 'status') {
         var div = document.createElement('div');
         div.id = 'status-msg';
         div.innerHTML = '<span style="color:#8b8b96;">' + d.message + '</span>';
