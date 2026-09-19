@@ -207,6 +207,10 @@
       <div style="background:#1e1b4b; border:1px solid #6366f1; border-radius:8px; padding:0.75rem 1rem; margin:0.75rem 0; font-size:0.85rem; color:#c7d2fe;">
         <strong style="color:#a5b4fc;">Note:</strong> 5 browser interaction checks (add-to-cart, search, checkout, navigation, product comparison) were unavailable during this scan. Your score is based on {{ data.results|length }} static + AI extraction checks. To request a complimentary re-scan with browser checks, reply to your receipt email or contact <a href="mailto:sergeigodev@gmail.com" style="color:#818cf8;">sergeigodev@gmail.com</a>.
       </div>
+      {% elif data.meta.get('browser_geo_blocked') %}
+      <div style="background:#1a1a0a; border:1px solid #ca8a04; border-radius:8px; padding:0.75rem 1rem; margin:0.75rem 0; font-size:0.85rem; color:#fef08a;">
+        <strong style="color:#facc15;">Geo-restriction detected:</strong> All 5 browser checks failed because the site blocks access from our server location. Individual flows (add-to-cart, search, checkout, navigation, comparison) could not be tested. The site's geo-restriction is itself a finding — AI agents from blocked regions cannot shop here.
+      </div>
       {% endif %}
       {% elif access_blocked %}
       <h2>Structural Readiness Check</h2>

@@ -1406,6 +1406,19 @@ def paid_scan_stream(scan_id):
             # Layer 5: Protocol Discovery
             yield from _run_static_batch("protocols", protocol_static)
 
+        # --- Detect browser geo-block ---
+        browser_results = [r for r in results if r.get("type") == "browser"]
+        if browser_results:
+            blocked_details = [r.get("detail", "") for r in browser_results
+                               if r.get("verdict") == "FAIL"]
+            access_phrases = ("restricted access", "cannot visit", "geo-restrict",
+                              "current location", "access denied")
+            all_geo_blocked = (len(blocked_details) == len(browser_results) and
+                               all(any(p in d.lower() for p in access_phrases)
+                                   for d in blocked_details))
+        else:
+            all_geo_blocked = False
+
         # --- Final score ---
         results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 
@@ -1445,6 +1458,7 @@ def paid_scan_stream(scan_id):
                 "paid": True,
                 "free_scan_id": scan_id,
                 "browser_unavailable": not browser_ok,
+                "browser_geo_blocked": all_geo_blocked,
             },
             "readiness_score": readiness_score,
             "confidence_margin": margin,
