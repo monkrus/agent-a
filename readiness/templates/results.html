@@ -132,7 +132,7 @@
         <h3>Agent instructions file (llms.txt)</h3>
         <p class="intel-explain">Your site has an llms.txt file &mdash; a set of instructions that tells AI agents how to interact with your store. This is like a welcome mat for AI shoppers.</p>
         {% if data.intel.llms_txt.features %}
-        <p class="intel-detail"><strong>What agents can do:</strong> {{ data.intel.llms_txt.features | join(' &bull; ') }}</p>
+        <p class="intel-detail"><strong>What agents can do:</strong> {{ data.intel.llms_txt.features | join(' · ') }}</p>
         {% endif %}
       </div>
       {% elif not data.intel.llms_txt or not data.intel.llms_txt.present %}
@@ -707,7 +707,7 @@
     <div class="card">
       <h2>What to do next</h2>
       <ol style="line-height:2;">
-        <li><strong>Save this report</strong> &mdash; download a PDF to share with your dev team.</li>
+        <li class="no-print"><strong>Save this report</strong> &mdash; download a PDF to share with your dev team.</li>
         <li><strong>Fix the critical issues first</strong> &mdash; start with the red items above. Each one has copy-paste code you can apply today.</li>
         <li><strong>Re-scan after fixing</strong> &mdash; come back to this page and re-scan to verify the fixes worked.</li>
       </ol>
