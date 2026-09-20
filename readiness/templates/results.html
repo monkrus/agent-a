@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Readiness Report — {{ data.meta.target }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    @media print {
+      body { background: #fff !important; color: #111 !important; font-size: 11pt; }
+      .container { max-width: 100%; padding: 0; }
+      .card { border: 1px solid #ddd !important; box-shadow: none !important; break-inside: avoid; }
+      .back-link, .paywall-card, #compare-form, .btn-pay, .btn-copy, .btn-share,
+      #copy-btn, footer, .no-print { display: none !important; }
+      .score-number { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .check-block { break-inside: avoid; }
+      .sev, .verdict { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      a { color: #111 !important; text-decoration: none !important; }
+      details { open: true; }
+      details[open] summary { display: none; }
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -647,7 +662,7 @@
         <li style="padding:0.4rem 0;"><strong style="color:#fb923c;">Report emailed</strong> to you automatically</li>
       </ul>
 
-      <p style="font-size:0.8rem; color:var(--text-muted); margin:0.5rem 0;">Not included: ongoing monitoring, PDF download, or measured analytics integration. This is a one-time diagnostic report.</p>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin:0.5rem 0;">Not included: ongoing monitoring or measured analytics integration. This is a one-time diagnostic report.</p>
       {% if browser_available %}
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
         <button type="submit" class="btn-pay">Run Deep Agent Audit — $49</button>
@@ -692,9 +707,11 @@
     <div class="card">
       <h2>What to do next</h2>
       <ol style="line-height:2;">
+        <li><strong>Save this report</strong> &mdash; download a PDF to share with your dev team.</li>
         <li><strong>Fix the critical issues first</strong> &mdash; start with the red items above. Each one has copy-paste code you can apply today.</li>
         <li><strong>Re-scan after fixing</strong> &mdash; come back to this page and re-scan to verify the fixes worked.</li>
       </ol>
+      <button onclick="window.print()" class="no-print" style="padding:0.6rem 1.5rem; border-radius:8px; border:2px solid #a78bfa; background:rgba(167,139,250,0.15); color:#a78bfa; font-size:0.9rem; cursor:pointer; font-weight:600; margin-top:0.5rem;">Save as PDF</button>
       {% if rescan_promo %}
       <div style="margin-top:1.25rem; padding:1rem 1.25rem; background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); border-radius:8px;">
         <p style="margin:0 0 0.5rem; font-weight:600; color:#22c55e;">Scan a different product page — on us</p>
@@ -752,6 +769,13 @@
       setTimeout(function() { btn.textContent = 'Copy share link'; }, 2000);
     });
   }
+  // Expand all <details> before print so passing checks appear in PDF
+  window.addEventListener('beforeprint', function() {
+    document.querySelectorAll('details').forEach(function(d) { d.open = true; });
+  });
+  window.addEventListener('afterprint', function() {
+    document.querySelectorAll('details').forEach(function(d) { d.open = false; });
+  });
   </script>
 </body>
 </html>
