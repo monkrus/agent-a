@@ -1,0 +1,63 @@
+      <div class="check-block check-fail">
+        <div class="check-header">
+          <span class="verdict-icon">✗</span>
+          <span class="check-title">{{ r.title }}</span>
+          <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }} priority</span>
+          <span class="verdict verdict-badge-fail">Needs fix</span>
+        </div>
+
+        {% if paid %}
+        <div class="check-detail">
+          <div class="check-row">
+            <span class="check-label">Result</span>
+            <span>{{ r.detail }}</span>
+          </div>
+
+          <div class="check-row check-impact">
+            <span class="check-label">What you're losing</span>
+            <span>{{ impact_texts.get(r.id, 'This issue reduces your store\'s agent readiness.') }}</span>
+          </div>
+
+          {% if r.pass_rate %}
+          <div class="check-row">
+            <span class="check-label">Pass rate</span>
+            <span>{{ r.pass_rate }} (agent got it right {{ r.pass_rate }} times)</span>
+          </div>
+          {% endif %}
+          {% if r.ground_truth is defined and r.ground_truth is not none and r.ground_truth != '' %}
+          <div class="check-row">
+            <span class="check-label">Correct answer</span>
+            <span>{{ r.ground_truth }}</span>
+          </div>
+          {% endif %}
+          {% if r.modal_answer is defined %}
+          <div class="check-row">
+            <span class="check-label">Most common agent answer</span>
+            <span>"{{ r.modal_answer }}"</span>
+          </div>
+          {% endif %}
+          {% if r.sample_answers is defined %}
+          <div class="check-row">
+            <span class="check-label">Sample agent responses</span>
+            <span class="sample-list">{% for a in r.sample_answers %}<code>{{ a }}</code>{% if not loop.last %} {% endif %}{% endfor %}</span>
+          </div>
+          {% endif %}
+
+          {% if r.fix_recipe is defined and r.fix_recipe %}
+          <div class="fix-block">
+            <div class="fix-header">
+              <span class="fix-label">How to fix this</span>
+              <button class="btn-copy" onclick="copyFix(this)" data-code="{{ r.fix_recipe | e }}">Copy fix</button>
+            </div>
+            <p class="fix-instruction">{{ r.fix or '' }}</p>
+            <pre class="fix-code"><code>{{ r.fix_recipe | e }}</code></pre>
+          </div>
+          {% elif r.fix %}
+          <div class="fix-block">
+            <span class="fix-label">How to fix this</span>
+            <p class="fix-instruction">{{ r.fix }}</p>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>

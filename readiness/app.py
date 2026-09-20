@@ -222,6 +222,52 @@ def _normalize_and_validate_url(raw: str) -> tuple[str | None, str | None]:
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 
+# ---- Per-check impact descriptions (paid report) ----------------------------
+IMPACT_TEXTS = {
+    "RDY-001": "No structured product data. AI agents cannot read your price or availability — they skip your product entirely.",
+    "RDY-002": "Your price only appears after JavaScript runs. Most AI agents don't run JavaScript — they see no price and move on to a competitor.",
+    "RDY-003": "Your robots.txt blocks AI crawlers. Every AI shopping assistant that tries to read your page gets turned away.",
+    "RDY-004": "AI agents can't find your return policy. When a customer asks \"what's the return policy?\", the agent says \"unknown\" — that kills purchase confidence.",
+    "RDY-005": "No llms.txt file. AI agents have no guidance on how to interact with your store — they have to guess.",
+    "RDY-006": "AI agents are getting the wrong price or no price at all. Customers using AI assistants to compare prices will never see yours.",
+    "RDY-007": "AI agents cannot determine if your product is in stock. They tell customers \"unknown\" or skip the product entirely.",
+    "RDY-008": "AI agents can't identify your product correctly. They may recommend the wrong item or fail to mention yours at all.",
+    "RDY-009": "AI agents can't find your return policy. When a customer asks \"what's the return policy?\", the agent says \"unknown\" — that kills purchase confidence.",
+    "RDY-010": "AI agents give inconsistent shipping answers. A customer asking \"how much is shipping?\" gets a different answer each time — that's a lost sale.",
+    "RDY-011": "Your llms.txt is incomplete. AI agents get partial guidance on your store, reducing their ability to help customers buy.",
+    "RDY-012": "Your structured data is missing key fields. AI agents can't fully compare your product with competitors — you lose in side-by-side evaluations.",
+    "RDY-013": "Most of your page content only loads after JavaScript runs. AI agents don't execute JavaScript — they see a nearly blank page and move on to a competitor.",
+    "RDY-014": "AI agents cannot find the \"Add to Cart\" button. If an agent tries to buy for a customer, it fails at the first step.",
+    "RDY-015": "AI agents cannot select a size or color. The purchase attempt fails because no variant is chosen.",
+    "RDY-016": "Hidden text on your page could hijack AI agent behavior — making it recommend a competitor, quote wrong prices, or refuse to purchase.",
+    "RDY-017": "An AI agent tried to add your product to cart and failed. Customers using AI shopping assistants cannot purchase from you.",
+    "RDY-018": "An AI agent could not find your product using your site's search. Customers asking \"find me a [product]\" get no results.",
+    "RDY-019": "An AI agent added your product to cart but could not reach checkout. The sale is abandoned before payment.",
+    "RDY-020": "An AI agent starting from your homepage could not find this product. Agents discovering your store can't navigate to what they want to buy.",
+    "RDY-021": "AI agents cannot find related products on your page. Customers asking \"show me alternatives\" get nothing — agents can't cross-sell for you.",
+    "RDY-022": "Your checkout requires an account. AI agents don't have login credentials — they abandon the purchase.",
+    "RDY-023": "No programmatic cart endpoint. Headless AI agents that skip the browser cannot add items to cart.",
+    "RDY-029": "No sitemap.xml found. AI agents cannot discover your full product catalog — they only find pages they stumble upon.",
+    "RDY-030": "Your page takes too long to load. AI agents with short timeouts abandon the request and move on to a faster competitor.",
+    "RDY-031": "Your site actively blocks AI agent requests. Every AI shopping assistant that tries to read your page gets turned away.",
+    "RDY-032": "AI agents that can pay autonomously (the next wave of e-commerce) have no way to complete a purchase on your site. You're invisible to agent-driven purchases.",
+    "RDY-033": "Your page says the product is in stock in one place and out of stock in another. An AI agent seeing this conflict will either skip the product or tell the customer wrong information — both cost you the sale.",
+    "RDY-034": "No MCP server card. As AI agents adopt tool-use protocols, they won't know what your store can do for them.",
+    "RDY-035": "No OAuth discovery. AI agents that need authenticated access to your store cannot connect.",
+    "RDY-036": "AI agents prefer clean text over HTML. Without markdown support, agents spend more tokens parsing your page and extract less accurately.",
+    "RDY-037": "No A2A agent card. Google's agent-to-agent protocol cannot discover your store's capabilities.",
+    "RDY-038": "No authentication documentation. AI agents have no way to know how to authenticate with your store's APIs.",
+    "RDY-039": "Without Link headers, AI agents can't automatically discover your API, search, or product catalog. They have to guess — or give up.",
+    "RDY-040": "AI agents can't discover your store's capabilities via DNS. This emerging standard lets agents find you before they even visit your site.",
+    "RDY-041": "No structured commerce protocols detected. AI agents that want to interact with your store beyond HTML have no way in.",
+    "RDY-042": "Your reviews or Q&A section contains text that could manipulate AI agents — potentially redirecting customers to competitors.",
+    "RDY-043": "Your cart API has no rate limiting. Malicious bots could manipulate your inventory by adding thousands of items to carts.",
+    "RDY-044": "Your checkout has no bot protection. Automated agents could complete fraudulent purchases without any challenge.",
+    "RDY-045": "Admin or API paths are publicly accessible. AI agents or attackers could discover sensitive store management endpoints.",
+    "RDY-046": "Your product description is too thin for AI agents. They can't recommend your product because they don't know enough about it.",
+    "RDY-047": "Your product images have no descriptive alt text. AI agents can't see images — they rely on alt text to understand what your product looks like.",
+}
+
 
 # ---- Tier resolution (free vs paid) -----------------------------------------
 
@@ -1003,7 +1049,8 @@ def results(scan_id):
                            compare_error=compare_error, rescan_promo=rescan_promo,
                            scan_count=scan_count, stats={"check_counts": check_counts},
                            teaser_fix=teaser_fix, teaser_check_id=teaser_check_id,
-                           browser_available=_browser_available())
+                           browser_available=_browser_available(),
+                           impact_texts=IMPACT_TEXTS)
 
 
 @app.route("/compare/<scan_id>", methods=["POST"])

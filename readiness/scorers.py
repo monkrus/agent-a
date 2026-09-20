@@ -1417,6 +1417,67 @@ BROWSER = {
 }
 
 
+def _humanize_browser_error(raw: str) -> str:
+    """Translate raw Playwright/browser errors to merchant-friendly language."""
+    if not raw:
+        return "The agent could not complete the interaction."
+    low = raw.lower()
+    if "execution context was destroyed" in low:
+        return "The page reloaded during the interaction and the agent lost its place."
+    if "stuck:" in low and "times with no progress" in low:
+        return "The agent clicked the same button repeatedly but nothing happened — the page may require JavaScript interactions the agent cannot perform."
+    if "stuck: repeated" in low:
+        return "The agent tried the same action multiple times but the page did not respond."
+    if "timeout" in low and "exceeded" in low:
+        return "The page took too long to respond. A popup, slow loading, or JavaScript may have blocked progress."
+    if "net::err_" in low:
+        return "The page could not be loaded — the site may be blocking automated browsers."
+    if "restricted access" in low or "cannot visit" in low or "geo-restrict" in low:
+        return "The site blocks access from our server location — a geo-restriction prevents the agent from shopping."
+    if "click failed:" in low:
+        return "The agent found the button but could not click it — it may be hidden behind a popup or disabled."
+    if "type failed:" in low:
+        return "The agent found the text field but could not type into it — the field may be disabled or hidden."
+    if "select failed:" in low:
+        return "The agent found the dropdown but could not select an option — the selector may use custom JavaScript."
+    # Strip raw Playwright internals but keep context
+    import re
+    cleaned = re.sub(r'Browser error:\s*', '', raw)
+    cleaned = re.sub(r'Page\.\w+:\s*', '', cleaned)
+    cleaned = re.sub(r'Locator\.\w+:\s*', '', cleaned)
+    cleaned = re.sub(r'Call log:.*', '', cleaned, flags=re.DOTALL)
+    cleaned = cleaned.strip().rstrip('.')
+    if cleaned:
+        return cleaned + "."
+    return "The agent could not complete the interaction."
+
+
+def _humanize_diagnostics(diag_parts: list[str]) -> list[str]:
+    """Translate diagnostic messages to merchant-friendly language."""
+    result = []
+    for part in diag_parts:
+        low = part.lower()
+        if "fragile locators" in low:
+            # e.g. "44% of interactive elements use fragile locators"
+            import re
+            m = re.search(r'(\d+)%', part)
+            pct = m.group(1) if m else "many"
+            result.append(f"{pct}% of buttons and controls on this page are difficult for AI agents to find and click")
+        elif "lack stable locators" in low:
+            import re
+            m = re.search(r'(\d+)', part)
+            n = m.group(1) if m else "some"
+            result.append(f"{n} variant picker(s) use non-standard code that AI agents struggle with")
+        elif "custom js swatch" in low:
+            import re
+            m = re.search(r'(\d+)', part)
+            n = m.group(1) if m else "some"
+            result.append(f"{n} color/size picker(s) use custom JavaScript instead of standard dropdowns")
+        else:
+            result.append(part)
+    return result
+
+
 def run_browser(check, page):
     """Run a browser-agent check (e.g. Add-to-Cart flow).
 
@@ -1514,9 +1575,10 @@ def run_browser(check, page):
                 "browser_result": result, "browser_attempts": attempts,
                 "browser_successes": successes}
 
+    raw_reason = result.get('final_reason', 'unknown')
+    human_reason = _humanize_browser_error(raw_reason)
     detail = (f"Agent failed to {fail_label} after {result['total_steps']} steps "
-              f"({successes}/{attempts} attempts). "
-              f"Reason: {result.get('final_reason', 'unknown')}.")
+              f"({successes}/{attempts} attempts). {human_reason}")
 
     # Surface element-level diagnostics if available
     diag = result.get("diagnostics")
@@ -1543,7 +1605,8 @@ def run_browser(check, page):
             pct = round(100 * loc["fragile"] / total) if total else 0
             diag_parts.append(f"{pct}% of interactive elements use fragile locators")
         if diag_parts:
-            detail += " | DIAGNOSTICS: " + "; ".join(diag_parts)
+            diag_parts = _humanize_diagnostics(diag_parts)
+            detail += " | " + "; ".join(diag_parts)
 
     ret = {"verdict": "FAIL", "detail": detail, "pass_fraction": pass_rate,
            "browser_result": result, "browser_attempts": attempts,
