@@ -29,6 +29,7 @@ results across six layers:
 - Return/refund policy reachable as text
 - JS rendering ratio (how much content agents actually see)
 - Product description richness (image-vs-text emotional gap analysis)
+- Product image alt text (AI agents can't see images — they need descriptive alt text)
 - Availability signal consistency (JSON-LD vs visible text)
 - Sitemap.xml exists and lists products
 - Page responds within agent timeout threshold
@@ -77,9 +78,9 @@ results across six layers:
 
 ## Two tiers
 
-### Free scan (31 checks, $0)
+### Free scan (32 checks, $0)
 - Readiness score (0-100)
-- 31 structural checks: data, interaction, security, resilience, protocols
+- 32 structural checks: data, interaction, security, resilience, protocols
 - Pass/fail/inconclusive per check with top issues listed
 - One free fix recipe for the highest-priority failure
 - Competitor head-to-head comparison
@@ -87,7 +88,7 @@ results across six layers:
 - Shareable results link with OG image
 - No API cost, no account, instant
 
-### Deep Agent Audit (41 checks, $49)
+### Deep Agent Audit (42 checks, $49)
 Everything in free, plus:
 - **5 AI extraction checks** — Claude visits the page 5 times, extracts price, availability, product name, return window, shipping. Shows pass rate, ground truth, sample responses
 - **5 browser agent flows** — AI agent tries to: add to cart, search, reach checkout, navigate from homepage, find related products
@@ -112,8 +113,8 @@ Everything in free, plus:
 ## How it works
 
 1. Fetches the product page (raw HTML + optional Playwright rendered DOM)
-2. Free tier runs 31 static structural checks (no API cost)
-3. Paid tier re-scans with all 41 checks: static + AI shopper + browser flows
+2. Free tier runs 32 static structural checks (no API cost)
+3. Paid tier re-scans with all 42 checks: static + AI shopper + browser flows
 4. Shopper checks run N times (default 5) to report **pass rates**, not binary
 5. Browser checks use majority-vote (2/3 or better to pass)
 6. Computes a weighted readiness score (0-100)
@@ -185,9 +186,9 @@ readiness/                 The scanner (primary product)
   fixes.py                 Fix recipe loader (loads private recipes via FIXES_MODULE)
   validate_report.py       Report-vs-payload validator
   og_image.py              OG image generator for shareable results
-  checks/shopify-v1.yaml   Check pack (41 checks, weights sum to 100)
+  checks/shopify-v1.yaml   Check pack (42 checks, weights sum to 100)
   templates/               Web frontend templates
-  tests/                   Test suite (353 tests)
+  tests/                   Test suite (353+ tests)
   .scans/                  Scan results (gitignored)
 
 scenarios/                 Reusable test scenario packs

@@ -86,7 +86,7 @@ checks:
     detect: llms_txt_quality
     expect: llms.txt contains product paths, policy links, sitemap reference, and valid URLs.
     fail_if: llms.txt is missing key sections (products, policies, sitemap) or has no absolute URLs.
-    weight: 3
+    weight: 2
     severity_if_fail: medium
     fix: Add product catalog paths, policy links, and sitemap URL to llms.txt.
 
@@ -122,6 +122,17 @@ checks:
     weight: 2
     severity_if_fail: medium
     fix: Add text descriptions covering material/composition, features/benefits, and fit/sizing. AI agents cannot see images — they need words to recommend your product.
+
+  - id: RDY-047
+    type: static
+    category: image-accessibility
+    title: Product images have descriptive alt text for AI agents
+    detect: image_alt_text
+    expect: All product images have non-empty, descriptive alt attributes that convey what the image shows.
+    fail_if: Product images are missing alt text or have generic/empty alt attributes — AI agents cannot see images and rely on alt text.
+    weight: 2
+    severity_if_fail: medium
+    fix: Add descriptive alt text to all product images. AI agents cannot see images — alt text is how they understand what your product looks like.
 
   - id: RDY-014
     type: static
@@ -317,7 +328,7 @@ checks:
     detect: sitemap_xml
     expect: A valid sitemap.xml exists at the site root, ideally listing product URLs.
     fail_if: No sitemap.xml found — agents cannot discover the product catalog programmatically.
-    weight: 3
+    weight: 2
     severity_if_fail: medium
     fix: Add a sitemap.xml that includes product page URLs so agents and crawlers can discover your catalog.
 

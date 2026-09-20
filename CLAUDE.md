@@ -79,7 +79,7 @@ readiness/
 
 ## The six check categories
 
-Every check maps to one category of agent readiness (41 checks total: 31 static + 5 shopper + 5 browser):
+Every check maps to one category of agent readiness (42 checks total: 32 static + 5 shopper + 5 browser):
 
 1. **Data** — can agents read and find the page? (JSON-LD, price in HTML, llms.txt, robots.txt, policy, JS ratio, sitemap, contradictory availability)
 2. **Extraction** — can agents extract correctly? (shopper simulation, N runs, pass rates — price, availability, product name, return window, shipping)

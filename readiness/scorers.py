@@ -1132,6 +1132,99 @@ def static_copy_richness(page):
         return ("FAIL", detail)
 
 
+
+def static_image_alt_text(page):
+    """RDY-047: Check if product images have descriptive alt text.
+
+    AI agents cannot see images — they rely entirely on alt text to understand
+    what a product looks like. Missing or generic alt text means agents describe
+    your product poorly or not at all.
+    """
+    html = page.get("html", "") or ""
+    if not html:
+        return ("UNKNOWN", "No HTML content available.")
+
+    import re
+    # Find all <img> tags
+    img_tags = re.findall(r'<img\b[^>]*>', html, re.IGNORECASE)
+    if not img_tags:
+        return ("PASS", "No images found on page.")
+
+    # Filter to product-relevant images (skip tiny icons, tracking pixels, etc.)
+    product_imgs = []
+    for tag in img_tags:
+        # Skip tiny images (likely icons/pixels)
+        width_m = re.search(r'width\s*=\s*["\']?(\d+)', tag, re.IGNORECASE)
+        height_m = re.search(r'height\s*=\s*["\']?(\d+)', tag, re.IGNORECASE)
+        if width_m and int(width_m.group(1)) < 50:
+            continue
+        if height_m and int(height_m.group(1)) < 50:
+            continue
+        # Skip common non-product images
+        src_m = re.search(r'src\s*=\s*["\']([^"\']*)', tag, re.IGNORECASE)
+        src = src_m.group(1).lower() if src_m else ""
+        if any(skip in src for skip in ("pixel", "tracking", "spacer", "blank",
+                                        "logo", "favicon", "icon", "badge",
+                                        "payment", "visa", "mastercard", "paypal",
+                                        "svg+xml")):
+            continue
+        product_imgs.append(tag)
+
+    if not product_imgs:
+        return ("PASS", "No product images found (only icons/logos detected).")
+
+    missing_alt = 0
+    generic_alt = 0
+    good_alt = 0
+    generic_patterns = {"image", "photo", "picture", "img", "product",
+                        "product image", "product photo", "untitled",
+                        "default", "placeholder"}
+
+    for tag in product_imgs:
+        alt_m = re.search(r'alt\s*=\s*"([^"]*)"', tag, re.IGNORECASE)
+        if not alt_m:
+            alt_m = re.search(r"alt\s*=\s*'([^']*)'", tag, re.IGNORECASE)
+        if not alt_m:
+            # Check for alt="" or alt with no value
+            if re.search(r'alt\s*=\s*["\']["\']', tag, re.IGNORECASE):
+                missing_alt += 1  # empty alt
+            else:
+                missing_alt += 1  # no alt attribute
+            continue
+
+        alt_text = alt_m.group(1).strip()
+        if not alt_text:
+            missing_alt += 1
+        elif alt_text.lower() in generic_patterns or len(alt_text) < 5:
+            generic_alt += 1
+        else:
+            good_alt += 1
+
+    total = len(product_imgs)
+    bad = missing_alt + generic_alt
+
+    if bad == 0:
+        return ("PASS",
+                f"All {total} product image(s) have descriptive alt text.")
+
+    detail_parts = []
+    if missing_alt:
+        detail_parts.append(f"{missing_alt} missing alt text")
+    if generic_alt:
+        detail_parts.append(f"{generic_alt} generic/unhelpful alt text")
+    detail = (f"{bad}/{total} product images lack descriptive alt text "
+              f"({', '.join(detail_parts)}). "
+              f"AI agents cannot see images — they rely on alt text to "
+              f"understand and recommend your product.")
+
+    # PASS if >80% have good alt text
+    if good_alt / total >= 0.8:
+        return ("PASS", f"Most product images have alt text ({good_alt}/{total} good). "
+                f"{', '.join(detail_parts)}.")
+
+    return ("FAIL", detail)
+
+
 # ---- SECURITY & TRUST probes -------------------------------------------------
 
 def static_ugc_injection(page):
@@ -1311,6 +1404,7 @@ STATIC = {
     "checkout_bot_challenge": static_checkout_bot_challenge,
     "admin_exposure": static_admin_exposure,
     "copy_richness": static_copy_richness,
+    "image_alt_text": static_image_alt_text,
 }
 
 
