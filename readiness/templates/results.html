@@ -374,7 +374,9 @@
           <div class="check-row check-impact">
             <span class="check-label">Why inconclusive</span>
             <span>
-              {% if 'not probed' in r.detail|lower or 'local file mode' in r.detail|lower %}
+              {% if inconclusive_texts is defined and inconclusive_texts.get(r.id) %}
+                {{ inconclusive_texts.get(r.id) }}
+              {% elif 'not probed' in r.detail|lower or 'local file mode' in r.detail|lower %}
                 Our scanner doesn't test this endpoint yet &mdash; this is a limitation of the current scan, not a problem with your site.
               {% elif 'not a meaningful' in r.detail|lower %}
                 We couldn't run enough test requests to draw a reliable conclusion. This check needs a longer test window.

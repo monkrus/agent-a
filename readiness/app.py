@@ -268,6 +268,17 @@ IMPACT_TEXTS = {
     "RDY-047": "Your product images have no descriptive alt text. AI agents can't see images — they rely on alt text to understand what your product looks like.",
 }
 
+# ---- Per-check inconclusive explanations ------------------------------------
+INCONCLUSIVE_TEXTS = {
+    "RDY-007": "Your page doesn't expose stock availability in a machine-readable way. AI agents can't tell customers if it's in stock.",
+    "RDY-017": "The agent interacted with the page but couldn't confirm the product was added to cart. The cart may use non-standard JavaScript.",
+    "RDY-022": "The checkout page didn't load for our scanner. This often means bot protection is blocking access — which also blocks AI agents.",
+    "RDY-033": "No machine-readable availability found to check for contradictions. AI agents have no reliable stock signal on this page.",
+    "RDY-035": "Our scanner couldn't reach the OAuth endpoint. This doesn't necessarily mean it's missing — it may require specific conditions.",
+    "RDY-043": "We couldn't test rate limiting because the cart API wasn't accessible or rejected test requests.",
+    "RDY-044": "The checkout page didn't load for our scanner, so we couldn't check for bot protection.",
+}
+
 
 # ---- Tier resolution (free vs paid) -----------------------------------------
 
@@ -1050,7 +1061,8 @@ def results(scan_id):
                            scan_count=scan_count, stats={"check_counts": check_counts},
                            teaser_fix=teaser_fix, teaser_check_id=teaser_check_id,
                            browser_available=_browser_available(),
-                           impact_texts=IMPACT_TEXTS)
+                           impact_texts=IMPACT_TEXTS,
+                           inconclusive_texts=INCONCLUSIVE_TEXTS)
 
 
 @app.route("/compare/<scan_id>", methods=["POST"])
