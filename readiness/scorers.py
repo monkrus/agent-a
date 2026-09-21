@@ -1440,6 +1440,9 @@ def _humanize_browser_error(raw: str) -> str:
         return "The agent found the text field but could not type into it — the field may be disabled or hidden."
     if "select failed:" in low:
         return "The agent found the dropdown but could not select an option — the selector may use custom JavaScript."
+    # Python exceptions from browser agent crashes
+    if "nonetype" in low or "typeerror" in low or "attributeerror" in low or "keyerror" in low or "indexerror" in low:
+        return "The agent encountered an unexpected page structure it could not handle."
     # Strip raw Playwright internals but keep context
     import re
     cleaned = re.sub(r'Browser error:\s*', '', raw)
