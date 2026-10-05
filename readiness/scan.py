@@ -260,15 +260,15 @@ def headline(results):
     crits = [r for r in results
              if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
     if crits:
-        return f"{len(crits)} critical readiness failure(s): " + \
+        return f"{len(crits)} critical issue(s) preventing AI shoppers from buying: " + \
                "; ".join(r["title"] for r in crits[:2])
     fails = [r for r in results if r.get("verdict") == "FAIL"]
     if fails:
-        return f"{len(fails)} issue(s) limiting agent readiness; top: {fails[0]['title']}."
+        return f"{len(fails)} issue(s) affecting AI shopping on your store. Top: {fails[0]['title']}."
     unknown = [r for r in results if r.get("verdict") == "UNKNOWN"]
     if unknown:
         return "No failures found, but some checks were inconclusive — see full report."
-    return "Page reads cleanly to shopping agents across all checks."
+    return "AI shoppers can read, understand, and buy from this store."
 
 
 def main():
@@ -352,7 +352,7 @@ def main():
         pass  # app module may not be loadable in all CLI contexts
 
     # ---- free-tier console summary (score + headline only) ----
-    print(f"\n  AGENT READINESS SCORE: {s}/100" if s is not None else "\n  SCORE: n/a")
+    print(f"\n  AI SHOPPING SCORE: {s}/100" if s is not None else "\n  SCORE: n/a")
     print(f"  {payload['headline']}")
     counts = {}
     for r in results:

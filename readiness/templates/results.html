@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Readiness Report — {{ data.meta.target }}</title>
+  <title>AI Shopping Report — {{ data.meta.target }}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <style>
     @media print {
@@ -25,7 +25,7 @@
   <div class="container">
     <header>
       <a href="{{ url_for('index') }}" class="back-link">&larr; New scan</a>
-      <h1>Agent Readiness Report</h1>
+      <h1>AI Shopping Report</h1>
     </header>
 
     <!-- FREE TIER: always visible -->
@@ -213,11 +213,82 @@
     </div>
     {% endif %}
 
+    <!-- BEFORE/AFTER DELTA -->
+    {% if prev_scan and prev_scan.score is not none and data.readiness_score is not none %}
+    <div class="card" style="border:1px solid {% if data.readiness_score > prev_scan.score %}rgba(74,222,128,0.4){% elif data.readiness_score < prev_scan.score %}rgba(248,113,113,0.4){% else %}rgba(250,204,21,0.4){% endif %}; background:{% if data.readiness_score > prev_scan.score %}rgba(74,222,128,0.04){% elif data.readiness_score < prev_scan.score %}rgba(248,113,113,0.04){% else %}rgba(250,204,21,0.04){% endif %};">
+      <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+        <div>
+          <span style="font-size:0.8rem; color:var(--text-muted);">Previous scan ({{ prev_scan.timestamp }})</span>
+          <div style="font-size:1.8rem; font-weight:700; color:var(--text-muted);">{{ prev_scan.score }}</div>
+        </div>
+        <div style="font-size:1.5rem; color:var(--text-muted);">&rarr;</div>
+        <div>
+          <span style="font-size:0.8rem; color:var(--text-muted);">This scan</span>
+          <div style="font-size:1.8rem; font-weight:700; color:{% if data.readiness_score > prev_scan.score %}#4ade80{% elif data.readiness_score < prev_scan.score %}#f87171{% else %}#facc15{% endif %};">{{ data.readiness_score }}</div>
+        </div>
+        <div style="margin-left:auto;">
+          {% set delta = data.readiness_score - prev_scan.score %}
+          {% if delta > 0 %}
+          <span style="font-size:1.3rem; font-weight:700; color:#4ade80;">+{{ delta|round(0)|int }} points</span>
+          <p style="font-size:0.8rem; color:#4ade80; margin:0;">Score improved</p>
+          {% elif delta < 0 %}
+          <span style="font-size:1.3rem; font-weight:700; color:#f87171;">{{ delta|round(0)|int }} points</span>
+          <p style="font-size:0.8rem; color:#f87171; margin:0;">Score decreased</p>
+          {% else %}
+          <span style="font-size:1.3rem; font-weight:700; color:#facc15;">No change</span>
+          {% endif %}
+        </div>
+      </div>
+      {% set fixed_checks = [] %}
+      {% set broken_checks = [] %}
+      {% for r in data.results %}
+        {% if prev_scan.verdicts.get(r.id) == 'FAIL' and r.verdict == 'PASS' %}
+          {% if fixed_checks.append(r) %}{% endif %}
+        {% elif prev_scan.verdicts.get(r.id) == 'PASS' and r.verdict == 'FAIL' %}
+          {% if broken_checks.append(r) %}{% endif %}
+        {% endif %}
+      {% endfor %}
+      {% if fixed_checks %}
+      <div style="margin-top:0.75rem;">
+        <span style="font-size:0.85rem; font-weight:600; color:#4ade80;">Fixed since last scan:</span>
+        <ul style="margin:0.25rem 0 0; padding-left:1.25rem; font-size:0.85rem; color:var(--text-muted);">
+          {% for r in fixed_checks %}<li>{{ r.title }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% if broken_checks %}
+      <div style="margin-top:0.75rem;">
+        <span style="font-size:0.85rem; font-weight:600; color:#f87171;">New issues since last scan:</span>
+        <ul style="margin:0.25rem 0 0; padding-left:1.25rem; font-size:0.85rem; color:var(--text-muted);">
+          {% for r in broken_checks %}<li>{{ r.title }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- FIX THESE FIRST -->
+    {% if fix_first and not access_blocked %}
+    <div class="card" style="border:1px solid rgba(248,113,113,0.3); background:rgba(248,113,113,0.03);">
+      <h2 style="color:#f87171; margin-bottom:0.25rem;">Fix these first</h2>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">These {{ fix_first|length }} issues have the biggest impact on whether AI shoppers can buy from you.</p>
+      {% for r in fix_first %}
+      <div style="padding:0.75rem 0; {% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.35rem;">
+          <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
+          <span style="font-weight:600; color:var(--text);">{{ r.title }}</span>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin:0; line-height:1.6;">{{ impact_texts.get(r.id, '') }}</p>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <!-- CHECK RESULTS -->
     <div class="card">
       {% if paid %}
-      <h2>Deep Agent Audit — Full Results</h2>
-      <p class="intel-subtitle">{{ data.results|length }} checks run{% if data.meta.shopper == 'anthropic' %}, including {{ data.meta.n }} real AI agent visits{% endif %}. Failing checks include what it costs you and how to fix it.</p>
+      <h2>Full AI Shopping Audit</h2>
+      <p class="intel-subtitle">{{ data.results|length }} checks run{% if data.meta.shopper == 'anthropic' %}, including {{ data.meta.n }} real AI shopping visits{% endif %}. Failing checks show what you're losing and how to fix it.</p>
       {% if data.meta.get('browser_unavailable') %}
       <div style="background:#1e1b4b; border:1px solid #6366f1; border-radius:8px; padding:0.75rem 1rem; margin:0.75rem 0; font-size:0.85rem; color:#c7d2fe;">
         <strong style="color:#a5b4fc;">Note:</strong> 5 browser interaction checks (add-to-cart, search, checkout, navigation, product comparison) were unavailable during this scan. Your score is based on {{ data.results|length }} static + AI extraction checks. To request a complimentary re-scan with browser checks, reply to your receipt email or contact <a href="mailto:sergeigodev@gmail.com" style="color:#818cf8;">sergeigodev@gmail.com</a>.
@@ -228,11 +299,11 @@
       </div>
       {% endif %}
       {% elif access_blocked %}
-      <h2>Structural Readiness Check</h2>
+      <h2>AI Shopping Check</h2>
       <p class="intel-subtitle">Only 2 access checks ran. The remaining {{ data.results|selectattr('gated')|list|length }} checks were skipped because agents can't reach the page.</p>
       {% else %}
-      <h2>Structural Readiness Check</h2>
-      <p class="intel-subtitle">This free scan checks your page structure — whether AI agents <em>can</em> read your product data. The Deep Agent Audit tests whether they actually <em>do</em> read it correctly.</p>
+      <h2>AI Shopping Check</h2>
+      <p class="intel-subtitle">This free scan checks your page structure — whether AI shoppers <em>can</em> read your product data. The full audit tests whether they actually <em>do</em> read it correctly.</p>
       {% endif %}
 
       {% if not paid and not access_blocked %}
@@ -287,11 +358,11 @@
             <p class="fix-instruction">{{ r.fix or '' }}</p>
             <pre class="fix-code"><code>{{ teaser_fix | e }}</code></pre>
           </div>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">This is a free preview. The Deep Agent Audit includes fixes for all {{ failing|length }} issues.</p>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:0.5rem;">This is a free preview. The full audit includes fixes for all {{ failing|length }} issues.</p>
         </div>
         {% elif not loop.first %}
         <div style="padding:0.5rem 0.85rem; border-top:1px solid var(--border); display:flex; align-items:center; gap:0.5rem;">
-          <span style="font-size:0.8rem; color:var(--text-muted);">🔒 Fix recipe available in the Deep Agent Audit</span>
+          <span style="font-size:0.8rem; color:var(--text-muted);">🔒 Fix recipe available in the full audit</span>
         </div>
         {% else %}
         <div style="padding:0.5rem 0.85rem; border-top:1px solid var(--border);">
@@ -308,9 +379,9 @@
       {% endif %}
       <div style="text-align:center; margin-top:1rem;">
         {% if browser_available %}
-        <a href="#paywall" style="color:var(--accent); font-weight:600; font-size:0.9rem;">Unlock all {{ failing|length }} fixes — Deep Agent Audit $49 ↓</a>
+        <a href="#paywall" style="color:var(--accent); font-weight:600; font-size:0.9rem;">Unlock all {{ failing|length }} fixes — Full AI Shopping Audit $49 ↓</a>
         {% else %}
-        <span style="color:var(--text-muted); font-size:0.9rem;">Deep Agent Audit temporarily unavailable — <a href="#paywall" style="color:#818cf8;">details ↓</a></span>
+        <span style="color:var(--text-muted); font-size:0.9rem;">Full audit temporarily unavailable — <a href="#paywall" style="color:#818cf8;">details ↓</a></span>
         {% endif %}
       </div>
       {% endif %}
@@ -335,20 +406,23 @@
       {% set ns = namespace(fail_count=0, pass_count=0, unknown_count=0) %}
       {% for r in data.results %}{% if r.verdict == 'FAIL' %}{% set ns.fail_count = ns.fail_count + 1 %}{% elif r.verdict == 'PASS' %}{% set ns.pass_count = ns.pass_count + 1 %}{% else %}{% set ns.unknown_count = ns.unknown_count + 1 %}{% endif %}{% endfor %}
 
-      {# Split failing checks into "Fix now" (critical/high/medium) and "Future-proofing" (low) #}
-      {% set fix_now = data.results|selectattr('verdict', 'equalto', 'FAIL')|rejectattr('severity_if_fail', 'equalto', 'low')|list %}
+      {# Journey-grouped failing checks #}
       {% set future_proof = data.results|selectattr('verdict', 'equalto', 'FAIL')|selectattr('severity_if_fail', 'equalto', 'low')|list %}
+      {% set fix_now_count = (data.results|selectattr('verdict', 'equalto', 'FAIL')|list|length) - future_proof|length %}
 
-      {% if fix_now %}
-      <h3 style="color:var(--red); font-size:0.95rem; margin:1.25rem 0 0.5rem; font-weight:600;">{{ fix_now|length }} issue{{ 's' if fix_now|length != 1 }} to fix now</h3>
-      {% endif %}
-      {% for r in fix_now %}
+      {% for group in journey_groups %}
+      {% set stage_fails = group.results|selectattr('verdict', 'equalto', 'FAIL')|rejectattr('severity_if_fail', 'equalto', 'low')|list %}
+      {% if stage_fails %}
+      <h3 style="color:var(--red); font-size:0.95rem; margin:1.5rem 0 0.5rem; font-weight:600;">{{ group.label }}</h3>
+      {% for r in stage_fails %}
       {% include "partials/check_fail.html" %}
+      {% endfor %}
+      {% endif %}
       {% endfor %}
 
       {% if future_proof %}
       <h3 style="color:#60a5fa; font-size:0.95rem; margin:1.75rem 0 0.5rem; font-weight:600;">{{ future_proof|length }} future-proofing item{{ 's' if future_proof|length != 1 }}</h3>
-      <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.75rem;">Emerging protocols not yet adopted by most stores. Low priority, but early adoption signals agent-readiness.</p>
+      <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.75rem;">Emerging protocols not yet adopted by most stores. Low priority, but early adoption gives AI shoppers more ways to interact with your store.</p>
       {% endif %}
       {% for r in future_proof %}
       {% include "partials/check_fail.html" %}
@@ -572,22 +646,22 @@
 
     <!-- PAYWALL -->
     <div class="card paywall-card" id="paywall">
-      <h2>Deep Agent Audit — $49</h2>
-      <p>Your free scan checked page structure. The Deep Audit re-scans with a <strong>real AI shopping agent</strong> and shows you exactly what it sees.</p>
+      <h2>Full AI Shopping Audit — $49</h2>
+      <p>Your free scan checked page structure. The full audit sends a <strong>real AI shopper</strong> to your store and shows you exactly what happens.</p>
 
       <p style="font-size:0.85rem; font-weight:600; color:var(--text); margin:0.75rem 0 0.25rem;">What you get:</p>
       <ul style="list-style:none; padding:0; margin:0.5rem 0;">
-        <li style="padding:0.4rem 0;"><strong style="color:#60a5fa;">{{ stats.check_counts.paid }} checks</strong> <span style="color:var(--text-muted);">(vs {{ stats.check_counts.free }} free)</span> — adds AI extraction + browser agent flows</li>
-        <li style="padding:0.4rem 0;"><strong style="color:#a78bfa;">Real AI extraction</strong> — Claude visits your page {{ data.meta.n }} times, extracts price, availability, product name, return policy, and shipping. See pass rates and sample responses</li>
-        <li style="padding:0.4rem 0;"><strong style="color:#f472b6;">Browser purchase test</strong> — an AI agent tries to add to cart, search for your product, reach checkout, navigate from homepage, and find related products</li>
-        <li style="padding:0.4rem 0;"><strong style="color:#facc15;">Revenue impact estimate</strong> — monthly/annual range based on your failure rate and industry benchmarks (not measured from your traffic)</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#60a5fa;">{{ stats.check_counts.paid }} checks</strong> <span style="color:var(--text-muted);">(vs {{ stats.check_counts.free }} free)</span> — adds AI shopping tests + browser purchase flows</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#a78bfa;">Real AI shopping test</strong> — an AI shopper visits your page {{ data.meta.n }} times, tries to read price, availability, product name, return policy, and shipping. See how often it gets it right</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#f472b6;">Browser purchase test</strong> — an AI shopper tries to add to cart, search for your product, reach checkout, navigate from homepage, and find related products</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#facc15;">Revenue impact estimate</strong> — monthly/annual range based on your failure rate and industry benchmarks</li>
         <li style="padding:0.4rem 0;"><strong style="color:#4ade80;">Copy-paste fix recipes</strong> — Shopify Liquid code, config steps, and plain-language instructions for every failing check</li>
       </ul>
 
       <p style="font-size:0.8rem; color:var(--text-muted); margin:0.5rem 0;">Not included: ongoing monitoring or measured analytics integration. This is a one-time diagnostic report.</p>
       {% if browser_available %}
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
-        <button type="submit" class="btn-pay">Run Deep Agent Audit — $49</button>
+        <button type="submit" class="btn-pay">Run Full AI Shopping Audit — $49</button>
       </form>
       {% if dev_mode and not has_stripe %}
       <p class="note">DEV MODE — clicking unlocks the report without payment.</p>
@@ -595,7 +669,7 @@
       {% else %}
       <div style="background:#1e1b4b; border:1px solid #6366f1; border-radius:8px; padding:1rem; margin:0.75rem 0; font-size:0.9rem; color:#c7d2fe;">
         <strong style="color:#a5b4fc;">Temporarily unavailable</strong><br>
-        Browser interaction checks are down for maintenance. The Deep Agent Audit requires all {{ stats.check_counts.paid }} checks to run. Please check back soon or email <a href="mailto:sergeigodev@gmail.com" style="color:#818cf8;">sergeigodev@gmail.com</a> to be notified when it's back.
+        Browser interaction checks are down for maintenance. The full audit requires all {{ stats.check_counts.paid }} checks to run. Please check back soon or email <a href="mailto:sergeigodev@gmail.com" style="color:#818cf8;">sergeigodev@gmail.com</a> to be notified when it's back.
       </div>
       {% endif %}
     </div>
@@ -637,7 +711,7 @@
       {% if rescan_promo %}
       <div style="margin-top:1.25rem; padding:1rem 1.25rem; background:rgba(34,197,94,0.06); border:1px solid rgba(34,197,94,0.2); border-radius:8px;">
         <p style="margin:0 0 0.5rem; font-weight:600; color:#22c55e;">Scan a different product page — on us</p>
-        <p style="margin:0 0 0.5rem; font-size:0.9rem; color:var(--text-muted);">Use this one-time code at checkout to get a free Deep Agent Audit on another page:</p>
+        <p style="margin:0 0 0.5rem; font-size:0.9rem; color:var(--text-muted);">Use this one-time code at checkout to get a free full audit on another page:</p>
         <code style="display:inline-block; padding:0.4rem 0.8rem; background:#1a1a2e; border-radius:4px; font-size:1rem; font-weight:600; letter-spacing:0.05em; color:#facc15; user-select:all;">{{ rescan_promo }}</code>
       </div>
       {% endif %}
@@ -667,7 +741,7 @@
   }
   function copyResults() {
     var lines = [];
-    lines.push('Agent Readiness Report');
+    lines.push('AI Shopping Report');
     lines.push('Score: {{ data.readiness_score }}/100');
     lines.push('URL: {{ data.meta.target }}');
     lines.push('{{ data.headline }}');

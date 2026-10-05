@@ -544,15 +544,15 @@ def _headline(results):
     crits = [r for r in results
              if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
     if crits:
-        return f"{len(crits)} critical readiness failure(s): " + \
+        return f"{len(crits)} critical issue(s) preventing AI shoppers from buying: " + \
                "; ".join(r["title"] for r in crits[:2])
     fails = [r for r in results if r.get("verdict") == "FAIL"]
     if fails:
-        return f"{len(fails)} issue(s) limiting agent readiness; top: {fails[0]['title']}."
+        return f"{len(fails)} issue(s) affecting AI shopping on your store. Top: {fails[0]['title']}."
     unknown = [r for r in results if r.get("verdict") == "UNKNOWN"]
     if unknown:
         return "No failures found, but some checks were inconclusive."
-    return "Page reads cleanly to shopping agents across all checks."
+    return "AI shoppers can read, understand, and buy from this store."
 
 
 def _load_scan(scan_id):
@@ -567,6 +567,38 @@ def _load_scan(scan_id):
         return None
     with open(fpath, 'r') as f:
         return json.load(f)
+
+
+def _find_previous_scan(target_url, current_scan_id):
+    """Find the most recent previous scan of the same URL (for before/after)."""
+    if not target_url:
+        return None
+    best = None
+    best_ts = ""
+    try:
+        for f in SCANS_DIR.iterdir():
+            if not f.suffix == ".json" or f.stem == current_scan_id:
+                continue
+            try:
+                data = json.loads(f.read_text())
+                meta = data.get("meta", {})
+                if meta.get("target") == target_url:
+                    ts = meta.get("timestamp", "")
+                    if ts > best_ts:
+                        best_ts = ts
+                        best = data
+            except (json.JSONDecodeError, PermissionError, OSError):
+                continue
+    except (PermissionError, OSError):
+        pass
+    if not best:
+        return None
+    # Build a summary: score delta + check flips
+    prev_score = best.get("readiness_score")
+    prev_verdicts = {r["id"]: r.get("verdict") for r in best.get("results", [])}
+    return {"score": prev_score, "scan_id": best.get("scan_id"),
+            "timestamp": best.get("meta", {}).get("timestamp", "")[:10],
+            "verdicts": prev_verdicts}
 
 
 # ---- Routes ----------------------------------------------------------------
@@ -625,6 +657,30 @@ def scan():
         return _index_with_error(f"Could not scan that URL: {e}")
     return redirect(url_for("results", scan_id=scan_id))
 
+
+# ---- Journey stages for results display ----
+JOURNEY_STAGES = [
+    ("discover", "Discover — can AI shoppers find your store?",
+     {"RDY-003", "RDY-031", "RDY-005", "RDY-011", "RDY-029"}),
+    ("understand", "Understand — can AI shoppers read your products correctly?",
+     {"RDY-001", "RDY-002", "RDY-004", "RDY-012", "RDY-013", "RDY-030",
+      "RDY-033", "RDY-046", "RDY-047",
+      "RDY-006", "RDY-007", "RDY-008", "RDY-009", "RDY-010"}),
+    ("buy", "Buy — can AI shoppers purchase from you?",
+     {"RDY-014", "RDY-015", "RDY-017", "RDY-018", "RDY-019", "RDY-020",
+      "RDY-021", "RDY-022", "RDY-023", "RDY-032"}),
+    ("trust", "Trust & Safety — is your store protected?",
+     {"RDY-016", "RDY-042", "RDY-043", "RDY-044", "RDY-045"}),
+    ("future", "Future-proofing — AI commerce protocols",
+     {"RDY-034", "RDY-035", "RDY-036", "RDY-037", "RDY-038",
+      "RDY-039", "RDY-040", "RDY-041"}),
+]
+
+def _check_journey_stage(check_id):
+    for key, _label, ids in JOURNEY_STAGES:
+        if check_id in ids:
+            return key
+    return "other"
 
 # ---- Layer-by-layer check ordering for streaming display ----
 LAYER_CHECKS = {
@@ -708,7 +764,7 @@ def scan_stream():
         completed = 0
 
         # --- Layer 0: Access ---
-        yield "data: " + json.dumps({"type": "layer", "layer": "access", "label": "Layer 0: Access"}) + "\n\n"
+        yield "data: " + json.dumps({"type": "layer", "layer": "access", "label": "Can AI shoppers reach your store?"}) + "\n\n"
 
         access_checks = [c for c in static_checks if c.get("id") in ACCESS_GATE_IDS]
         other_static = [c for c in static_checks if c.get("id") not in ACCESS_GATE_IDS]
@@ -765,11 +821,11 @@ def scan_stream():
 
             # --- Split static checks by layer ---
             LAYER_LABELS = {
-                "data": "Layer 1: Data",
-                "extraction": "Layer 2: Extraction",
-                "interaction": "Layer 3: Interaction",
-                "security": "Layer 4: Security",
-                "protocols": "Layer 5: Protocol Discovery",
+                "data": "Can AI shoppers read your products?",
+                "extraction": "Do AI shoppers understand your products?",
+                "interaction": "Can AI shoppers buy from you?",
+                "security": "Is your store safe from AI manipulation?",
+                "protocols": "Future-proofing: AI commerce protocols",
             }
             data_static = [c for c in other_static if _check_layer(c.get("id", "")) == "data"]
             interaction_static = [c for c in other_static if _check_layer(c.get("id", "")) == "interaction"]
@@ -802,7 +858,7 @@ def scan_stream():
             if shopper_checks:
                 yield "data: " + json.dumps({
                     "type": "layer", "layer": "extraction",
-                    "label": "Layer 2: Extraction",
+                    "label": "Do AI shoppers understand your products?",
                 }) + "\n\n"
 
                 tasks = {c["id"]: c["task"] for c in shopper_checks}
@@ -829,7 +885,7 @@ def scan_stream():
 
                 yield "data: " + json.dumps({
                     "type": "layer", "layer": "interaction",
-                    "label": "Layer 3: Interaction",
+                    "label": "Can AI shoppers buy from you?",
                 }) + "\n\n"
 
                 # Static interaction checks first
@@ -1045,6 +1101,24 @@ def results(scan_id):
             top = failing[0]
             teaser_check_id = top.get("id")
             teaser_fix = fixesmod.generate_fix(top, {})
+    # Top 3 "Fix These First" — highest impact failing checks (both tiers)
+    SEV_RANK = {"critical": 100, "high": 10, "medium": 5, "low": 1}
+    all_failing = [r for r in data.get("results", [])
+                   if r.get("verdict") == "FAIL" and r.get("severity_if_fail") != "low"]
+    all_failing.sort(key=lambda r: -(r.get("weight", 0) or 0) * SEV_RANK.get(r.get("severity_if_fail"), 1))
+    fix_first = all_failing[:3]
+
+    # Journey-stage grouping for paid tier
+    journey_groups = []
+    for key, label, ids in JOURNEY_STAGES:
+        stage_results = [r for r in data.get("results", []) if r.get("id") in ids]
+        if stage_results:
+            journey_groups.append({"key": key, "label": label, "results": stage_results})
+
+    # Before/after: find previous scan of same URL
+    prev_scan = _find_previous_scan(data.get("meta", {}).get("target", ""),
+                                    data.get("scan_id", ""))
+
     # Load comparison if one exists
     comparison = session.get(f"compare_{scan_id}")
     compare_error = session.pop(f"compare_error_{scan_id}", None)
@@ -1062,7 +1136,10 @@ def results(scan_id):
                            teaser_fix=teaser_fix, teaser_check_id=teaser_check_id,
                            browser_available=_browser_available(),
                            impact_texts=IMPACT_TEXTS,
-                           inconclusive_texts=INCONCLUSIVE_TEXTS)
+                           inconclusive_texts=INCONCLUSIVE_TEXTS,
+                           fix_first=fix_first,
+                           journey_groups=journey_groups,
+                           prev_scan=prev_scan)
 
 
 @app.route("/compare/<scan_id>", methods=["POST"])
@@ -1144,7 +1221,7 @@ def checkout(scan_id):
 
     if not _browser_available():
         abort(503, description="Browser checks are temporarily unavailable. "
-              "The Deep Agent Audit requires browser interaction checks. "
+              "The full audit requires browser interaction checks. "
               "Please try again later or contact sergeigodev@gmail.com.")
 
     stripe_key = os.environ.get("STRIPE_SECRET_KEY")
@@ -1303,7 +1380,7 @@ def paid_scan_stream(scan_id):
 
         # --- Layer 0: Access ---
         yield "data: " + json.dumps({"type": "layer", "layer": "access",
-                                     "label": "Layer 0: Access"}) + "\n\n"
+                                     "label": "Can AI shoppers reach your store?"}) + "\n\n"
 
         access_checks = [c for c in static_checks if c.get("id") in ACCESS_GATE_IDS]
         other_static = [c for c in static_checks if c.get("id") not in ACCESS_GATE_IDS]
@@ -1349,11 +1426,11 @@ def paid_scan_stream(scan_id):
             }) + "\n\n"
 
             LAYER_LABELS = {
-                "data": "Layer 1: Data",
-                "extraction": "Layer 2: Extraction",
-                "interaction": "Layer 3: Interaction",
-                "security": "Layer 4: Security",
-                "protocols": "Layer 5: Protocol Discovery",
+                "data": "Can AI shoppers read your products?",
+                "extraction": "Do AI shoppers understand your products?",
+                "interaction": "Can AI shoppers buy from you?",
+                "security": "Is your store safe from AI manipulation?",
+                "protocols": "Future-proofing: AI commerce protocols",
             }
             data_static = [c for c in other_static if _check_layer(c.get("id", "")) == "data"]
             interaction_static = [c for c in other_static if _check_layer(c.get("id", "")) == "interaction"]
@@ -1386,7 +1463,7 @@ def paid_scan_stream(scan_id):
             if shopper_checks:
                 yield "data: " + json.dumps({
                     "type": "layer", "layer": "extraction",
-                    "label": "Layer 2: Extraction (AI shopper)",
+                    "label": "Do AI shoppers understand your products?",
                 }) + "\n\n"
 
                 shopper_mode = "anthropic"
@@ -1415,7 +1492,7 @@ def paid_scan_stream(scan_id):
             if has_interaction:
                 yield "data: " + json.dumps({
                     "type": "layer", "layer": "interaction",
-                    "label": "Layer 3: Interaction",
+                    "label": "Can AI shoppers buy from you?",
                 }) + "\n\n"
                 for c in interaction_static:
                     r = scorers.run_static(c, page)
@@ -1636,7 +1713,7 @@ def send_report(scan_id):
         return redirect(url_for("results", scan_id=scan_id))
     target = data.get("meta", {}).get("target", "")
     emailer.send_report(to_email, data,
-                        subject=f"Agent Readiness Report for {target} (shared with you)",
+                        subject=f"AI Shopping Report for {target} (shared with you)",
                         base_url=request.host_url.rstrip("/"))
     session[f"sent_{scan_id}"] = True
     return redirect(url_for("results", scan_id=scan_id))
@@ -1667,8 +1744,8 @@ def rescan(scan_id):
 
 SEV_RANK_SHARE = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 LAYER_ORDER = ["data", "extraction", "interaction", "security"]
-LAYER_LABELS = {"data": "Data", "extraction": "Extraction",
-                "interaction": "Interaction", "security": "Security"}
+LAYER_LABELS = {"data": "Product Data", "extraction": "AI Understanding",
+                "interaction": "Purchase Flow", "security": "Security"}
 
 
 def _layer_scores(results):

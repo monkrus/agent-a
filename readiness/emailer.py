@@ -105,7 +105,7 @@ def _build_html(scan_data: dict, base_url: str = "") -> str:
       <!-- Header -->
       <div style="background:#0f0f13;padding:32px;text-align:center;">
         <div style="font-size:48px;font-weight:700;color:{color};">{score:.0f}</div>
-        <div style="color:#9ca3af;font-size:14px;margin-top:4px;">/ 100 Agent Readiness Score</div>
+        <div style="color:#9ca3af;font-size:14px;margin-top:4px;">/ 100 AI Shopping Score</div>
         <div style="color:#e5e7eb;font-size:14px;margin-top:12px;">{target}</div>
       </div>
 
@@ -145,7 +145,7 @@ def _build_html(scan_data: dict, base_url: str = "") -> str:
       {"" if not rescan_promo else f'''
       <div style="padding:24px 32px;background:#0a1a0a;border-top:1px solid #22c55e;">
         <p style="margin:0 0 8px;color:#22c55e;font-size:14px;font-weight:600;">Scan another page — on us</p>
-        <p style="margin:0 0 12px;color:#9ca3af;font-size:13px;">Use this one-time code at checkout to get a free Deep Agent Audit on a different product page:</p>
+        <p style="margin:0 0 12px;color:#9ca3af;font-size:13px;">Use this one-time code at checkout to get a free full audit on a different product page:</p>
         <div style="text-align:center;margin:8px 0;">
           <span style="display:inline-block;padding:8px 16px;background:#1a1a2e;border-radius:6px;font-size:18px;font-weight:700;color:#facc15;letter-spacing:0.05em;">{rescan_promo}</span>
         </div>
@@ -175,7 +175,7 @@ def send_report(to_email: str, scan_data: dict, subject: str | None = None,
     score = scan_data.get("readiness_score", 0) or 0
 
     if not subject:
-        subject = f"Agent Readiness Report: {score:.0f}/100 — {target}"
+        subject = f"AI Shopping Report: {score:.0f}/100 — {target}"
 
     smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.environ.get("SMTP_PORT", "587"))

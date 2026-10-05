@@ -98,7 +98,7 @@ def generate_markdown(scans):
 
     entries.sort(key=lambda e: e["score"] or 0, reverse=True)
 
-    lines = ["# AI Agent Readiness Leaderboard", "",
+    lines = ["# AI Shopping Score Leaderboard", "",
              f"Generated from {len(entries)} scans.", "",
              "| Rank | Domain | Score | Top Weakness |",
              "|------|--------|-------|-------------|"]
@@ -164,8 +164,8 @@ def generate_chart(scans, output_path):
     font_footer = _font_reg(16)
 
     # Title
-    draw.text((60, 35), "AI Agent Readiness Leaderboard", fill=TEXT, font=font_title)
-    draw.text((60, 80), f"{len(entries)} Shopify stores scored  |  How well can AI agents shop here?",
+    draw.text((60, 35), "AI Shopping Score Leaderboard", fill=TEXT, font=font_title)
+    draw.text((60, 80), f"{len(entries)} Shopify stores scored  |  Can AI shoppers buy from these stores?",
               fill=MUTED, font=font_subtitle)
 
     # Bars

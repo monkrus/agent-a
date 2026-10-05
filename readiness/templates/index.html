@@ -53,7 +53,7 @@
         </div>
       </form>
 
-      <p class="note" style="white-space:nowrap;">Paste a product URL, not a homepage. <span style="color:#4ade80;font-weight:600;">Free</span> score in under a minute — <span style="color:#a78bfa;font-weight:600;">Deep Audit</span> with fixes $49.</p>
+      <p class="note" style="white-space:nowrap;">Paste a product URL, not a homepage. <span style="color:#4ade80;font-weight:600;">Free</span> score in under a minute — <span style="color:#a78bfa;font-weight:600;">Full Audit</span> with fixes $49.</p>
 
       <div id="stream-results" style="display:none; padding:1.5rem 0;">
         <div id="stream-legend" style="font-size:0.75rem; color:#8b8b96; margin-bottom:0.75rem;"><span style="color:#4ade80;">&#10003;</span> pass &nbsp; <span style="color:#f87171;">&#10007;</span> fail &nbsp; <span style="color:#facc15;">?</span> inconclusive — not enough information to determine</div>
@@ -210,7 +210,7 @@
         </div>
         <div class="stat-item">
           <span class="stat-number" style="background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">{{ stats.check_counts.paid }}</span>
-          <span class="stat-label"><span style="color:#a78bfa;font-weight:600;">Deep Audit</span> checks ($49)</span>
+          <span class="stat-label"><span style="color:#a78bfa;font-weight:600;">Full Audit</span> checks ($49)</span>
         </div>
         <div class="stat-item">
           <span class="stat-number">4</span>
@@ -243,13 +243,13 @@
           <span class="check-num">02</span>
           <strong>Can agents extract correctly?</strong>
           <span>A real AI shopper pulls price, availability, product name, and return policy multiple times — we grade accuracy and consistency across the runs.</span>
-          <span class="check-tier" style="color:#a78bfa;font-weight:600;">Deep Audit</span>
+          <span class="check-tier" style="color:#a78bfa;font-weight:600;">Full Audit</span>
         </div>
         <div class="check-item">
           <span class="check-num">03</span>
           <strong>Can agents act on it?</strong>
-          <span>Add-to-cart semantics, variant selectors, guest checkout, and cart API (free). The Deep Audit adds browser walkthroughs: a real AI agent tries to add to cart, search, reach checkout, navigate, and find related products.</span>
-          <span class="check-tier"><span style="color:#4ade80;font-weight:600;">Free</span> + <span style="color:#a78bfa;font-weight:600;">Deep Audit</span></span>
+          <span>Add-to-cart semantics, variant selectors, guest checkout, and cart API (free). The Full Audit adds browser walkthroughs: a real AI shopper tries to add to cart, search, reach checkout, navigate, and find related products.</span>
+          <span class="check-tier"><span style="color:#4ade80;font-weight:600;">Free</span> + <span style="color:#a78bfa;font-weight:600;">Full Audit</span></span>
         </div>
         <div class="check-item">
           <span class="check-num">04</span>
@@ -287,14 +287,14 @@
           <span class="step-num">2</span>
           <div>
             <strong>We run {{ stats.check_counts.free }} checks live</strong>
-            <p>Structural probes across data, interaction, security, resilience, and protocol discovery — streamed in real time as they finish.</p>
+            <p>We test whether AI shoppers can read your products, buy from you, and stay safe — streamed in real time as each check finishes.</p>
           </div>
         </div>
         <div class="step">
           <span class="step-num">3</span>
           <div>
-            <strong>Get your readiness score</strong>
-            <p>A 0–100 structural readiness score with your top issues. The Deep Agent Audit ($49) re-scans with a real AI agent: extraction accuracy, browser purchase flows, estimated revenue impact, and copy-paste fix recipes.</p>
+            <strong>Get your AI Shopping Score</strong>
+            <p>A 0–100 score showing how well AI shoppers can use your store, with your top issues. The Full Audit ($49) sends a real AI shopper to your store: extraction accuracy, browser purchase flows, estimated revenue impact, and copy-paste fix recipes.</p>
           </div>
         </div>
       </div>
@@ -320,7 +320,7 @@
       <div class="faq">
         <details>
           <summary>Is the scan really free?</summary>
-          <p>Yes. The free scan runs {{ stats.check_counts.free }} structural checks and gives you your readiness score, headline findings, and per-check pass/fail verdicts. The Deep Agent Audit ($49) runs {{ stats.check_counts.paid }} checks total — adding real AI extraction tests (price, availability, product name, return policy, shipping accuracy across multiple visits), browser agent flows (can an agent actually add to cart and reach checkout?), estimated revenue impact, sample agent responses, and copy-paste Shopify fix recipes for every failure.</p>
+          <p>Yes. The free scan runs {{ stats.check_counts.free }} structural checks and gives you your AI Shopping Score, headline findings, and per-check pass/fail verdicts. The Full Audit ($49) runs {{ stats.check_counts.paid }} checks total — adding real AI shopping tests (price, availability, product name, return policy, shipping accuracy across multiple visits), browser purchase flows (can an AI shopper actually add to cart and reach checkout?), estimated revenue impact, sample AI responses, and copy-paste Shopify fix recipes for every failure.</p>
         </details>
         <details>
           <summary>What stores do you support?</summary>
@@ -328,11 +328,11 @@
         </details>
         <details>
           <summary>Do you actually send AI agents to my page?</summary>
-          <p>The free scan checks your page structure — the same data AI agents would read, without calling an LLM. No AI agent touches your page. The Deep Agent Audit ($49) sends a real Claude-powered shopping agent to your page multiple times to extract price, availability, product name, return policy, and shipping, plus runs browser flows (add to cart, search, checkout). You get pass rates, sample agent responses, and fix recipes.</p>
+          <p>The free scan checks your page structure — the same data AI shoppers would read, without calling an LLM. No AI agent touches your page. The Full Audit ($49) sends a real AI shopper to your page multiple times to extract price, availability, product name, return policy, and shipping, plus runs browser flows (add to cart, search, checkout). You get pass rates, sample responses, and fix recipes.</p>
         </details>
         <details>
           <summary>How long does a scan take?</summary>
-          <p>The free scan typically takes 15–30 seconds (it makes ~20 HTTP requests to probe your site). The Deep Agent Audit takes 60–90 seconds because it runs real AI extraction and browser flows. The free scan streams results live; the Deep Audit runs after payment and redirects you to the full report.</p>
+          <p>The free scan typically takes 15–30 seconds (it makes ~20 HTTP requests to probe your site). The Full Audit takes 60–90 seconds because it runs real AI shopping tests and browser flows. The free scan streams results live; the full audit runs after payment and redirects you to the full report.</p>
         </details>
       </div>
     </div>

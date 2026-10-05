@@ -27,7 +27,7 @@ checks:
   - id: RDY-001
     type: static
     category: structured-data
-    title: Product structured data present with price + availability
+    title: AI shoppers can read your price and stock status
     detect: jsonld_product
     expect: A schema.org/Product JSON-LD block with offers.price and availability.
     fail_if: No Product JSON-LD, or price/availability missing.
@@ -38,7 +38,7 @@ checks:
   - id: RDY-002
     type: static
     category: price-legibility
-    title: Price appears in server-rendered HTML (not JS-only)
+    title: Your price is visible without JavaScript
     detect: price_in_html
     expect: A currency-formatted price string is present in the raw HTML response.
     fail_if: No price string in the server HTML (price injected by client-side JS only).
@@ -49,7 +49,7 @@ checks:
   - id: RDY-003
     type: static
     category: agent-access
-    title: Agents are not blocked by robots.txt
+    title: AI shopping agents are allowed to visit
     detect: robots_allows_agents
     expect: robots.txt does not Disallow known shopping/agent user-agents from product pages.
     fail_if: robots.txt blocks GPTBot / OAI-SearchBot / Google-Extended / PerplexityBot from this path.
@@ -60,7 +60,7 @@ checks:
   - id: RDY-004
     type: static
     category: policy-legibility
-    title: Return / refund policy reachable as text
+    title: AI shoppers can find your return policy
     detect: policy_text_present
     expect: A return or refund policy is linked and served as readable text.
     fail_if: No discoverable return/refund policy text (missing, or PDF/image only).
@@ -71,7 +71,7 @@ checks:
   - id: RDY-005
     type: static
     category: agent-access
-    title: llms.txt / agent guidance present
+    title: Your store has instructions for AI agents
     detect: llms_txt_present
     expect: An llms.txt (or equivalent agent-guidance file) exists at the site root.
     fail_if: No llms.txt at the site root.
@@ -82,7 +82,7 @@ checks:
   - id: RDY-011
     type: static
     category: agent-access
-    title: llms.txt content is complete and well-structured
+    title: AI agent instructions are complete
     detect: llms_txt_quality
     expect: llms.txt contains product paths, policy links, sitemap reference, and valid URLs.
     fail_if: llms.txt is missing key sections (products, policies, sitemap) or has no absolute URLs.
@@ -93,7 +93,7 @@ checks:
   - id: RDY-012
     type: static
     category: structured-data
-    title: JSON-LD Product markup is complete and well-formed
+    title: Product data has all fields AI agents need
     detect: jsonld_quality
     expect: JSON-LD includes name, image, brand, description, price, currency, and schema.org availability URL.
     fail_if: JSON-LD is missing fields that agents need for accurate product comparison.
@@ -104,7 +104,7 @@ checks:
   - id: RDY-013
     type: static
     category: rendering
-    title: Agents can access key product data without JavaScript
+    title: Product info loads without JavaScript
     detect: js_render_ratio
     expect: Product price and availability are available in server-rendered HTML or structured data (JSON-LD) without JS execution.
     fail_if: No structured data fallback and page is heavily JS-rendered — agents have no machine-readable content.
@@ -115,7 +115,7 @@ checks:
   - id: RDY-046
     type: static
     category: product-copy
-    title: Product description is rich enough for AI agents
+    title: Product description is detailed enough for AI to recommend
     detect: copy_richness
     expect: Product page conveys material, features, fit/specs, and sufficient description in text — not just images.
     fail_if: Product copy is too thin for agents to understand or recommend the product (missing 2+ content dimensions).
@@ -126,7 +126,7 @@ checks:
   - id: RDY-047
     type: static
     category: image-accessibility
-    title: Product images have descriptive alt text for AI agents
+    title: Product images have text descriptions AI can read
     detect: image_alt_text
     expect: All product images have non-empty, descriptive alt attributes that convey what the image shows.
     fail_if: Product images are missing alt text or have generic/empty alt attributes — AI agents cannot see images and rely on alt text.
@@ -137,7 +137,7 @@ checks:
   - id: RDY-014
     type: static
     category: agent-interaction
-    title: Add-to-Cart is a semantic, identifiable action
+    title: AI shoppers can find the Add to Cart button
     detect: cart_semantic
     expect: A form or button with cart/purchase semantics exists in server HTML.
     fail_if: No identifiable Add-to-Cart action in the DOM — agents cannot initiate a purchase.
@@ -148,7 +148,7 @@ checks:
   - id: RDY-015
     type: static
     category: agent-interaction
-    title: Variant selectors (size/color) use semantic HTML
+    title: AI shoppers can select size and color
     detect: variant_selectors
     expect: Size and color options use select, radio inputs, or labeled fieldsets.
     fail_if: Variant selection requires interacting with opaque JS widgets that agents can't parse.
@@ -159,7 +159,7 @@ checks:
   - id: RDY-016
     type: static
     category: security
-    title: No hidden prompt injection in page content
+    title: No hidden text manipulating AI agents on your page
     detect: prompt_injection
     expect: Page contains no hidden text designed to hijack AI agent behavior.
     fail_if: Hidden elements, HTML comments, or invisible text contain agent-override instructions.
@@ -171,7 +171,7 @@ checks:
   - id: RDY-017
     type: browser
     category: agent-interaction
-    title: Agent can complete Add-to-Cart flow
+    title: AI shopper can add your product to cart
     detect: add_to_cart_flow
     expect: An AI browser agent can select a variant and successfully add the product to cart.
     fail_if: Agent cannot navigate the page to add the product to cart within 12 steps.
@@ -182,7 +182,7 @@ checks:
   - id: RDY-018
     type: browser
     category: agent-search
-    title: Agent can find the product via site search
+    title: AI shopper can find your product via search
     detect: search_discovery
     expect: An AI browser agent can use the site's search to find and locate the product.
     fail_if: Agent cannot find the search bar, submit a query, or locate the product in results.
@@ -193,7 +193,7 @@ checks:
   - id: RDY-019
     type: browser
     category: agent-checkout
-    title: Agent can reach the checkout page
+    title: AI shopper can reach checkout
     detect: checkout_reachable
     expect: After adding to cart, an AI agent can navigate to the checkout page.
     fail_if: Agent cannot reach checkout — blocked by popups, login walls, or broken navigation.
@@ -204,7 +204,7 @@ checks:
   - id: RDY-020
     type: browser
     category: agent-navigation
-    title: Agent can navigate from homepage to product
+    title: AI shopper can navigate from homepage to product
     detect: homepage_to_product
     expect: An AI agent can find the product starting from the homepage via site navigation menus.
     fail_if: Agent cannot navigate from the homepage to the product page via menus within 15 steps.
@@ -215,7 +215,7 @@ checks:
   - id: RDY-021
     type: browser
     category: agent-comparison
-    title: Agent can find and navigate to a related product
+    title: AI shopper can find related products
     detect: compare_products
     expect: An AI agent can find a related/recommended product on the page and navigate to it.
     fail_if: No related products section exists, or agent cannot navigate to a second product for comparison.
@@ -226,7 +226,7 @@ checks:
   - id: RDY-022
     type: static
     category: agent-checkout
-    title: Guest checkout is available (no login wall)
+    title: AI shoppers can buy without creating an account
     detect: guest_checkout
     expect: Checkout does not require account creation or login — agents can purchase as guests.
     fail_if: Checkout requires login or account creation, blocking agents without credentials.
@@ -237,7 +237,7 @@ checks:
   - id: RDY-023
     type: static
     category: agent-interaction
-    title: Programmatic cart API endpoint available
+    title: Headless AI agents can add to cart via API
     detect: cart_api
     expect: A /cart/add.js or equivalent AJAX endpoint exists so headless agents can add to cart without DOM interaction.
     fail_if: No cart API endpoint found — agents must rely on browser-level DOM interaction to add items.
@@ -249,7 +249,7 @@ checks:
   - id: RDY-006
     type: shopper
     category: price-extraction
-    title: Agent extracts the correct product price
+    title: AI shopper reads the correct price
     task: "What is the price of the main product on this page? Reply with only the number."
     grade: correctness
     ground_truth: price
@@ -262,7 +262,7 @@ checks:
   - id: RDY-007
     type: shopper
     category: availability-extraction
-    title: Agent determines stock availability
+    title: AI shopper knows if your product is in stock
     task: "Is the main product on this page in stock? Reply with only: in_stock, out_of_stock, or unknown."
     grade: correctness
     ground_truth: availability
@@ -275,7 +275,7 @@ checks:
   - id: RDY-033
     type: static
     category: availability-extraction
-    title: Availability signals are consistent across page
+    title: Stock status is consistent across your page
     detect: contradictory_availability
     expect: JSON-LD availability matches visible text (no "InStock" in markup with "Sold Out" on page).
     fail_if: JSON-LD and visible text give contradictory availability signals — agents will extract wrong status.
@@ -286,7 +286,7 @@ checks:
   - id: RDY-008
     type: shopper
     category: identity-extraction
-    title: Agent identifies the correct product
+    title: AI shopper identifies the correct product
     task: "What is the exact name of the main product on this page? Reply with only the product name."
     grade: correctness
     ground_truth: product_name
@@ -299,7 +299,7 @@ checks:
   - id: RDY-009
     type: shopper
     category: policy-extraction
-    title: Agent gives a consistent return window
+    title: AI shopper gives a consistent return policy answer
     task: "How many days does the customer have to return this item? Reply with only a number of days, or 'not stated'."
     grade: consistency
     expect: Agent returns the SAME return window on every run (page is unambiguous).
@@ -311,7 +311,7 @@ checks:
   - id: RDY-010
     type: shopper
     category: policy-extraction
-    title: Agent gives a consistent shipping answer
+    title: AI shopper gives a consistent shipping answer
     task: "What does shipping cost for this product? Reply in one short phrase."
     grade: consistency
     expect: Agent gives a stable shipping answer across runs.
@@ -324,7 +324,7 @@ checks:
   - id: RDY-029
     type: static
     category: agent-discovery
-    title: Sitemap.xml exists and lists products
+    title: AI agents can discover your full product catalog
     detect: sitemap_xml
     expect: A valid sitemap.xml exists at the site root, ideally listing product URLs.
     fail_if: No sitemap.xml found — agents cannot discover the product catalog programmatically.
@@ -335,7 +335,7 @@ checks:
   - id: RDY-030
     type: static
     category: agent-performance
-    title: Page responds within agent timeout threshold
+    title: Your page loads fast enough for AI agents
     detect: page_load_time
     expect: Product page responds in under 5 seconds.
     fail_if: Page takes more than 5 seconds to respond — agents with short timeouts will abandon the request.
@@ -346,7 +346,7 @@ checks:
   - id: RDY-031
     type: static
     category: agent-access
-    title: Site does not block agent-like traffic
+    title: Your site doesn't block AI shopping agents
     detect: rate_limiting
     expect: Site returns HTTP 200 when accessed with a bot-like user-agent (e.g. GPTBot).
     fail_if: Site returns 403 or 429 to agent user-agents — AI shopping agents are actively blocked or rate-limited.
@@ -357,7 +357,7 @@ checks:
   - id: RDY-032
     type: static
     category: agent-checkout
-    title: x402 / agent wallet compatibility signals present
+    title: AI agents can pay autonomously on your site
     detect: wallet_compatibility
     expect: Site references x402 protocol, Cloudflare agent wallet, or exposes programmatic payment endpoints for agent commerce.
     fail_if: No x402, MPP, or agent-wallet signals found in page HTML, llms.txt, or checkout page.
@@ -369,7 +369,7 @@ checks:
   - id: RDY-034
     type: static
     category: agent-protocol
-    title: MCP Server Card published
+    title: AI agents can discover your store's tools (MCP)
     detect: mcp_server_card
     expect: A Model Context Protocol server card exists at /.well-known/mcp.json.
     fail_if: No MCP server card — agents cannot discover available tools via MCP.
@@ -380,7 +380,7 @@ checks:
   - id: RDY-035
     type: static
     category: agent-protocol
-    title: OAuth Authorization Server discovery
+    title: AI agents can authenticate with your store (OAuth)
     detect: oauth_discovery
     expect: OAuth discovery endpoint exists at /.well-known/oauth-authorization-server.
     fail_if: No OAuth discovery — agents cannot authenticate programmatically.
@@ -391,7 +391,7 @@ checks:
   - id: RDY-036
     type: static
     category: agent-protocol
-    title: Markdown content negotiation supported
+    title: AI agents can request clean text from your pages
     detect: markdown_negotiation
     expect: Site serves markdown when requested with Accept text/markdown header.
     fail_if: No markdown negotiation — agents must parse HTML instead of clean text.
@@ -402,7 +402,7 @@ checks:
   - id: RDY-037
     type: static
     category: agent-protocol
-    title: A2A Agent Card published (Google protocol)
+    title: Google AI agents can discover your store (A2A)
     detect: a2a_agent_card
     expect: An Agent-to-Agent card exists at /.well-known/agent.json.
     fail_if: No A2A agent card found at /.well-known/agent.json.
@@ -413,7 +413,7 @@ checks:
   - id: RDY-038
     type: static
     category: agent-protocol
-    title: Auth.md authentication documentation present
+    title: AI agents can find login instructions for your APIs
     detect: auth_md
     expect: An auth.md file exists at the site root with machine-readable auth docs.
     fail_if: No auth.md — agents have no authentication documentation.
@@ -424,7 +424,7 @@ checks:
   - id: RDY-039
     type: static
     category: agent-discovery
-    title: Link response headers for agent discovery
+    title: Your pages tell AI agents where to find more
     detect: link_headers
     expect: HTTP response includes Link headers with rel=describedby, api-catalog, or search.
     fail_if: No Link response headers — agents cannot discover related resources or API descriptions.
@@ -435,7 +435,7 @@ checks:
   - id: RDY-040
     type: static
     category: agent-discovery
-    title: DNS for AI Discovery (DNS-AID) records
+    title: AI agents can find your store before visiting (DNS)
     detect: dns_aid
     expect: DNS TXT record at _ai subdomain advertises AI agent capabilities.
     fail_if: No DNS-AID TXT record found at _ai subdomain.
@@ -446,7 +446,7 @@ checks:
   - id: RDY-041
     type: static
     category: agent-protocol
-    title: Agent commerce protocols (Skills, WebMCP, UCP, ACP)
+    title: AI agents can interact with your store programmatically
     detect: agent_skills
     expect: Site references Agent Skills, WebMCP, UCP, or ACP for structured agent commerce.
     fail_if: No agent commerce protocol signals — agents have no structured way to interact beyond HTML.
@@ -458,7 +458,7 @@ checks:
   - id: RDY-042
     type: static
     category: security
-    title: No prompt injection in user-generated content
+    title: Customer reviews aren't hijacking AI agents
     detect: ugc_injection
     expect: Reviews, comments, and Q&A sections contain no hidden agent-hijacking text.
     fail_if: Prompt injection patterns found in UGC — agents reading reviews could be manipulated.
@@ -469,7 +469,7 @@ checks:
   - id: RDY-043
     type: static
     category: security
-    title: Cart API has rate limiting protection
+    title: Your cart is protected from bot abuse
     detect: cart_rate_protection
     expect: Cart API endpoint rate-limits rapid requests to prevent inventory manipulation.
     fail_if: Cart API showed no rate limiting in a 5-request probe.
@@ -480,7 +480,7 @@ checks:
   - id: RDY-044
     type: static
     category: security
-    title: Checkout has bot challenge protection
+    title: Your checkout is protected from fraud bots
     detect: checkout_bot_challenge
     expect: Checkout page includes CAPTCHA, Turnstile, or other bot challenge.
     fail_if: No bot challenge (CAPTCHA, Turnstile) detected on the checkout page.
@@ -491,7 +491,7 @@ checks:
   - id: RDY-045
     type: static
     category: security
-    title: Admin and API paths are not exposed
+    title: Admin and API paths are locked down
     detect: admin_exposure
     expect: Admin, staff, and internal API paths require authentication or return 401/403.
     fail_if: Admin or API paths returned 200 with distinct content (not soft-404).

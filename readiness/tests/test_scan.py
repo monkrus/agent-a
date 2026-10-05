@@ -88,7 +88,7 @@ class TestHeadline:
     def test_all_pass(self):
         results = [_result()]
         h = headline(results)
-        assert "cleanly" in h.lower()
+        assert "read, understand, and buy" in h.lower()
 
     def test_unknown_only(self):
         results = [_result(verdict="UNKNOWN")]

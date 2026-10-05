@@ -152,16 +152,16 @@ def _run_scan(target_url, n):
     crits = [r for r in results
              if r.get("severity_if_fail") == "critical" and r.get("verdict") == "FAIL"]
     if crits:
-        headline = f"{len(crits)} critical readiness failure(s): " + \
+        headline = f"{len(crits)} critical issue(s) preventing AI shoppers from buying: " + \
                    "; ".join(r["title"] for r in crits[:2])
     else:
         fails = [r for r in results if r.get("verdict") == "FAIL"]
         if fails:
-            headline = f"{len(fails)} issue(s) limiting agent readiness; top: {fails[0]['title']}."
+            headline = f"{len(fails)} issue(s) affecting AI shopping on your store. Top: {fails[0]['title']}."
         else:
             unknown = [r for r in results if r.get("verdict") == "UNKNOWN"]
             headline = ("No failures found, but some checks were inconclusive."
-                        if unknown else "Page reads cleanly to shopping agents across all checks.")
+                        if unknown else "AI shoppers can read, understand, and buy from this store.")
 
     scan_id = hashlib.sha256(
         f"{target_url}:{datetime.datetime.now().isoformat()}".encode()

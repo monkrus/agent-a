@@ -95,9 +95,9 @@ CAT_LABELS = {
 }
 
 LAYER_LABELS = {
-    "data": "Data",
-    "extraction": "Extraction",
-    "interaction": "Interaction",
+    "data": "Product Data",
+    "extraction": "AI Understanding",
+    "interaction": "Purchase Flow",
     "security": "Security",
 }
 
@@ -198,7 +198,7 @@ def generate(scan_data: dict, output_path: Optional[str] = None, date_stamp: str
 
     # --- Domain + branding (top) ---
     draw.text((60, 40), domain_display, fill=TEXT, font=font_med)
-    draw.text((60, 80), "AI Agent Readiness Score", fill=MUTED, font=font_sm)
+    draw.text((60, 80), "AI Shopping Score", fill=MUTED, font=font_sm)
 
     # --- Category bars (right side) ---
     bar_x = 460
