@@ -55,7 +55,7 @@ body {
   gap: 1.5rem;
 }
 .nav-links a {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   text-decoration: none;
 }
@@ -122,7 +122,7 @@ h2 {
 }
 
 .input-hint {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
@@ -130,7 +130,7 @@ h2 {
   background: var(--bg);
   padding: 0.1rem 0.35rem;
   border-radius: 3px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .input-row {
@@ -168,7 +168,7 @@ h2 {
 }
 
 .note {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   margin-top: 0.75rem;
 }
@@ -201,7 +201,7 @@ h2 {
 
 .headline {
   color: var(--text-muted);
-  font-size: 1rem;
+  font-size: 1.05rem;
   margin-bottom: 0.75rem;
 }
 
@@ -210,7 +210,7 @@ h2 {
   gap: 1.5rem;
   justify-content: center;
   flex-wrap: wrap;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
 }
 
@@ -232,7 +232,7 @@ h2 {
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
-.detail-cell { font-size: 0.85rem; color: var(--text-muted); }
+.detail-cell { font-size: 0.9rem; color: var(--text-muted); }
 
 /* Severity badges */
 .sev {
@@ -280,7 +280,7 @@ tr.verdict-fail { background: rgba(239,68,68,0.04); }
 }
 .paywall-card li {
   margin-bottom: 0.35rem;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 .btn-pay {
   font-size: 1.05rem;
@@ -305,7 +305,7 @@ tr.verdict-fail { background: rgba(239,68,68,0.04); }
 }
 .check-num {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 0.05em;
@@ -313,18 +313,21 @@ tr.verdict-fail { background: rgba(239,68,68,0.04); }
 }
 .check-item strong {
   display: block;
-  font-size: 0.9rem;
+  font-size: 1rem;
   margin-bottom: 0.25rem;
 }
 .check-item > span {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
+}
+.check-item .check-tier {
+  font-size: 0.9rem;
 }
 .check-tier {
   display: block;
   margin-top: auto;
   padding-top: 0.5rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: #4ade80;
   letter-spacing: 0.03em;
@@ -336,14 +339,14 @@ tr.verdict-fail { background: rgba(239,68,68,0.04); }
 footer {
   margin-top: 2rem;
   text-align: center;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
 }
 
 /* Intel section */
 .intel-card { border-color: #2d2d6b; }
 .intel-subtitle {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
   margin-bottom: 1rem;
 }
@@ -353,7 +356,7 @@ footer {
   border-top: 1px solid var(--border);
 }
 .intel-section h3 {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: var(--accent);
@@ -385,7 +388,7 @@ footer {
   gap: 0.4rem;
   padding: 0.25rem 0.6rem;
   border-radius: 5px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   border: 1px solid var(--border);
 }
 .agent-name { font-weight: 500; }
@@ -407,7 +410,7 @@ footer {
   border-top: 1px solid var(--border);
 }
 .intel-point {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   padding: 0.2rem 0;
   padding-left: 0.75rem;
@@ -440,14 +443,14 @@ footer {
 .check-fail .verdict-icon { color: var(--red); }
 .check-unknown .verdict-icon { color: var(--text-muted); }
 .check-id {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   font-weight: 600;
   min-width: 55px;
 }
 .check-title {
   flex: 1;
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 .check-fail { border-color: rgba(239,68,68,0.2); }
 .check-unknown { border-color: rgba(139,139,150,0.2); }
@@ -462,7 +465,7 @@ footer {
   display: flex;
   gap: 0.75rem;
   padding: 0.3rem 0;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   align-items: baseline;
 }
 .check-label {
@@ -471,14 +474,14 @@ footer {
   font-weight: 500;
   flex-shrink: 0;
 }
-.check-impact { color: var(--yellow); font-size: 0.85rem; }
+.check-impact { color: var(--yellow); font-size: 0.9rem; }
 .check-impact span { color: var(--text); }
 
 .sample-list code {
   background: var(--bg);
   padding: 0.15rem 0.4rem;
   border-radius: 3px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   margin-right: 0.25rem;
   display: inline-block;
   margin-bottom: 0.2rem;
@@ -500,11 +503,11 @@ footer {
 }
 .fix-label {
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--accent);
 }
 .fix-instruction {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
@@ -514,7 +517,7 @@ footer {
   border-radius: 4px;
   padding: 0.65rem;
   overflow-x: auto;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   max-height: 300px;
   overflow-y: auto;
@@ -529,7 +532,7 @@ footer {
   color: #fff;
   border: none;
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   cursor: pointer;
   font-weight: 500;
 }
@@ -541,21 +544,21 @@ footer {
   background: var(--bg);
   border-radius: 6px;
   margin-bottom: 0.4rem;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
-.intel-card-inner strong { font-size: 0.95rem; }
+.intel-card-inner strong { font-size: 1rem; }
 .intel-impact {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   margin-top: 0.3rem;
 }
 .intel-detail {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   margin-top: 0.3rem;
 }
 .intel-explain {
-  font-size: 0.875rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
@@ -566,7 +569,7 @@ footer {
   border: 1px solid rgba(239,68,68,0.25);
   border-radius: 6px;
   color: var(--red);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 /* Spinner */
@@ -590,7 +593,7 @@ footer {
   margin-bottom: 0.3rem;
 }
 .layer-bar-label { font-size: 0.875rem; font-weight: 500; }
-.layer-bar-pct { font-size: 0.85rem; color: var(--text-muted); }
+.layer-bar-pct { font-size: 0.9rem; color: var(--text-muted); }
 .bar-track {
   height: 24px;
   background: var(--bg);
@@ -622,7 +625,7 @@ footer {
 
 /* Hero lead text */
 .hero-lead {
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--text-muted);
   line-height: 1.7;
 }
@@ -643,7 +646,7 @@ footer {
   letter-spacing: -0.03em;
 }
 .stat-label {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
 }
 .stat-sub {
@@ -674,7 +677,7 @@ footer {
 }
 .step strong { display: block; margin-bottom: 0.2rem; }
 .step p {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
   margin: 0;
 }
@@ -690,7 +693,7 @@ footer {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   font-weight: 500;
 }
@@ -705,7 +708,7 @@ footer {
 .faq summary {
   padding: 0.75rem 1rem;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 500;
   list-style: none;
   display: flex;
@@ -724,7 +727,7 @@ footer {
 }
 .faq details p {
   padding: 0 1rem 0.75rem;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
   margin: 0;
   line-height: 1.6;

@@ -168,7 +168,7 @@
     {% if access_blocked %}
     <div class="card" style="border:1px solid rgba(239,68,68,0.4); background:rgba(239,68,68,0.04);">
       <h2 style="color:#f87171;">Your store is invisible to AI shopping agents</h2>
-      <p style="font-size:0.95rem; color:var(--text); margin-bottom:1rem; line-height:1.7;">
+      <p style="font-size:1rem; color:var(--text); margin-bottom:1rem; line-height:1.7;">
         When a customer asks ChatGPT, Perplexity, or Gemini to find a product like yours, these agents try to read your product page. Your site detected them and served a challenge page instead of your actual product. The agent moves on to a competitor — and the customer never knows you exist.
       </p>
       <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">
@@ -177,10 +177,10 @@
 
       {% if data.intel and data.intel.agent_access %}
       <div style="margin:1rem 0;">
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem; font-weight:600;">Crawler-by-crawler results:</p>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.5rem; font-weight:600;">Crawler-by-crawler results:</p>
         <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">
           {% for agent in data.intel.agent_access %}
-          <div style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.35rem 0.7rem; border-radius:6px; font-size:0.85rem; font-weight:600;
+          <div style="display:inline-flex; align-items:center; gap:0.4rem; padding:0.35rem 0.7rem; border-radius:6px; font-size:0.9rem; font-weight:600;
             {% if agent.status == 'blocked' %}background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.3);
             {% elif agent.status == 'allowed' %}background:rgba(34,197,94,0.12); color:#4ade80; border:1px solid rgba(34,197,94,0.3);
             {% else %}background:rgba(234,179,8,0.12); color:#eab308; border:1px solid rgba(234,179,8,0.3);{% endif %}">
@@ -193,7 +193,7 @@
 
       <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1rem; margin-top:1rem;">
         <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin-bottom:0.5rem;">What this means for your revenue</p>
-        <ul style="font-size:0.85rem; color:var(--text-muted); padding-left:1.25rem; line-height:1.8;">
+        <ul style="font-size:0.9rem; color:var(--text-muted); padding-left:1.25rem; line-height:1.8;">
           <li>AI shopping agents cannot recommend your products to anyone</li>
           <li>Customers comparing prices via ChatGPT or Perplexity will see competitors, not you</li>
           <li>"Find me a [your product]" queries return everyone except you</li>
@@ -203,12 +203,12 @@
 
       <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1rem; margin-top:0.75rem;">
         <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin-bottom:0.5rem;">How to fix it</p>
-        <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.7;">
+        <p style="font-size:0.9rem; color:var(--text-muted); line-height:1.7;">
           Your site's bot protection (likely Cloudflare, Akamai, or your CDN) is blocking requests with AI agent User-Agent strings. You need to allowlist these crawlers:
-          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">GPTBot</code>,
-          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">ClaudeBot</code>,
-          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">PerplexityBot</code>,
-          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.85rem;">OAI-SearchBot</code>.
+          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.9rem;">GPTBot</code>,
+          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.9rem;">ClaudeBot</code>,
+          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.9rem;">PerplexityBot</code>,
+          <code style="background:var(--bg); padding:0.15rem 0.4rem; border-radius:3px; font-size:0.9rem;">OAI-SearchBot</code>.
           Check your CDN/WAF settings, or contact your hosting provider.
         </p>
       </div>
@@ -220,22 +220,22 @@
     <div class="card" style="border:1px solid {% if data.readiness_score > prev_scan.score %}rgba(74,222,128,0.4){% elif data.readiness_score < prev_scan.score %}rgba(248,113,113,0.4){% else %}rgba(250,204,21,0.4){% endif %}; background:{% if data.readiness_score > prev_scan.score %}rgba(74,222,128,0.04){% elif data.readiness_score < prev_scan.score %}rgba(248,113,113,0.04){% else %}rgba(250,204,21,0.04){% endif %};">
       <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
         <div>
-          <span style="font-size:0.85rem; color:var(--text-muted);">Previous scan ({{ prev_scan.timestamp }})</span>
+          <span style="font-size:0.9rem; color:var(--text-muted);">Previous scan ({{ prev_scan.timestamp }})</span>
           <div style="font-size:1.8rem; font-weight:700; color:var(--text-muted);">{{ prev_scan.score }}</div>
         </div>
         <div style="font-size:1.5rem; color:var(--text-muted);">&rarr;</div>
         <div>
-          <span style="font-size:0.85rem; color:var(--text-muted);">This scan</span>
+          <span style="font-size:0.9rem; color:var(--text-muted);">This scan</span>
           <div style="font-size:1.8rem; font-weight:700; color:{% if data.readiness_score > prev_scan.score %}#4ade80{% elif data.readiness_score < prev_scan.score %}#f87171{% else %}#facc15{% endif %};">{{ data.readiness_score }}</div>
         </div>
         <div style="margin-left:auto;">
           {% set delta = data.readiness_score - prev_scan.score %}
           {% if delta > 0 %}
           <span style="font-size:1.3rem; font-weight:700; color:#4ade80;">+{{ delta|round(0)|int }} points</span>
-          <p style="font-size:0.85rem; color:#4ade80; margin:0;">Score improved</p>
+          <p style="font-size:0.9rem; color:#4ade80; margin:0;">Score improved</p>
           {% elif delta < 0 %}
           <span style="font-size:1.3rem; font-weight:700; color:#f87171;">{{ delta|round(0)|int }} points</span>
-          <p style="font-size:0.85rem; color:#f87171; margin:0;">Score decreased</p>
+          <p style="font-size:0.9rem; color:#f87171; margin:0;">Score decreased</p>
           {% else %}
           <span style="font-size:1.3rem; font-weight:700; color:#facc15;">No change</span>
           {% endif %}
@@ -252,16 +252,16 @@
       {% endfor %}
       {% if fixed_checks %}
       <div style="margin-top:0.75rem;">
-        <span style="font-size:0.85rem; font-weight:600; color:#4ade80;">Fixed since last scan:</span>
-        <ul style="margin:0.25rem 0 0; padding-left:1.25rem; font-size:0.85rem; color:var(--text-muted);">
+        <span style="font-size:0.9rem; font-weight:600; color:#4ade80;">Fixed since last scan:</span>
+        <ul style="margin:0.25rem 0 0; padding-left:1.25rem; font-size:0.9rem; color:var(--text-muted);">
           {% for r in fixed_checks %}<li>{{ r.title }}</li>{% endfor %}
         </ul>
       </div>
       {% endif %}
       {% if broken_checks %}
       <div style="margin-top:0.75rem;">
-        <span style="font-size:0.85rem; font-weight:600; color:#f87171;">New issues since last scan:</span>
-        <ul style="margin:0.25rem 0 0; padding-left:1.25rem; font-size:0.85rem; color:var(--text-muted);">
+        <span style="font-size:0.9rem; font-weight:600; color:#f87171;">New issues since last scan:</span>
+        <ul style="margin:0.25rem 0 0; padding-left:1.25rem; font-size:0.9rem; color:var(--text-muted);">
           {% for r in broken_checks %}<li>{{ r.title }}</li>{% endfor %}
         </ul>
       </div>
@@ -278,7 +278,7 @@
       <div style="padding:0.75rem 0; {% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
         <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.35rem;">
           <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
-          <span style="font-weight:600; color:var(--text); font-size:0.95rem;">{{ r.title }}</span>
+          <span style="font-weight:600; color:var(--text); font-size:1rem;">{{ r.title }}</span>
         </div>
         <p style="font-size:0.9rem; color:var(--text-muted); margin:0; line-height:1.6;">{{ impact_texts.get(r.id, '') }}</p>
       </div>
@@ -292,11 +292,11 @@
       <h2>Full AI Shopping Audit</h2>
       <p class="intel-subtitle">{{ data.results|length }} checks run{% if data.meta.shopper == 'anthropic' %}, including {{ data.meta.n }} real AI shopping visits{% endif %}. Failing checks show what you're losing and how to fix it.</p>
       {% if data.meta.get('browser_unavailable') %}
-      <div style="background:#1e1b4b; border:1px solid #6366f1; border-radius:8px; padding:0.75rem 1rem; margin:0.75rem 0; font-size:0.85rem; color:#c7d2fe;">
+      <div style="background:#1e1b4b; border:1px solid #6366f1; border-radius:8px; padding:0.75rem 1rem; margin:0.75rem 0; font-size:0.9rem; color:#c7d2fe;">
         <strong style="color:#a5b4fc;">Note:</strong> 5 browser interaction checks (add-to-cart, search, checkout, navigation, product comparison) were unavailable during this scan. Your score is based on {{ data.results|length }} static + AI extraction checks. To request a complimentary re-scan with browser checks, reply to your receipt email or contact <a href="mailto:sergeigodev@gmail.com" style="color:#818cf8;">sergeigodev@gmail.com</a>.
       </div>
       {% elif data.meta.get('browser_geo_blocked') %}
-      <div style="background:#1a1a0a; border:1px solid #ca8a04; border-radius:8px; padding:0.75rem 1rem; margin:0.75rem 0; font-size:0.85rem; color:#fef08a;">
+      <div style="background:#1a1a0a; border:1px solid #ca8a04; border-radius:8px; padding:0.75rem 1rem; margin:0.75rem 0; font-size:0.9rem; color:#fef08a;">
         <strong style="color:#facc15;">Geo-restriction detected:</strong> All 5 browser checks failed because the site blocks access from our server location. Individual flows (add-to-cart, search, checkout, navigation, comparison) could not be tested. The site's geo-restriction is itself a finding — AI agents from blocked regions cannot shop here.
       </div>
       {% endif %}
@@ -317,19 +317,19 @@
       <div style="display:flex; gap:1.5rem; margin:1rem 0; flex-wrap:wrap;">
         <div style="text-align:center;">
           <span style="font-size:1.5rem; font-weight:700; color:#4ade80;">{{ passing|length }}</span>
-          <span style="font-size:0.85rem; color:var(--text-muted); display:block;">passing</span>
+          <span style="font-size:0.9rem; color:var(--text-muted); display:block;">passing</span>
         </div>
         <div style="text-align:center;">
           <span style="font-size:1.5rem; font-weight:700; color:#f87171;">{{ failing|length }}</span>
-          <span style="font-size:0.85rem; color:var(--text-muted); display:block;">failing</span>
+          <span style="font-size:0.9rem; color:var(--text-muted); display:block;">failing</span>
         </div>
         <div style="text-align:center;">
           <span style="font-size:1.5rem; font-weight:700; color:#a3a3a3;">{{ unknown|length }}</span>
-          <span style="font-size:0.85rem; color:var(--text-muted); display:block;">inconclusive</span>
+          <span style="font-size:0.9rem; color:var(--text-muted); display:block;">inconclusive</span>
         </div>
       </div>
 
-      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin:1rem 0; font-size:0.85rem; color:var(--text-muted);">
+      <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin:1rem 0; font-size:0.9rem; color:var(--text-muted);">
         <span><span class="sev sev-critical">critical</span> agents can't use the page at all</span>
         <span><span class="sev sev-high">high</span> blocks purchases or gives wrong info</span>
         <span><span class="sev sev-medium">medium</span> reduces agent effectiveness</span>
@@ -360,11 +360,11 @@
             <p class="fix-instruction">{{ r.fix or '' }}</p>
             <pre class="fix-code"><code>{{ teaser_fix | e }}</code></pre>
           </div>
-          <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem;">This is a free preview. The full audit includes fixes for all {{ failing|length }} issues.</p>
+          <p style="font-size:0.9rem; color:var(--text-muted); margin-top:0.5rem;">This is a free preview. The full audit includes fixes for all {{ failing|length }} issues.</p>
         </div>
         {% elif not loop.first %}
         <div style="padding:0.5rem 0.85rem; border-top:1px solid var(--border); display:flex; align-items:center; gap:0.5rem;">
-          <span style="font-size:0.85rem; color:var(--text-muted);">🔒 Fix recipe available in the full audit</span>
+          <span style="font-size:0.9rem; color:var(--text-muted);">🔒 Fix recipe available in the full audit</span>
         </div>
         {% else %}
         <div style="padding:0.5rem 0.85rem; border-top:1px solid var(--border);">
@@ -377,7 +377,7 @@
       </div>
       {% endfor %}
       {% if failing|length > 5 %}
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem;">+ {{ failing|length - 5 }} more issues found.</p>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-top:0.5rem;">+ {{ failing|length - 5 }} more issues found.</p>
       {% endif %}
       <div style="text-align:center; margin-top:1rem;">
         {% if browser_available %}
@@ -392,10 +392,10 @@
       <div style="background:var(--surface); border:1px solid rgba(74,222,128,0.3); border-radius:8px; padding:1rem; margin-top:1.25rem;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
           <span style="font-size:0.9rem; font-weight:600; color:#4ade80;">Fix it now — paste this JSON-LD into your page</span>
-          <button onclick="copySnippet()" id="snippet-btn" style="padding:0.35rem 0.75rem; border-radius:5px; border:1px solid rgba(74,222,128,0.3); background:rgba(74,222,128,0.1); color:#4ade80; font-size:0.85rem; cursor:pointer; font-weight:500;">Copy snippet</button>
+          <button onclick="copySnippet()" id="snippet-btn" style="padding:0.35rem 0.75rem; border-radius:5px; border:1px solid rgba(74,222,128,0.3); background:rgba(74,222,128,0.1); color:#4ade80; font-size:0.9rem; cursor:pointer; font-weight:500;">Copy snippet</button>
         </div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">Add this inside a <code>&lt;script type="application/ld+json"&gt;</code> tag in your product page. Replace the placeholder image, description, and brand with your real data.</p>
-        <pre id="jsonld-snippet" style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:0.75rem; font-size:0.85rem; overflow-x:auto; color:#c8c8d0; margin:0;"><code>{{ jsonld_snippet }}</code></pre>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.75rem;">Add this inside a <code>&lt;script type="application/ld+json"&gt;</code> tag in your product page. Replace the placeholder image, description, and brand with your real data.</p>
+        <pre id="jsonld-snippet" style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:0.75rem; font-size:0.9rem; overflow-x:auto; color:#c8c8d0; margin:0;"><code>{{ jsonld_snippet }}</code></pre>
       </div>
       {% endif %}
 
@@ -415,7 +415,7 @@
       {% for group in journey_groups %}
       {% set stage_fails = group.results|selectattr('verdict', 'equalto', 'FAIL')|rejectattr('severity_if_fail', 'equalto', 'low')|list %}
       {% if stage_fails %}
-      <h3 style="color:var(--red); font-size:0.95rem; margin:1.5rem 0 0.5rem; font-weight:600;">{{ group.label }}</h3>
+      <h3 style="color:var(--red); font-size:1rem; margin:1.5rem 0 0.5rem; font-weight:600;">{{ group.label }}</h3>
       {% for r in stage_fails %}
       {% include "partials/check_fail.html" %}
       {% endfor %}
@@ -423,8 +423,8 @@
       {% endfor %}
 
       {% if future_proof %}
-      <h3 style="color:#60a5fa; font-size:0.95rem; margin:1.75rem 0 0.5rem; font-weight:600;">{{ future_proof|length }} future-proofing item{{ 's' if future_proof|length != 1 }}</h3>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin:0 0 0.75rem;">Emerging protocols not yet adopted by most stores. Low priority, but early adoption gives AI shoppers more ways to interact with your store.</p>
+      <h3 style="color:#60a5fa; font-size:1rem; margin:1.75rem 0 0.5rem; font-weight:600;">{{ future_proof|length }} future-proofing item{{ 's' if future_proof|length != 1 }}</h3>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin:0 0 0.75rem;">Emerging protocols not yet adopted by most stores. Low priority, but early adoption gives AI shoppers more ways to interact with your store.</p>
       {% endif %}
       {% for r in future_proof %}
       {% include "partials/check_fail.html" %}
@@ -432,7 +432,7 @@
 
       {# Inconclusive checks #}
       {% if ns.unknown_count > 0 %}
-      <h3 style="color:var(--text-muted); font-size:0.95rem; margin:1.25rem 0 0.5rem; font-weight:600;">{{ ns.unknown_count }} inconclusive</h3>
+      <h3 style="color:var(--text-muted); font-size:1rem; margin:1.25rem 0 0.5rem; font-weight:600;">{{ ns.unknown_count }} inconclusive</h3>
       {% endif %}
       {% for r in data.results %}{% if r.verdict == 'UNKNOWN' %}
       <div class="check-block check-unknown">
@@ -469,7 +469,7 @@
       {# Passing checks — collapsed #}
       {% if ns.pass_count > 0 %}
       <details style="margin-top:1.25rem;">
-        <summary style="font-size:0.95rem; font-weight:600; color:var(--green); cursor:pointer; padding:0.5rem 0;">✓ {{ ns.pass_count }} checks passing <span style="font-size:0.85rem; color:var(--text-muted); font-weight:400;">(click to expand)</span></summary>
+        <summary style="font-size:1rem; font-weight:600; color:var(--green); cursor:pointer; padding:0.5rem 0;">✓ {{ ns.pass_count }} checks passing <span style="font-size:0.9rem; color:var(--text-muted); font-weight:400;">(click to expand)</span></summary>
       {% endif %}
       {% for r in data.results %}{% if r.verdict == 'PASS' %}
       <div class="check-block check-pass">
@@ -514,15 +514,15 @@
       <p class="intel-subtitle">Estimate — based on industry benchmarks and your scan results, not measured from your actual traffic.</p>
       <div style="display:flex; gap:2rem; margin:1rem 0; flex-wrap:wrap; justify-content:center;">
         <div style="text-align:center;">
-          <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.25rem;">Monthly</div>
+          <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.25rem;">Monthly</div>
           <div style="font-size:1.8rem; font-weight:700; color:#f87171;">${{ "{:,}".format(data.impact.estimated_monthly_loss.low) }} – ${{ "{:,}".format(data.impact.estimated_monthly_loss.high) }}</div>
         </div>
         <div style="text-align:center;">
-          <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.25rem;">Annual</div>
+          <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.25rem;">Annual</div>
           <div style="font-size:1.8rem; font-weight:700; color:#f87171;">${{ "{:,}".format(data.impact.estimated_annual_loss.low) }} – ${{ "{:,}".format(data.impact.estimated_annual_loss.high) }}</div>
         </div>
       </div>
-      <div style="margin-top:0.75rem; font-size:0.85rem; color:var(--text-muted); line-height:1.7;">
+      <div style="margin-top:0.75rem; font-size:0.9rem; color:var(--text-muted); line-height:1.7;">
         <p style="font-weight:600; margin-bottom:0.25rem;">Assumptions</p>
         <ul style="padding-left:1.25rem; margin:0;">
           {% for a in data.impact.assumptions %}<li>{{ a }}</li>{% endfor %}
@@ -539,12 +539,12 @@
     <!-- COMPETITOR COMPARISON -->
     <div class="card">
       <h2>How do you compare?</h2>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Paste a competitor's product page to see who's more agent-ready.</p>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">Paste a competitor's product page to see who's more agent-ready.</p>
       <form id="compare-form" action="{{ url_for('compare', scan_id=data.scan_id) }}" method="post" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="text" name="competitor_url" placeholder="competitor.com/products/similar-product" required
-               style="flex:1; min-width:200px; padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-size:0.85rem; background:var(--bg); color:var(--text);">
+               style="flex:1; min-width:200px; padding:10px 14px; border:1px solid var(--border); border-radius:8px; font-size:0.9rem; background:var(--bg); color:var(--text);">
         <button type="submit" class="btn-pay" style="white-space:nowrap; padding:0.6rem 1.2rem;">Compare</button>
-        <span id="compare-timer" style="display:none; color:#8b8b96; font-size:0.85rem;"></span>
+        <span id="compare-timer" style="display:none; color:#8b8b96; font-size:0.9rem;"></span>
       </form>
       <script>
         document.getElementById('compare-form').addEventListener('submit', function() {
@@ -565,7 +565,7 @@
         });
       </script>
       {% if compare_error %}
-      <p style="color:#f87171; font-size:0.85rem; margin-top:0.75rem;">{{ compare_error }}</p>
+      <p style="color:#f87171; font-size:0.9rem; margin-top:0.75rem;">{{ compare_error }}</p>
       {% endif %}
     </div>
 
@@ -574,15 +574,15 @@
       <h2>Head-to-Head</h2>
       <div style="display:flex; gap:2rem; flex-wrap:wrap; margin:1rem 0; justify-content:center;">
         <div style="text-align:center; flex:1; min-width:200px;">
-          <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.25rem;">Your store</div>
+          <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.25rem;">Your store</div>
           <div style="font-size:2.5rem; font-weight:700; color:{% if data.readiness_score >= comparison.score %}#4ade80{% else %}#f87171{% endif %};">{{ data.readiness_score }}</div>
-          <div style="font-size:0.85rem; color:var(--text-muted);">{{ data.meta.target|truncate(40) }}</div>
+          <div style="font-size:0.9rem; color:var(--text-muted);">{{ data.meta.target|truncate(40) }}</div>
         </div>
         <div style="text-align:center; align-self:center; font-size:1.5rem; color:var(--text-muted);">vs</div>
         <div style="text-align:center; flex:1; min-width:200px;">
-          <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.25rem;">Competitor</div>
+          <div style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.25rem;">Competitor</div>
           <div style="font-size:2.5rem; font-weight:700; color:{% if comparison.score >= data.readiness_score %}#4ade80{% else %}#f87171{% endif %};">{{ comparison.score }}</div>
-          <div style="font-size:0.85rem; color:var(--text-muted);">{{ comparison.target|truncate(40) }}</div>
+          <div style="font-size:0.9rem; color:var(--text-muted);">{{ comparison.target|truncate(40) }}</div>
         </div>
       </div>
       {% if data.readiness_score > comparison.score %}
@@ -593,7 +593,7 @@
       <p style="text-align:center; color:#facc15; font-weight:600;">Tied score.</p>
       {% endif %}
 
-      <div style="margin-top:1rem; font-size:0.85rem;">
+      <div style="margin-top:1rem; font-size:0.9rem;">
         {% if comparison.comp_missing %}
         <div style="margin-bottom:0.75rem;">
           <span style="color:#4ade80; font-weight:600;">Competitor is missing (you pass):</span>
@@ -626,20 +626,20 @@
     <div class="card" style="border-left:4px solid #f87171;">
       {% if payment_error.startswith('rescan_failed') %}
       <p style="margin:0;color:#f87171;font-weight:600;">Payment received, but the deep scan failed.</p>
-      <p style="margin:0.5rem 0 0;font-size:0.85rem;color:var(--text-muted);">
+      <p style="margin:0.5rem 0 0;font-size:0.9rem;color:var(--text-muted);">
         Your payment went through, but we hit an error running the AI agent checks. Showing your structural results below. Contact <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">sergeigodev@gmail.com</a> and we'll re-run your scan manually.
-        {% if ':' in payment_error %}<br><code style="font-size:0.85rem;">{{ payment_error.split(':', 1)[1] }}</code>{% endif %}
+        {% if ':' in payment_error %}<br><code style="font-size:0.9rem;">{{ payment_error.split(':', 1)[1] }}</code>{% endif %}
       </p>
       {% else %}
       <p style="margin:0;color:#f87171;font-weight:600;">Payment could not be verified.</p>
-      <p style="margin:0.5rem 0 0;font-size:0.85rem;color:var(--text-muted);">
+      <p style="margin:0.5rem 0 0;font-size:0.9rem;color:var(--text-muted);">
         {% if payment_error == 'missing_session' %}
         The payment session ID was missing from the redirect. Please try again, or contact support if this keeps happening.
         {% elif payment_error == 'payment_not_verified' %}
         Stripe returned an unexpected payment status. If you completed checkout, please refresh this page or contact support.
         {% else %}
         Something went wrong verifying your payment with Stripe. Please try again, or contact support if this keeps happening.
-        {% if ':' in payment_error %}<br><code style="font-size:0.85rem;">{{ payment_error.split(':', 1)[1] }}</code>{% endif %}
+        {% if ':' in payment_error %}<br><code style="font-size:0.9rem;">{{ payment_error.split(':', 1)[1] }}</code>{% endif %}
         {% endif %}
       </p>
       {% endif %}
@@ -651,7 +651,7 @@
       <h2>Full AI Shopping Audit — $49</h2>
       <p>Your free scan checked page structure. The full audit sends a <strong>real AI shopper</strong> to your store and shows you exactly what happens.</p>
 
-      <p style="font-size:0.85rem; font-weight:600; color:var(--text); margin:0.75rem 0 0.25rem;">What you get:</p>
+      <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin:0.75rem 0 0.25rem;">What you get:</p>
       <ul style="list-style:none; padding:0; margin:0.5rem 0;">
         <li style="padding:0.4rem 0;"><strong style="color:#60a5fa;">{{ stats.check_counts.paid }} checks</strong> <span style="color:var(--text-muted);">(vs {{ stats.check_counts.free }} free)</span> — adds AI shopping tests + browser purchase flows</li>
         <li style="padding:0.4rem 0;"><strong style="color:#a78bfa;">Real AI shopping test</strong> — an AI shopper visits your page {{ data.meta.n }} times, tries to read price, availability, product name, return policy, and shipping. See how often it gets it right</li>
@@ -660,7 +660,7 @@
         <li style="padding:0.4rem 0;"><strong style="color:#4ade80;">Copy-paste fix recipes</strong> — Shopify Liquid code, config steps, and plain-language instructions for every failing check</li>
       </ul>
 
-      <p style="font-size:0.85rem; color:var(--text-muted); margin:0.5rem 0;">Not included: ongoing monitoring or measured analytics integration. This is a one-time diagnostic report.</p>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin:0.5rem 0;">Not included: ongoing monitoring or measured analytics integration. This is a one-time diagnostic report.</p>
       {% if browser_available %}
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
         <button type="submit" class="btn-pay">Run Full AI Shopping Audit — $49</button>
