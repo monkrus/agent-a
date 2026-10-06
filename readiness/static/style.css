@@ -22,6 +22,7 @@ body {
   color: var(--text);
   line-height: 1.6;
   min-height: 100vh;
+  font-size: 16px;
 }
 
 /* Top nav */
@@ -200,7 +201,7 @@ h2 {
 
 .headline {
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: 1rem;
   margin-bottom: 0.75rem;
 }
 
@@ -342,7 +343,7 @@ footer {
 /* Intel section */
 .intel-card { border-color: #2d2d6b; }
 .intel-subtitle {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   margin-bottom: 1rem;
 }
@@ -352,7 +353,7 @@ footer {
   border-top: 1px solid var(--border);
 }
 .intel-section h3 {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
   color: var(--accent);
@@ -446,7 +447,7 @@ footer {
 }
 .check-title {
   flex: 1;
-  font-size: 0.875rem;
+  font-size: 0.95rem;
 }
 .check-fail { border-color: rgba(239,68,68,0.2); }
 .check-unknown { border-color: rgba(139,139,150,0.2); }
@@ -461,7 +462,7 @@ footer {
   display: flex;
   gap: 0.75rem;
   padding: 0.3rem 0;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   align-items: baseline;
 }
 .check-label {
@@ -503,7 +504,7 @@ footer {
   color: var(--accent);
 }
 .fix-instruction {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
@@ -513,7 +514,7 @@ footer {
   border-radius: 4px;
   padding: 0.65rem;
   overflow-x: auto;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   line-height: 1.5;
   max-height: 300px;
   overflow-y: auto;
@@ -540,21 +541,21 @@ footer {
   background: var(--bg);
   border-radius: 6px;
   margin-bottom: 0.4rem;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
-.intel-card-inner strong { font-size: 0.9rem; }
+.intel-card-inner strong { font-size: 0.95rem; }
 .intel-impact {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   margin-top: 0.3rem;
 }
 .intel-detail {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   margin-top: 0.3rem;
 }
 .intel-explain {
-  font-size: 0.8rem;
+  font-size: 0.875rem;
   color: var(--text-muted);
   margin-bottom: 0.5rem;
 }

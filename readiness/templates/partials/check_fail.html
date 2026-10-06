@@ -47,7 +47,7 @@
           <div class="fix-block">
             <div class="fix-header">
               <span class="fix-label">How to fix this</span>
-              <button class="btn-copy" onclick="copyFix(this)" data-code="{{ r.fix_recipe | e }}">Copy fix</button>
+              <button class="btn-copy" onclick="copyFix(this)" data-code="{{ (r.fix ~ '\n\n' ~ r.fix_recipe if r.fix else r.fix_recipe) | e }}">Copy fix</button>
             </div>
             <p class="fix-instruction">{{ r.fix or '' }}</p>
             <pre class="fix-code"><code>{{ r.fix_recipe | e }}</code></pre>

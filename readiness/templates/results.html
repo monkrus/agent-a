@@ -11,9 +11,11 @@
       .container { max-width: 100%; padding: 0; }
       .card { border: 1px solid #ddd !important; box-shadow: none !important; break-inside: avoid; }
       .back-link, .paywall-card, #compare-form, .btn-pay, .btn-copy, .btn-share,
-      #copy-btn, footer, .no-print { display: none !important; }
+      #copy-btn, #copy-all-btn, footer, .no-print { display: none !important; }
       .score-number { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .check-block { break-inside: avoid; }
+      .fix-code { max-height: none !important; overflow-y: visible !important; }
+      .fix-block { break-inside: avoid; }
       .sev, .verdict { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       a { color: #111 !important; text-decoration: none !important; }
       details { open: true; }
@@ -271,14 +273,14 @@
     {% if fix_first and not access_blocked %}
     <div class="card" style="border:1px solid rgba(248,113,113,0.3); background:rgba(248,113,113,0.03);">
       <h2 style="color:#f87171; margin-bottom:0.25rem;">Fix these first</h2>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">These {{ fix_first|length }} issues have the biggest impact on whether AI shoppers can buy from you.</p>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">These {{ fix_first|length }} issues have the biggest impact on whether AI shoppers can buy from you.</p>
       {% for r in fix_first %}
       <div style="padding:0.75rem 0; {% if not loop.last %}border-bottom:1px solid var(--border);{% endif %}">
         <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.35rem;">
           <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }}</span>
-          <span style="font-weight:600; color:var(--text);">{{ r.title }}</span>
+          <span style="font-weight:600; color:var(--text); font-size:0.95rem;">{{ r.title }}</span>
         </div>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin:0; line-height:1.6;">{{ impact_texts.get(r.id, '') }}</p>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin:0; line-height:1.6;">{{ impact_texts.get(r.id, '') }}</p>
       </div>
       {% endfor %}
     </div>
@@ -353,7 +355,7 @@
           <div class="fix-block">
             <div class="fix-header">
               <span class="fix-label">How to fix this</span>
-              <button class="btn-copy" onclick="copyFix(this)" data-code="{{ teaser_fix | e }}">Copy fix</button>
+              <button class="btn-copy" onclick="copyFix(this)" data-code="{{ ((r.fix ~ '\n\n' ~ teaser_fix) if r.fix else teaser_fix) | e }}">Copy fix</button>
             </div>
             <p class="fix-instruction">{{ r.fix or '' }}</p>
             <pre class="fix-code"><code>{{ teaser_fix | e }}</code></pre>
@@ -748,6 +750,17 @@
     lines.push('');
     {% for r in data.results %}
     lines.push('{{ "PASS" if r.verdict == "PASS" else "FAIL" if r.verdict == "FAIL" else "?" }}  {{ r.id }}  {{ r.title }}');
+    {% if paid %}
+    lines.push('    {{ r.detail | replace("\n", " ") | replace("'", "\\'") }}');
+    {% if r.verdict == 'FAIL' and r.fix %}
+    lines.push('    Fix: {{ r.fix | replace("\n", " ") | replace("'", "\\'") }}');
+    {% endif %}
+    {% if r.verdict == 'FAIL' and r.fix_recipe is defined and r.fix_recipe %}
+    lines.push('');
+    lines.push({{ r.fix_recipe | tojson }});
+    lines.push('');
+    {% endif %}
+    {% endif %}
     {% endfor %}
     lines.push('');
     lines.push('Scanned by Agent-A — ' + window.location.origin);
