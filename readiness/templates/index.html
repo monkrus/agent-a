@@ -56,7 +56,7 @@
       <p class="note" style="white-space:nowrap;">Paste a product URL, not a homepage. <span style="color:#4ade80;font-weight:600;">Free</span> score in under a minute — <span style="color:#a78bfa;font-weight:600;">Full Audit</span> with fixes $49.</p>
 
       <div id="stream-results" style="display:none; padding:1.5rem 0;">
-        <div id="stream-legend" style="font-size:0.75rem; color:#8b8b96; margin-bottom:0.75rem;"><span style="color:#4ade80;">&#10003;</span> pass &nbsp; <span style="color:#f87171;">&#10007;</span> fail &nbsp; <span style="color:#facc15;">?</span> inconclusive — not enough information to determine</div>
+        <div id="stream-legend" style="font-size:0.85rem; color:#8b8b96; margin-bottom:0.75rem;"><span style="color:#4ade80;">&#10003;</span> pass &nbsp; <span style="color:#f87171;">&#10007;</span> fail &nbsp; <span style="color:#facc15;">?</span> inconclusive — not enough information to determine</div>
         <div id="stream-log" style="font-family:monospace; font-size:0.85rem; line-height:1.8; color:#c8c8d0;"></div>
         <div id="stream-score" style="display:none; text-align:center; margin-top:1.5rem;"></div>
       </div>
@@ -120,7 +120,7 @@
               const icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">&#10003;</span>'
                          : d.verdict === 'FAIL' ? '<span style="color:#f87171;">&#10007;</span>'
                          : '<span style="color:#facc15;">?</span>';
-              const detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.75rem;">&mdash; ' + d.detail.substring(0, 120) + '</span>' : '';
+              const detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.85rem;">&mdash; ' + d.detail.substring(0, 120) + '</span>' : '';
               const html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + detail
 ;
               const existing = document.getElementById('running-' + d.id);
@@ -143,9 +143,9 @@
               addLine('<br><div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:1.25rem;margin:0.5rem 0;">'
                 + '<div style="font-size:1.2rem;font-weight:700;color:#f87171;margin-bottom:0.5rem;">Your store is invisible to AI shopping agents</div>'
                 + '<p style="color:#c8c8d0;font-size:0.9rem;margin-bottom:0.75rem;">When a customer asks ChatGPT, Perplexity, or Gemini to find a product like yours, these agents try to read your page. Your site detected them and served a challenge page instead of your product. The agent moves on — the customer never sees you.</p>'
-                + (d.blocked_uas && d.blocked_uas.length ? '<div style="margin-bottom:0.5rem;display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;"><span style="color:#8b8b96;font-size:0.8rem;">Blocked crawlers:</span> ' + d.blocked_uas.map(function(ua) { return '<span style="display:inline-block;background:rgba(239,68,68,0.15);color:#f87171;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;font-weight:600;">' + ua + '</span>'; }).join(' ') + '</div>' : '')
-                + (d.allowed_uas && d.allowed_uas.length ? '<div style="margin-bottom:0.5rem;display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;"><span style="color:#8b8b96;font-size:0.8rem;">Allowed crawlers:</span> ' + d.allowed_uas.map(function(ua) { return '<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#4ade80;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;font-weight:600;">' + ua + '</span>'; }).join(' ') + '</div>' : '')
-                + '<div style="color:#8b8b96;font-size:0.8rem;margin-top:0.5rem;">' + d.skipped + ' remaining checks skipped — they can\'t run if agents can\'t reach the page.</div>'
+                + (d.blocked_uas && d.blocked_uas.length ? '<div style="margin-bottom:0.5rem;display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;"><span style="color:#8b8b96;font-size:0.85rem;">Blocked crawlers:</span> ' + d.blocked_uas.map(function(ua) { return '<span style="display:inline-block;background:rgba(239,68,68,0.15);color:#f87171;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.85rem;font-weight:600;">' + ua + '</span>'; }).join(' ') + '</div>' : '')
+                + (d.allowed_uas && d.allowed_uas.length ? '<div style="margin-bottom:0.5rem;display:flex;flex-wrap:wrap;align-items:center;gap:0.4rem;"><span style="color:#8b8b96;font-size:0.85rem;">Allowed crawlers:</span> ' + d.allowed_uas.map(function(ua) { return '<span style="display:inline-block;background:rgba(34,197,94,0.15);color:#4ade80;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.85rem;font-weight:600;">' + ua + '</span>'; }).join(' ') + '</div>' : '')
+                + '<div style="color:#8b8b96;font-size:0.85rem;margin-top:0.5rem;">' + d.skipped + ' remaining checks skipped — they can\'t run if agents can\'t reach the page.</div>'
                 + '</div>');
             }
             else if (d.type === 'gate_passed') {
