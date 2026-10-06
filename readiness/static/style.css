@@ -299,29 +299,27 @@ tr.verdict-fail { background: rgba(239,68,68,0.04); }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 1rem;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
 }
 .check-num {
   display: block;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.4rem;
 }
 .check-item strong {
   display: block;
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
 }
 .check-item > span {
   font-size: 0.9rem;
   color: var(--text-muted);
-}
-.check-item .check-tier {
-  font-size: 0.9rem;
+  line-height: 1.6;
 }
 .check-tier {
   display: block;
