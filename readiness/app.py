@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-app.py — free-score web frontend for the readiness scanner.
+app.py — web frontend for the Agent Accessibility readiness scanner.
 
 The ListingIQ-style funnel:
   1. Merchant enters a product page URL.
