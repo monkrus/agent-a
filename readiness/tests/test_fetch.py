@@ -286,20 +286,22 @@ class TestFetchCache:
     def test_same_url_uses_cache(self):
         """Same URL within TTL should return cached result."""
         import fetch as fetchmod
+        from unittest.mock import patch
 
         fetchmod._fetch_cache.clear()
 
         # Pre-populate cache with a fake page
         import time
+        url = "https://example.com/products/widget"
         fake_page = {"title": "Cached Widget", "status": 200,
                      "html": "<html>cached</html>", "text": "cached",
                      "jsonld": [], "meta": {}, "links": [], "images": [],
-                     "url": "https://x.com/products/widget"}
-        fetchmod._fetch_cache["https://x.com/products/widget"] = (
-            time.time(), fake_page)
+                     "url": url}
+        fetchmod._fetch_cache[url] = (time.time(), fake_page)
 
-        # This should return the cached page without any network call
-        result = fetchmod.fetch("https://x.com/products/widget")
+        # Bypass SSRF check — we only care that the cache is hit
+        with patch.object(fetchmod, "_is_safe_url", return_value=True):
+            result = fetchmod.fetch(url)
         assert result.get("_cached") is True
         assert result["title"] == "Cached Widget"
         fetchmod._fetch_cache.clear()
