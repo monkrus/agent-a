@@ -830,12 +830,20 @@ def _probe_admin_paths(origin: str, timeout: int) -> dict | None:
 
                 # 200 with content = potentially exposed
                 if r.status_code == 200 and len(r.text) > 200:
+                    body_lower = r.text.lower()
                     # Special case: /.env — only flag if body has KEY=VALUE lines
                     if p == "/.env":
                         kv_lines = [ln for ln in r.text.splitlines()
                                     if re.match(r'^[A-Z_][A-Z0-9_]*\s*=', ln)]
                         if not kv_lines:
                             continue  # not a real .env file
+                    # Special case: login/auth pages are not exposed admin
+                    # Shopify /admin returns 200 with a login form — not a real exposure
+                    if p.startswith("/admin") or p == "/staff":
+                        login_signals = ["password", "log in", "login", "sign in",
+                                         "accounts/login", "auth", "shopify.com/authentication"]
+                        if any(s in body_lower for s in login_signals):
+                            continue  # login page, not exposed admin
                     exposed.append({"path": p, "status": r.status_code})
             except Exception:
                 continue
