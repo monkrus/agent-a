@@ -859,6 +859,18 @@ def is_dead_page(page: dict) -> str | None:
     status = page.get("status")
     # 429 = rate-limited, not dead — let the scan proceed so RDY-031 can report it
     if status and status >= 400 and status != 429:
+        if status == 403:
+            return (
+                "HTTP 403 — this site is blocking AI agent traffic. "
+                "Your page returns 403 Forbidden when accessed by AI shopping agents "
+                "(GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot). No agent can read "
+                "your product data, extract prices, or help customers shop. "
+                "This is typically caused by CDN/WAF rules (Cloudflare, Akamai, Shopify "
+                "bot protection) that block non-browser user-agents. "
+                "To fix: allowlist AI agent user-agents in your CDN/WAF settings, "
+                "or contact your platform provider to enable agent access. "
+                "Score: 0/100 — agents cannot access your site."
+            )
         return f"HTTP {status} — this URL returned an error. Please check the URL and try again."
 
     title = (page.get("title") or "").lower()
