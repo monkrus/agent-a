@@ -385,6 +385,43 @@ class TestContradictoryAvailability:
         v, _ = scorers.static_contradictory_availability(page)
         assert v == "FAIL"
 
+    def test_pass_variant_level_sold_out_in_option(self):
+        """Variant-level 'Sold Out' in <option> tags is normal Shopify — not a contradiction."""
+        page = _page(
+            jsonld=[{"@type": "Product", "offers": {
+                "availability": "https://schema.org/InStock"}}],
+            text="Add to cart Plum / 34C - Sold Out",
+            html='<button>Add to Cart</button>'
+                 '<option disabled="disabled">Plum / 34C - Sold Out</option>',
+        )
+        v, _ = scorers.static_contradictory_availability(page)
+        assert v == "PASS"
+
+    def test_pass_variant_level_sold_out_visually_hidden(self):
+        """Visually-hidden variant labels are not product-level contradictions."""
+        page = _page(
+            jsonld=[{"@type": "Product", "offers": {
+                "availability": "https://schema.org/InStock"}}],
+            text="Add to cart Variant sold out or unavailable",
+            html='<button>Add to Cart</button>'
+                 '<span class="visually-hidden label-unavailable">'
+                 'Variant sold out or unavailable</span>',
+        )
+        v, _ = scorers.static_contradictory_availability(page)
+        assert v == "PASS"
+
+    def test_fail_product_level_sold_out_with_html(self):
+        """Product-level 'Sold Out' outside variant selectors should still FAIL."""
+        page = _page(
+            jsonld=[{"@type": "Product", "offers": {
+                "availability": "https://schema.org/InStock"}}],
+            text="This product is sold out",
+            html='<div class="product-status">This product is sold out</div>',
+        )
+        v, d = scorers.static_contradictory_availability(page)
+        assert v == "FAIL"
+        assert "sold out" in d.lower()
+
     def test_unknown_no_jsonld(self):
         page = _page(text="In stock")
         v, _ = scorers.static_contradictory_availability(page)

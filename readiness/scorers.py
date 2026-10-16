@@ -767,6 +767,29 @@ def static_wallet_compatibility(page):
     return "FAIL", "No x402, MPP, or agent-wallet signals found in page HTML, llms.txt, or checkout page."
 
 
+def _strip_variant_oos(html_str):
+    """Strip out-of-stock text that lives inside variant selectors or hidden labels.
+
+    On Shopify, individual variants (sizes/colors) can be sold out while the
+    product is in stock.  These show up as:
+      - <option disabled>Size X - Sold Out</option>
+      - <span class="visually-hidden">Variant sold out or unavailable</span>
+    This is normal behaviour, not a contradiction.  Remove these elements so
+    the contradiction check only fires on *product-level* availability text.
+    """
+    # Remove <option> tags that contain oos language (variant selectors)
+    result = re.sub(
+        r"<option[^>]*>.*?</option>",
+        " ", html_str, flags=re.IGNORECASE | re.DOTALL,
+    )
+    # Remove visually-hidden / sr-only spans (accessibility labels for variants)
+    result = re.sub(
+        r'<span[^>]*class="[^"]*(?:visually-hidden|sr-only|screen-reader)[^"]*"[^>]*>.*?</span>',
+        " ", result, flags=re.IGNORECASE | re.DOTALL,
+    )
+    return result
+
+
 def static_contradictory_availability(page):
     """Detect contradictory availability signals between JSON-LD and visible text."""
     jsonld_avail = _jsonld_availability(page)
@@ -775,16 +798,24 @@ def static_contradictory_availability(page):
 
     text = (page.get("text", "") or "").lower()
     html = page.get("html", "") or ""
-    # Strip script bodies so JS string literals don't count as visible text
-    visible = _strip_scripts(html).lower()
+    # Strip script bodies so JS string literals don't count as visible text,
+    # then strip variant-level oos text (normal Shopify multi-variant behaviour).
+    if html:
+        # Strip scripts AND styles — CSS comments can contain oos phrases
+        s = _ScriptStripper(strip_styles=True)
+        s.feed(html)
+        visible = _strip_variant_oos(s.get_result()).lower()
+    else:
+        # No HTML available (e.g. tests with text-only) — fall back to text
+        visible = text
 
-    # Out-of-stock signals in visible text
+    # Out-of-stock signals — check the cleaned visible HTML, not raw text
     oos_phrases = ("out of stock", "sold out", "unavailable", "out stock")
-    visible_oos = any(phrase in text for phrase in oos_phrases)
+    visible_oos = any(phrase in visible for phrase in oos_phrases)
 
     # In-stock / purchasable signals in visible text
     in_stock_phrases = ("in stock", "add to cart", "add to bag", "buy now")
-    visible_in_stock = any(phrase in text for phrase in in_stock_phrases)
+    visible_in_stock = any(phrase in visible for phrase in in_stock_phrases)
 
     # Contradictory button state: both ATC and Sold Out text present in HTML
     has_atc_button = bool(re.search(
@@ -794,16 +825,19 @@ def static_contradictory_availability(page):
     contradictory_buttons = has_atc_button and has_soldout_button
 
     if jsonld_avail == "in_stock" and visible_oos:
+        # Find where the oos phrase appears for evidence
+        found_phrase = next(p for p in oos_phrases if p in visible)
         return "FAIL", (
             "JSON-LD says InStock but visible text contains out-of-stock language "
-            f"(found: {next(p for p in oos_phrases if p in text)!r}). "
+            f"(found: {found_phrase!r}). "
             "Agents may extract conflicting availability."
         )
 
     if jsonld_avail == "out_of_stock" and visible_in_stock:
+        found_phrase = next(p for p in in_stock_phrases if p in visible)
         return "FAIL", (
             "JSON-LD says OutOfStock but visible text contains in-stock language "
-            f"(found: {next(p for p in in_stock_phrases if p in text)!r}). "
+            f"(found: {found_phrase!r}). "
             "Agents may extract conflicting availability."
         )
 
