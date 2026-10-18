@@ -15,6 +15,7 @@
       <div class="nav-links">
         <a href="#what-we-check">What we check</a>
         <a href="#how-it-works">How it works</a>
+        <a href="{{ url_for('agent_traffic_page') }}">Agent traffic</a>
         <a href="#faq">FAQ</a>
         <span style="font-size:0.9rem;color:#facc15;font-weight:600;letter-spacing:0.03em;"><span style="font-size:1.25rem;" id="scan-counter">{{ stats.total_scans }}</span> scans completed</span>
         <a href="#scan-top" class="nav-cta" onclick="document.getElementById('url').focus();">Scan free</a>
@@ -334,6 +335,21 @@
           <summary>How long does a scan take?</summary>
           <p>The free scan typically takes 15–30 seconds (it makes ~20 HTTP requests to probe your site). The Full Audit takes 60–90 seconds because it runs real AI shopping tests and browser flows. The free scan streams results live; the full audit runs after payment and redirects you to the full report.</p>
         </details>
+      </div>
+    </div>
+
+    <!-- Tools -->
+    <div class="card" style="scroll-margin-top:70px;">
+      <h2>Free Tools</h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:1rem;">
+        <a href="{{ url_for('agent_traffic_page') }}" style="display:block; text-decoration:none; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; transition:border-color 0.2s;">
+          <div style="font-weight:600; color:var(--text); margin-bottom:0.3rem;">Agent Traffic Analyzer</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">Paste your server logs to see which AI agents (GPTBot, ClaudeBot, PerplexityBot) are visiting your store — and how many are being blocked.</div>
+        </a>
+        <a href="{{ url_for('leaderboard_page') }}" style="display:block; text-decoration:none; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; transition:border-color 0.2s;">
+          <div style="font-weight:600; color:var(--text); margin-bottom:0.3rem;">AI Shopping Leaderboard</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">See how DTC brands rank for AI agent readability and shoppability. Updated monthly.</div>
+        </a>
       </div>
     </div>
 

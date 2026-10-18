@@ -2026,6 +2026,94 @@ def api_compare():
     })
 
 
+@app.route("/leaderboard")
+@app.route("/leaderboard/<vertical>")
+def leaderboard_page(vertical=None):
+    import leaderboard as lb
+
+    scans = lb.load_all_scans()
+    if not scans:
+        return render_template("leaderboard.html", entries=[], verticals=[],
+                               vertical=None, avg_score=0, avg_readable=0,
+                               avg_shoppable=0)
+
+    # Build entries with readable/shoppable scores
+    entries = []
+    verticals_set = set()
+    for s in scans:
+        domain = lb._domain(s.get("meta", {}).get("target", ""))
+        score = s.get("readiness_score", 0) or 0
+        results = s.get("results", [])
+        rs = _readable_shoppable_scores(results)
+        weakness = lb._top_weakness_category(results)
+
+        # Detect vertical from scan metadata or tracker
+        scan_vertical = s.get("meta", {}).get("vertical", "")
+        if not scan_vertical:
+            # Infer from domain presence in known verticals
+            scan_vertical = _infer_vertical(domain)
+        if scan_vertical:
+            verticals_set.add(scan_vertical)
+
+        entries.append({
+            "domain": domain,
+            "score": round(score),
+            "readable": rs["readable"],
+            "shoppable": rs["shoppable"],
+            "weakness": weakness,
+            "scan_id": s.get("scan_id"),
+            "vertical": scan_vertical,
+        })
+
+    # Filter by vertical if specified
+    if vertical:
+        entries = [e for e in entries if e["vertical"] == vertical]
+
+    # Sort by score descending
+    entries.sort(key=lambda e: e["score"], reverse=True)
+    for i, e in enumerate(entries, 1):
+        e["rank"] = i
+
+    # Compute averages
+    if entries:
+        avg_score = round(sum(e["score"] for e in entries) / len(entries))
+        avg_readable = round(sum(e["readable"] for e in entries) / len(entries))
+        avg_shoppable = round(sum(e["shoppable"] for e in entries) / len(entries))
+    else:
+        avg_score = avg_readable = avg_shoppable = 0
+
+    return render_template("leaderboard.html",
+                           entries=entries, verticals=sorted(verticals_set),
+                           vertical=vertical,
+                           avg_score=avg_score, avg_readable=avg_readable,
+                           avg_shoppable=avg_shoppable)
+
+
+# Vertical inference from domain — maps known outreach domains to verticals
+_VERTICAL_DOMAINS = {}  # populated lazily from tracker if available
+
+def _infer_vertical(domain):
+    """Try to infer vertical from the outreach tracker CSV."""
+    global _VERTICAL_DOMAINS
+    if not _VERTICAL_DOMAINS:
+        tracker_path = pathlib.Path(__file__).resolve().parent.parent / "outreach" / "lingerie-campaign" / "tracker.csv"
+        if tracker_path.exists():
+            try:
+                import csv
+                with open(tracker_path, newline='', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        site = (row.get("website") or "").strip().lower()
+                        vert = (row.get("vertical") or "").strip().lower()
+                        if site and vert:
+                            _VERTICAL_DOMAINS[site] = vert
+            except Exception:
+                pass
+        if not _VERTICAL_DOMAINS:
+            _VERTICAL_DOMAINS["_loaded"] = ""  # sentinel to avoid re-reading
+    return _VERTICAL_DOMAINS.get(domain.lower(), "")
+
+
 @app.route("/agent-traffic")
 def agent_traffic_page():
     return render_template("agent_traffic.html")

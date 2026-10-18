@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Shopping Leaderboard{% if vertical %} — {{ vertical|title }}{% endif %}</title>
+
+  <meta property="og:title" content="AI Shopping Leaderboard{% if vertical %} — {{ vertical|title }}{% endif %}">
+  <meta property="og:description" content="{{ entries|length }} DTC brands ranked by AI agent readability and shoppability. Average score: {{ avg_score }}/100.">
+  <meta property="og:type" content="website">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .lb-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .lb-table th {
+      text-align: left; padding: 0.5rem; border-bottom: 2px solid var(--border);
+      color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .lb-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+    .lb-table tr:hover { background: rgba(99,102,241,0.05); }
+    .lb-rank { font-weight: 700; color: var(--text-muted); width: 40px; text-align: center; }
+    .lb-domain a { color: var(--text); text-decoration: none; font-weight: 500; }
+    .lb-domain a:hover { color: var(--accent); }
+    .lb-score { font-weight: 700; text-align: center; width: 60px; }
+    .lb-sub { text-align: center; width: 70px; font-size: 0.85rem; }
+    .lb-weakness { color: var(--text-muted); font-size: 0.85rem; }
+    .lb-bar-cell { width: 120px; }
+    .lb-bar { height: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+    .lb-bar-fill { height: 100%; border-radius: 2px; }
+    .lb-bar-good { background: var(--green); }
+    .lb-bar-ok { background: var(--yellow); }
+    .lb-bar-bad { background: var(--red); }
+
+    .lb-summary {
+      display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 0.5rem;
+    }
+    .lb-stat { text-align: center; }
+    .lb-stat-num { font-size: 2rem; font-weight: 700; }
+    .lb-stat-label { font-size: 0.8rem; color: var(--text-muted); }
+
+    .vertical-tabs {
+      display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;
+    }
+    .vertical-tab {
+      padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.85rem;
+      text-decoration: none; border: 1px solid var(--border); color: var(--text-muted);
+    }
+    .vertical-tab:hover { border-color: var(--accent); color: var(--text); }
+    .vertical-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    @media (max-width: 700px) {
+      .lb-sub, .lb-bar-cell { display: none; }
+      .lb-table { font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="{{ url_for('index') }}" class="back-link">&larr; Back to scanner</a>
+      <h1>AI Shopping Leaderboard</h1>
+      <p class="subtitle">{{ entries|length }} DTC brands ranked by whether AI agents can actually buy from them.</p>
+    </header>
+
+    <!-- Summary -->
+    <div class="card">
+      <div class="lb-summary">
+        <div class="lb-stat">
+          <div class="lb-stat-num">{{ entries|length }}</div>
+          <div class="lb-stat-label">Stores Scanned</div>
+        </div>
+        <div class="lb-stat">
+          <div class="lb-stat-num {% if avg_score >= 80 %}score-good{% elif avg_score >= 50 %}score-ok{% else %}score-bad{% endif %}">{{ avg_score }}</div>
+          <div class="lb-stat-label">Average Score</div>
+        </div>
+        <div class="lb-stat">
+          <div class="lb-stat-num" style="color:var(--green);">{{ avg_readable }}</div>
+          <div class="lb-stat-label">Avg Readable</div>
+        </div>
+        <div class="lb-stat">
+          <div class="lb-stat-num" style="color:var(--red);">{{ avg_shoppable }}</div>
+          <div class="lb-stat-label">Avg Shoppable</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vertical tabs -->
+    {% if verticals %}
+    <div class="vertical-tabs">
+      <a href="{{ url_for('leaderboard_page') }}" class="vertical-tab {% if not vertical %}active{% endif %}">All</a>
+      {% for v in verticals %}
+      <a href="{{ url_for('leaderboard_page', vertical=v) }}" class="vertical-tab {% if vertical == v %}active{% endif %}">{{ v|title }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Leaderboard table -->
+    <div class="card" style="overflow-x:auto;">
+      <table class="lb-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Store</th>
+            <th>Score</th>
+            <th class="lb-bar-cell"></th>
+            <th class="lb-sub">Readable</th>
+            <th class="lb-sub">Shoppable</th>
+            <th>Top Weakness</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+          <tr>
+            <td class="lb-rank">{{ e.rank }}</td>
+            <td class="lb-domain">
+              {% if e.scan_id %}
+              <a href="{{ url_for('share', scan_id=e.scan_id) }}">{{ e.domain }}</a>
+              {% else %}
+              {{ e.domain }}
+              {% endif %}
+            </td>
+            <td class="lb-score {% if e.score >= 80 %}score-good{% elif e.score >= 50 %}score-ok{% else %}score-bad{% endif %}">{{ e.score }}</td>
+            <td class="lb-bar-cell">
+              <div class="lb-bar">
+                <div class="lb-bar-fill {% if e.score >= 80 %}lb-bar-good{% elif e.score >= 50 %}lb-bar-ok{% else %}lb-bar-bad{% endif %}" style="width:{{ e.score }}%"></div>
+              </div>
+            </td>
+            <td class="lb-sub">{{ e.readable }}</td>
+            <td class="lb-sub">{{ e.shoppable }}</td>
+            <td class="lb-weakness">{{ e.weakness }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <h2>Not on the list?</h2>
+      <p class="intel-subtitle">Run a free AI shopping test on your store and see where you rank.</p>
+      <a href="{{ url_for('index') }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Run a Shopping Test</a>
+    </div>
+
+    <footer>
+      <p>agent-a &middot; AI shopping test</p>
+    </footer>
+  </div>
+</body>
+</html>
