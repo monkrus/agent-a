@@ -39,8 +39,8 @@ import sys
 from dotenv import load_dotenv
 load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
-from flask import (Flask, Response, abort, redirect, render_template, request,
-                   session, url_for)
+from flask import (Flask, Response, abort, jsonify, redirect, render_template,
+                   request, session, url_for)
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod   # noqa: E402
@@ -1970,6 +1970,60 @@ def share_og_image(scan_id):
                         headers={"Cache-Control": "public, max-age=86400"})
     except ImportError:
         abort(404, description="Pillow not installed for OG image generation.")
+
+
+def _find_scan_by_domain(domain, exclude_scan_id=None):
+    """Find the most recent scan matching a domain (e.g. 'meritbeauty.com')."""
+    if not domain:
+        return None
+    domain = domain.lower().strip()
+    if domain.startswith("www."):
+        domain = domain[4:]
+    best = None
+    best_ts = ""
+    try:
+        for f in SCANS_DIR.iterdir():
+            if f.suffix != ".json":
+                continue
+            if exclude_scan_id and f.stem == exclude_scan_id:
+                continue
+            try:
+                data = json.loads(f.read_text())
+                target = data.get("meta", {}).get("target", "")
+                scan_domain = _domain_from_url(target)
+                if scan_domain.lower() == domain:
+                    ts = data.get("meta", {}).get("timestamp", "")
+                    if ts > best_ts:
+                        best_ts = ts
+                        best = data
+            except (json.JSONDecodeError, PermissionError, OSError):
+                continue
+    except (PermissionError, OSError):
+        pass
+    return best
+
+
+@app.route("/api/compare")
+def api_compare():
+    """Return comparison data for a domain. ?domain=example.com&exclude=<scan_id>"""
+    domain = request.args.get("domain", "").strip()
+    exclude = request.args.get("exclude", "")
+    if not domain:
+        return jsonify({"error": "domain required"}), 400
+    data = _find_scan_by_domain(domain, exclude_scan_id=exclude)
+    if not data:
+        return jsonify({"found": False, "domain": domain})
+    results = data.get("results", [])
+    scores = _readable_shoppable_scores(results)
+    return jsonify({
+        "found": True,
+        "domain": _domain_from_url(data.get("meta", {}).get("target", "")),
+        "scan_id": data.get("scan_id"),
+        "overall": data.get("readiness_score"),
+        "readable": scores["readable"],
+        "shoppable": scores["shoppable"],
+        "timestamp": data.get("meta", {}).get("timestamp", "")[:10],
+    })
 
 
 @app.route("/r/<scan_id>/badge.svg")

@@ -111,6 +111,48 @@
     </div>
     {% endif %}
 
+    <!-- Competitor comparison -->
+    <div class="card">
+      <h2>Compare Against a Competitor</h2>
+      <p class="intel-subtitle">Enter a competitor's domain to see how they stack up.</p>
+      <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
+        <input type="text" id="comp-domain" placeholder="competitor.com" style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:0.95rem; padding:0.5rem 0.75rem;">
+        <button class="btn-pay" onclick="compareDomain()" style="white-space:nowrap; padding:0.5rem 1rem;">Compare</button>
+      </div>
+      <div id="comp-result" style="display:none;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:left; padding:0.4rem 0; color:var(--text-muted);"></th>
+              <th style="text-align:center; padding:0.4rem; color:var(--accent);">{{ domain }}</th>
+              <th style="text-align:center; padding:0.4rem;" id="comp-domain-header"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:0.4rem 0; color:var(--text-muted);">Overall</td>
+              <td style="text-align:center; font-weight:700;">{{ score }}</td>
+              <td style="text-align:center; font-weight:700;" id="comp-overall"></td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:0.4rem 0; color:var(--text-muted);">Readable</td>
+              <td style="text-align:center;">{{ readable_score }}</td>
+              <td style="text-align:center;" id="comp-readable"></td>
+            </tr>
+            <tr>
+              <td style="padding:0.4rem 0; color:var(--text-muted);">Shoppable</td>
+              <td style="text-align:center;">{{ shoppable_score }}</td>
+              <td style="text-align:center;" id="comp-shoppable"></td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="comp-link" style="text-align:center; margin-top:0.5rem;"></div>
+      </div>
+      <div id="comp-not-found" style="display:none; text-align:center; color:var(--text-muted); padding:0.5rem;">
+        No scan found for this domain. <a href="{{ url_for('index') }}" style="color:var(--accent);">Scan it now</a>
+      </div>
+    </div>
+
     <!-- Category bars -->
     <div class="card">
       <h2>Score Breakdown</h2>
@@ -175,6 +217,33 @@
       setTimeout(function() { msg.style.display = 'none'; }, 2000);
     });
   }
+  function compareDomain() {
+    var domain = document.getElementById('comp-domain').value.trim();
+    if (!domain) return;
+    document.getElementById('comp-result').style.display = 'none';
+    document.getElementById('comp-not-found').style.display = 'none';
+    fetch('/api/compare?domain=' + encodeURIComponent(domain) + '&exclude={{ scan_id }}')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.found) {
+          function scoreColor(v) { return v >= 80 ? 'var(--green)' : v >= 50 ? 'var(--yellow)' : 'var(--red)'; }
+          document.getElementById('comp-domain-header').textContent = d.domain;
+          document.getElementById('comp-overall').textContent = Math.round(d.overall);
+          document.getElementById('comp-overall').style.color = scoreColor(d.overall);
+          document.getElementById('comp-readable').textContent = d.readable;
+          document.getElementById('comp-readable').style.color = scoreColor(d.readable);
+          document.getElementById('comp-shoppable').textContent = d.shoppable;
+          document.getElementById('comp-shoppable').style.color = scoreColor(d.shoppable);
+          document.getElementById('comp-link').innerHTML = '<a href="/r/' + d.scan_id + '" style="color:var(--accent); font-size:0.85rem;">View their full report &rarr;</a>';
+          document.getElementById('comp-result').style.display = 'block';
+        } else {
+          document.getElementById('comp-not-found').style.display = 'block';
+        }
+      });
+  }
+  document.getElementById('comp-domain').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') compareDomain();
+  });
   </script>
 </body>
 </html>
