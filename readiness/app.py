@@ -1972,6 +1972,67 @@ def share_og_image(scan_id):
         abort(404, description="Pillow not installed for OG image generation.")
 
 
+@app.route("/r/<scan_id>/badge.svg")
+def share_badge(scan_id):
+    from flask import Response
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+
+    results = data.get("results", [])
+    scores = _readable_shoppable_scores(results)
+    overall = data.get("readiness_score", 0) or 0
+    domain = _domain_from_url(data.get("meta", {}).get("target", ""))
+    shoppable = scores["shoppable"]
+
+    # Colors
+    def _color(v):
+        if v >= 80:
+            return "#22c55e"
+        if v >= 50:
+            return "#eab308"
+        return "#ef4444"
+
+    if shoppable >= 80:
+        label = "Verified Shoppable"
+        label_bg = "#166534"
+    else:
+        label = "AI Shopping Test"
+        label_bg = "#3730a3"
+
+    score_color = _color(overall)
+    score_text = f"{int(overall)}/100"
+
+    # Shield-style SVG badge
+    label_w = max(len(label) * 6.5 + 12, 100)
+    score_w = 55
+    total_w = label_w + score_w
+
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="20" role="img"
+  aria-label="{label}: {score_text}">
+  <title>{label}: {score_text} — {domain}</title>
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="{total_w}" height="20" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="{label_w}" height="20" fill="{label_bg}"/>
+    <rect x="{label_w}" width="{score_w}" height="20" fill="{score_color}"/>
+    <rect width="{total_w}" height="20" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+    <text x="{label_w / 2}" y="14" fill="#010101" fill-opacity=".3">{label}</text>
+    <text x="{label_w / 2}" y="13">{label}</text>
+    <text x="{label_w + score_w / 2}" y="14" fill="#010101" fill-opacity=".3">{score_text}</text>
+    <text x="{label_w + score_w / 2}" y="13">{score_text}</text>
+  </g>
+</svg>'''
+
+    return Response(svg, mimetype="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
 if __name__ == "__main__":
     app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", port=5000)
 else:

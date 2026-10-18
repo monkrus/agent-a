@@ -128,6 +128,20 @@
       {% endfor %}
     </div>
 
+    <!-- Badge embed -->
+    <div class="card">
+      <h2>Embed Badge</h2>
+      <p class="intel-subtitle">Add this badge to your store to show AI shopping readiness.</p>
+      <div style="text-align:center; margin-bottom:0.75rem;">
+        <a href="{{ canonical_url }}"><img src="{{ url_for('share_badge', scan_id=scan_id) }}" alt="AI Shopping Test badge"></a>
+      </div>
+      <div style="position:relative;">
+        <code id="embed-code" style="display:block; background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:0.6rem; font-size:0.75rem; color:var(--text-muted); word-break:break-all; white-space:pre-wrap;">&lt;a href="{{ canonical_url }}"&gt;&lt;img src="{{ request.host_url.rstrip('/') }}{{ url_for('share_badge', scan_id=scan_id) }}" alt="AI Shopping Test"&gt;&lt;/a&gt;</code>
+        <button class="btn-share" onclick="copyEmbed()" style="margin-top:0.5rem;">Copy embed code</button>
+        <span id="embed-msg" style="font-size:0.9rem; color:var(--green); margin-left:0.5rem; display:none;">Copied!</span>
+      </div>
+    </div>
+
     <!-- Share + CTA -->
     <div class="card" style="text-align:center;">
       <button class="btn-share" onclick="copyShareLink()">Copy share link</button>
@@ -149,6 +163,14 @@
   function copyShareLink() {
     navigator.clipboard.writeText(window.location.href).then(function() {
       var msg = document.getElementById('share-msg');
+      msg.style.display = 'inline';
+      setTimeout(function() { msg.style.display = 'none'; }, 2000);
+    });
+  }
+  function copyEmbed() {
+    var code = document.getElementById('embed-code').textContent;
+    navigator.clipboard.writeText(code).then(function() {
+      var msg = document.getElementById('embed-msg');
       msg.style.display = 'inline';
       setTimeout(function() { msg.style.display = 'none'; }, 2000);
     });
