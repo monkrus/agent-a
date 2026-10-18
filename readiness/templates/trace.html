@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Trace — {{ domain }} — AI Shopping Test</title>
+
+  <meta property="og:title" content="Watch an AI agent try to buy from {{ domain }}">
+  <meta property="og:description" content="{{ og_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .trace-hero { text-align: center; margin-bottom: 0.5rem; }
+    .trace-hero h1 { font-size: 1.6rem; letter-spacing: -0.03em; }
+    .trace-hero p { color: var(--text-muted); font-size: 1rem; }
+
+    .flow-card { margin-bottom: 1.5rem; }
+    .flow-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .flow-name { font-size: 1.1rem; font-weight: 600; }
+    .flow-outcome {
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      padding: 0.2rem 0.6rem; border-radius: 4px; letter-spacing: 0.04em;
+    }
+    .flow-outcome-pass { background: rgba(34,197,94,0.15); color: var(--green); }
+    .flow-outcome-fail { background: rgba(239,68,68,0.15); color: var(--red); }
+    .flow-outcome-unknown { background: rgba(139,139,150,0.15); color: var(--text-muted); }
+    .flow-meta { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+
+    .step-list { list-style: none; padding: 0; margin: 0; position: relative; }
+    .step-list::before {
+      content: ''; position: absolute; left: 15px; top: 0; bottom: 0;
+      width: 2px; background: var(--border);
+    }
+    .step-item {
+      position: relative; padding: 0.6rem 0 0.6rem 2.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .step-item:last-child { border-bottom: none; }
+    .step-dot {
+      position: absolute; left: 8px; top: 0.85rem;
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid var(--border); background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.55rem; font-weight: 700; color: var(--text-muted);
+      z-index: 1;
+    }
+    .step-success .step-dot { border-color: var(--green); color: var(--green); }
+    .step-fail .step-dot { border-color: var(--red); color: var(--red); }
+
+    .step-action {
+      font-weight: 600; font-size: 0.95rem;
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .step-action-click { color: var(--accent); }
+    .step-action-select { color: #a78bfa; }
+    .step-action-scroll { color: var(--yellow); }
+    .step-action-type { color: #38bdf8; }
+    .step-action-press { color: #38bdf8; }
+    .step-action-done { color: var(--green); }
+    .step-action-fail { color: var(--red); }
+
+    .step-selector {
+      font-family: monospace; font-size: 0.8rem; color: var(--text-muted);
+      background: var(--bg); padding: 0.15rem 0.4rem; border-radius: 3px;
+      display: inline-block; margin-top: 0.2rem; max-width: 100%;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .step-reason {
+      font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem;
+      font-style: italic;
+    }
+    .step-result {
+      font-size: 0.8rem; margin-top: 0.15rem;
+    }
+    .step-result-ok { color: var(--green); }
+    .step-result-err { color: var(--red); }
+
+    .diagnostics-card {
+      background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 8px; padding: 1rem; margin-top: 0.75rem;
+    }
+    .diagnostics-card h4 {
+      color: var(--red); margin: 0 0 0.5rem 0; font-size: 0.9rem;
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .diag-row {
+      display: flex; gap: 0.75rem; font-size: 0.85rem;
+      padding: 0.25rem 0; border-bottom: 1px solid rgba(239,68,68,0.1);
+    }
+    .diag-row:last-child { border-bottom: none; }
+    .diag-label { color: var(--text-muted); min-width: 120px; font-weight: 500; }
+    .diag-value { color: var(--text); }
+
+    .two-scores {
+      display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 0.5rem;
+    }
+    .sub-score { text-align: center; flex: 1; max-width: 200px; }
+    .sub-score-num { font-size: 2rem; font-weight: 700; }
+    .sub-score-label { font-size: 0.85rem; color: var(--text-muted); }
+
+    .no-traces {
+      text-align: center; color: var(--text-muted); padding: 2rem;
+      font-size: 1rem;
+    }
+
+    @media (max-width: 600px) {
+      .two-scores { flex-direction: column; align-items: center; }
+      .step-selector { font-size: 0.7rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="{{ url_for('share', scan_id=scan_id) }}" class="back-link">&larr; Back to scorecard</a>
+      <div class="trace-hero">
+        <h1>AI Agent Shopping Test</h1>
+        <p>Watch what happened when an AI agent tried to buy from <strong>{{ domain }}</strong></p>
+      </div>
+    </header>
+
+    <!-- Readable vs Shoppable -->
+    <div class="card">
+      <div class="two-scores">
+        <div class="sub-score">
+          <div class="sub-score-num {% if readable_score >= 80 %}score-good{% elif readable_score >= 50 %}score-ok{% else %}score-bad{% endif %}">
+            {{ readable_score }}
+          </div>
+          <div class="sub-score-label">Readable</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">Can agents read your data?</div>
+        </div>
+        <div class="sub-score">
+          <div class="sub-score-num {% if shoppable_score >= 80 %}score-good{% elif shoppable_score >= 50 %}score-ok{% else %}score-bad{% endif %}">
+            {{ shoppable_score }}
+          </div>
+          <div class="sub-score-label">Shoppable</div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">Can agents actually buy?</div>
+        </div>
+      </div>
+    </div>
+
+    {% if flows %}
+    {% for flow in flows %}
+    <div class="card flow-card">
+      <div class="flow-header">
+        <span class="flow-name">{{ flow.title }}</span>
+        <span class="flow-outcome flow-outcome-{{ flow.verdict|lower }}">{{ flow.verdict }}</span>
+      </div>
+      <div class="flow-meta">
+        {{ flow.check_id }} &middot; {{ flow.total_steps }} steps &middot; {{ flow.attempts }} attempt{{ 's' if flow.attempts != 1 else '' }}, {{ flow.successes }} succeeded
+      </div>
+
+      {% if flow.steps %}
+      <ul class="step-list">
+        {% for s in flow.steps %}
+        <li class="step-item {% if s.action == 'done' %}step-success{% elif s.action == 'fail' %}step-fail{% endif %}">
+          <div class="step-dot">{{ s.step }}</div>
+          <div>
+            <span class="step-action step-action-{{ s.action }}">{{ s.action }}</span>
+            {% if s.selector %}
+            <code class="step-selector" title="{{ s.selector }}">{{ s.selector }}</code>
+            {% endif %}
+            {% if s.value %}
+            <span style="font-size:0.85rem; color:var(--text-muted);"> = "{{ s.value }}"</span>
+            {% endif %}
+          </div>
+          {% if s.reason %}
+          <div class="step-reason">"{{ s.reason }}"</div>
+          {% endif %}
+          {% if s.result %}
+          <div class="step-result {% if 'fail' in s.result|lower or 'error' in s.result|lower %}step-result-err{% else %}step-result-ok{% endif %}">
+            {{ s.result }}
+          </div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p style="color:var(--text-muted); font-size:0.9rem;">No step data available — browser checks may not have run (requires ANTHROPIC_API_KEY + Playwright).</p>
+      {% endif %}
+
+      {% if flow.diagnostics %}
+      <div class="diagnostics-card">
+        <h4>Why it failed</h4>
+        {% if flow.diagnostics.blocker %}
+        <div class="diag-row">
+          <span class="diag-label">Blocker</span>
+          <span class="diag-value">{{ flow.diagnostics.blocker.reason or flow.diagnostics.blocker.element }}</span>
+        </div>
+        {% endif %}
+        {% if flow.diagnostics.atc_state %}
+        <div class="diag-row">
+          <span class="diag-label">Add to Cart</span>
+          <span class="diag-value">{{ flow.diagnostics.atc_state }}</span>
+        </div>
+        {% endif %}
+        {% if flow.diagnostics.gating %}
+        {% for g in flow.diagnostics.gating %}
+        <div class="diag-row">
+          <span class="diag-label">Blocked by</span>
+          <span class="diag-value">{{ g }}</span>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% if flow.diagnostics.locator_summary %}
+        <div class="diag-row">
+          <span class="diag-label">Locators</span>
+          <span class="diag-value">{{ flow.diagnostics.locator_summary.stable }} stable, {{ flow.diagnostics.locator_summary.fragile }} fragile</span>
+        </div>
+        {% endif %}
+        {% if flow.diagnostics.variant_selectors %}
+        {% for vs in flow.diagnostics.variant_selectors %}
+        <div class="diag-row">
+          <span class="diag-label">Variant</span>
+          <span class="diag-value">{{ vs.type }}: "{{ vs.label or vs.text }}" {% if vs.needs_selection %}(needs selection){% endif %}</span>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card no-traces">
+      <p>No browser agent traces available for this scan.</p>
+      <p style="font-size:0.85rem;">Browser checks require Playwright + an API key. This scan may have only run static checks.</p>
+    </div>
+    {% endif %}
+
+    <div class="card" style="text-align:center;">
+      <a href="{{ url_for('share', scan_id=scan_id) }}" class="btn-pay" style="display:inline-block; text-decoration:none;">View Full Scorecard</a>
+      <div style="margin-top:0.75rem;">
+        <button class="btn-share" onclick="copyShareLink()">Copy trace link</button>
+        <span id="share-msg" style="font-size:0.9rem; color:var(--green); margin-left:0.5rem; display:none;">Copied!</span>
+      </div>
+    </div>
+
+    <div class="card paywall-card">
+      <h2>Test Your Own Store</h2>
+      <p>See if AI shopping agents can actually buy from your product pages.</p>
+      <a href="{{ url_for('index') }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Run a Shopping Test</a>
+    </div>
+
+    <footer>
+      <p>agent-a &middot; AI shopping test</p>
+    </footer>
+  </div>
+
+  <script>
+  function copyShareLink() {
+    navigator.clipboard.writeText(window.location.href).then(function() {
+      var msg = document.getElementById('share-msg');
+      msg.style.display = 'inline';
+      setTimeout(function() { msg.style.display = 'none'; }, 2000);
+    });
+  }
+  </script>
+</body>
+</html>

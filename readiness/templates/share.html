@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ domain }} scored {{ score }}/100 — AI Shopping Score</title>
+  <title>{{ domain }} — AI Shopping Test {{ score }}/100</title>
 
   <!-- OG meta tags -->
-  <meta property="og:title" content="{{ domain }} scored {{ score }}/100 — AI Shopping Score">
+  <meta property="og:title" content="Can AI agents buy from {{ domain }}? {{ score }}/100">
   <meta property="og:description" content="{{ og_description }}">
   <meta property="og:image" content="{{ og_image_url }}">
   <meta property="og:image:width" content="1200">
@@ -16,28 +16,65 @@
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{{ domain }} scored {{ score }}/100 — AI Shopping Score">
+  <meta name="twitter:title" content="Can AI agents buy from {{ domain }}? {{ score }}/100">
   <meta name="twitter:description" content="{{ og_description }}">
   <meta name="twitter:image" content="{{ og_image_url }}">
 
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .two-scores {
+      display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 0.5rem;
+    }
+    .sub-score { text-align: center; flex: 1; max-width: 200px; }
+    .sub-score-num { font-size: 2.2rem; font-weight: 700; }
+    .sub-score-label { font-size: 0.9rem; font-weight: 600; }
+    .sub-score-desc { font-size: 0.75rem; color: var(--text-muted); }
+    .trace-cta {
+      display: inline-block; margin-top: 0.75rem; padding: 0.5rem 1.2rem;
+      background: var(--surface); border: 1px solid var(--accent);
+      color: var(--accent); border-radius: 6px; text-decoration: none;
+      font-size: 0.9rem; font-weight: 500;
+    }
+    .trace-cta:hover { background: var(--accent); color: #fff; }
+    .overall-score {
+      text-align: center; padding: 0.5rem 0; margin-bottom: 0.25rem;
+    }
+    .overall-score-num { font-size: 1.5rem; font-weight: 700; }
+    .overall-score-label { font-size: 0.85rem; color: var(--text-muted); }
+    @media (max-width: 600px) {
+      .two-scores { flex-direction: column; align-items: center; }
+    }
+  </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>AI Shopping Score</h1>
-      <p class="subtitle">Can AI shoppers find, understand, and buy from this store?</p>
+      <h1>AI Shopping Test</h1>
+      <p class="subtitle">We sent an AI agent to buy from <strong>{{ domain }}</strong>. Here's what happened.</p>
     </header>
 
-    <!-- Score -->
-    <div class="card score-card">
-      <div class="score-display">
-        <span class="score-number {% if score and score >= 80 %}score-good{% elif score and score >= 50 %}score-ok{% else %}score-bad{% endif %}">
-          {{ score if score is not none else 'N/A' }}
-        </span>
-        <span class="score-label">/ 100</span>
+    <!-- Readable vs Shoppable — the lead -->
+    <div class="card">
+      <div class="two-scores">
+        <div class="sub-score">
+          <div class="sub-score-num {% if readable_score >= 80 %}score-good{% elif readable_score >= 50 %}score-ok{% else %}score-bad{% endif %}">
+            {{ readable_score }}
+          </div>
+          <div class="sub-score-label">Readable</div>
+          <div class="sub-score-desc">Can agents read your data?</div>
+        </div>
+        <div class="sub-score">
+          <div class="sub-score-num {% if shoppable_score >= 80 %}score-good{% elif shoppable_score >= 50 %}score-ok{% else %}score-bad{% endif %}">
+            {{ shoppable_score }}
+          </div>
+          <div class="sub-score-label">Shoppable</div>
+          <div class="sub-score-desc">Can agents actually buy?</div>
+        </div>
       </div>
-      <p class="headline">{{ data.headline }}</p>
+      <div class="overall-score">
+        <span class="overall-score-num {% if score and score >= 80 %}score-good{% elif score and score >= 50 %}score-ok{% else %}score-bad{% endif %}">{{ score if score is not none else 'N/A' }}</span>
+        <span class="overall-score-label"> / 100 overall</span>
+      </div>
       <div class="meta-row">
         <span>{{ domain }}</span>
         <span>{{ data.meta.n }} AI agent visits simulated</span>
@@ -45,28 +82,11 @@
       </div>
     </div>
 
-    <!-- Category bars -->
-    <div class="card">
-      <h2>Score Breakdown</h2>
-      <p class="intel-subtitle">How the store performs across four dimensions of AI shopping.</p>
-      {% for layer in layers %}
-      <div class="layer-bar">
-        <div class="layer-bar-header">
-          <span class="layer-bar-label">{{ layer.label }}</span>
-          <span class="layer-bar-pct">{{ layer.pct }}%</span>
-        </div>
-        <div class="bar-track">
-          <div class="bar-fill bar-fill-{{ layer.grade }}" style="width: {{ layer.pct }}%"></div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-
     <!-- Top 3 findings -->
     {% if findings %}
     <div class="card">
-      <h2>Top Findings</h2>
-      <p class="intel-subtitle">The most impactful issues AI shopping agents encounter on this page.</p>
+      <h2>What Went Wrong</h2>
+      <p class="intel-subtitle">The biggest issues AI shopping agents hit on this page.</p>
       {% for f in findings %}
       <div class="check-block check-{{ f.verdict|lower }}">
         <div class="check-header">
@@ -82,6 +102,32 @@
     </div>
     {% endif %}
 
+    <!-- Agent trace CTA -->
+    {% if has_traces %}
+    <div class="card" style="text-align:center;">
+      <h2>See the Agent's Steps</h2>
+      <p class="intel-subtitle">Watch exactly what the AI agent tried — click by click — and where it got stuck.</p>
+      <a href="{{ url_for('share_trace', scan_id=scan_id) }}" class="trace-cta">View Agent Trace</a>
+    </div>
+    {% endif %}
+
+    <!-- Category bars -->
+    <div class="card">
+      <h2>Score Breakdown</h2>
+      <p class="intel-subtitle">Performance across four dimensions of AI shopping.</p>
+      {% for layer in layers %}
+      <div class="layer-bar">
+        <div class="layer-bar-header">
+          <span class="layer-bar-label">{{ layer.label }}</span>
+          <span class="layer-bar-pct">{{ layer.pct }}%</span>
+        </div>
+        <div class="bar-track">
+          <div class="bar-fill bar-fill-{{ layer.grade }}" style="width: {{ layer.pct }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
     <!-- Share + CTA -->
     <div class="card" style="text-align:center;">
       <button class="btn-share" onclick="copyShareLink()">Copy share link</button>
@@ -89,13 +135,13 @@
     </div>
 
     <div class="card paywall-card">
-      <h2>Scan Your Own Store</h2>
-      <p>See how your product pages score for AI shopping agents. Free scan, instant results.</p>
-      <a href="{{ url_for('index') }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Scan Now</a>
+      <h2>Test Your Own Store</h2>
+      <p>See if AI shopping agents can actually buy from your product pages.</p>
+      <a href="{{ url_for('index') }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Run a Shopping Test</a>
     </div>
 
     <footer>
-      <p>agent-a &middot; agent-accessibility scanner</p>
+      <p>agent-a &middot; AI shopping test</p>
     </footer>
   </div>
 

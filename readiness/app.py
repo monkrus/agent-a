@@ -1834,10 +1834,113 @@ def share(scan_id):
     og_image_url = request.host_url.rstrip("/") + url_for("share_og_image", scan_id=scan_id)
     canonical_url = request.host_url.rstrip("/") + url_for("share", scan_id=scan_id)
 
+    # Readable vs Shoppable
+    rs_scores = _readable_shoppable_scores(results)
+
+    # Check if browser traces exist
+    has_traces = any(r.get("type") == "browser" and r.get("browser_result", {}).get("steps")
+                     for r in results)
+
     return render_template("share.html",
                            data=data, score=score, domain=domain,
                            layers=layers, findings=findings,
+                           readable_score=rs_scores["readable"],
+                           shoppable_score=rs_scores["shoppable"],
+                           has_traces=has_traces, scan_id=scan_id,
                            og_description=og_desc, og_image_url=og_image_url,
+                           canonical_url=canonical_url)
+
+
+# -- Readable vs Shoppable score split ----------------------------------------
+
+# "Readable" = checks about data legibility (static data, structured data, etc.)
+# "Shoppable" = checks about interaction (browser flows, ATC, variants, checkout)
+_SHOPPABLE_TYPES = {"browser"}
+_SHOPPABLE_CATEGORIES = {"agent-interaction", "variant-interaction", "interaction"}
+
+def _readable_shoppable_scores(results):
+    """Split results into Readable and Shoppable sub-scores (weighted %)."""
+    buckets = {"readable": {"num": 0.0, "den": 0.0},
+               "shoppable": {"num": 0.0, "den": 0.0}}
+    for r in results:
+        pf = r.get("pass_fraction")
+        if pf is None:
+            continue
+        w = r.get("weight", 0) or 0
+        rtype = r.get("type", "")
+        cat = r.get("category", "")
+        if rtype in _SHOPPABLE_TYPES or cat in _SHOPPABLE_CATEGORIES:
+            bucket = "shoppable"
+        else:
+            bucket = "readable"
+        buckets[bucket]["num"] += w * pf
+        buckets[bucket]["den"] += w
+    out = {}
+    for k, v in buckets.items():
+        out[k] = round(v["num"] / v["den"] * 100) if v["den"] else 0
+    return out
+
+
+# -- Browser flow names -------------------------------------------------------
+
+# Map browser check categories (from YAML) to display names
+_BROWSER_FLOW_NAMES = {
+    "agent-interaction": "Add to Cart",
+    "agent-search": "Search & Find Product",
+    "agent-checkout": "Reach Checkout",
+    "agent-navigation": "Homepage to Product",
+    "agent-comparison": "Find Related Products",
+}
+
+
+@app.route("/r/<scan_id>/trace")
+def share_trace(scan_id):
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+
+    results = data.get("results", [])
+    domain = _domain_from_url(data.get("meta", {}).get("target", ""))
+
+    # Extract browser flow traces
+    flows = []
+    for r in results:
+        if r.get("type") != "browser":
+            continue
+        br = r.get("browser_result", {})
+        cat = r.get("category", "")
+        flow = {
+            "check_id": r.get("id", ""),
+            "title": _BROWSER_FLOW_NAMES.get(cat, r.get("title", cat)),
+            "verdict": r.get("verdict", "UNKNOWN"),
+            "steps": br.get("steps", []),
+            "total_steps": br.get("total_steps", len(br.get("steps", []))),
+            "success": br.get("success", False),
+            "attempts": r.get("browser_attempts", 1),
+            "successes": r.get("browser_successes", 0),
+            "diagnostics": br.get("diagnostics"),
+            "final_reason": br.get("final_reason", ""),
+        }
+        flows.append(flow)
+
+    # Readable vs Shoppable
+    scores = _readable_shoppable_scores(results)
+
+    # OG description
+    failed_flows = [f for f in flows if f["verdict"] == "FAIL"]
+    if failed_flows:
+        og_desc = f"AI agent failed at: {failed_flows[0]['title']} — step {failed_flows[0]['total_steps']}"
+    else:
+        og_desc = f"{domain} — AI shopping agent trace"
+
+    canonical_url = request.host_url.rstrip("/") + url_for("share_trace", scan_id=scan_id)
+
+    return render_template("trace.html",
+                           scan_id=scan_id, data=data, domain=domain,
+                           flows=flows,
+                           readable_score=scores["readable"],
+                           shoppable_score=scores["shoppable"],
+                           og_description=og_desc,
                            canonical_url=canonical_url)
 
 
