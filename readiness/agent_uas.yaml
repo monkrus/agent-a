@@ -1,0 +1,113 @@
+# AI Agent User-Agent Registry
+# Used by the agent traffic analyzer to classify requests.
+# Updated: 2026-10-18
+#
+# Each entry: pattern (case-insensitive substring match), agent name, vendor, type.
+# type: crawler (server-side), browser (executes JS), search (search-integrated)
+
+agents:
+  # OpenAI
+  - pattern: "gptbot"
+    name: GPTBot
+    vendor: OpenAI
+    type: crawler
+  - pattern: "oai-searchbot"
+    name: OAI-SearchBot
+    vendor: OpenAI
+    type: search
+  - pattern: "chatgpt-user"
+    name: ChatGPT-User
+    vendor: OpenAI
+    type: browser
+
+  # Anthropic
+  - pattern: "claudebot"
+    name: ClaudeBot
+    vendor: Anthropic
+    type: crawler
+  - pattern: "claude-user"
+    name: Claude-User
+    vendor: Anthropic
+    type: browser
+  - pattern: "anthropic-ai"
+    name: Anthropic-AI
+    vendor: Anthropic
+    type: crawler
+
+  # Perplexity
+  - pattern: "perplexitybot"
+    name: PerplexityBot
+    vendor: Perplexity
+    type: search
+
+  # Google
+  - pattern: "google-extended"
+    name: Google-Extended
+    vendor: Google
+    type: crawler
+  - pattern: "googleother"
+    name: GoogleOther
+    vendor: Google
+    type: crawler
+
+  # Amazon
+  - pattern: "amazonbot"
+    name: Amazonbot
+    vendor: Amazon
+    type: search
+
+  # Apple
+  - pattern: "applebot-extended"
+    name: Applebot-Extended
+    vendor: Apple
+    type: search
+  - pattern: "applebot"
+    name: Applebot
+    vendor: Apple
+    type: search
+
+  # ByteDance
+  - pattern: "bytespider"
+    name: Bytespider
+    vendor: ByteDance
+    type: crawler
+
+  # Meta
+  - pattern: "meta-externalagent"
+    name: Meta-ExternalAgent
+    vendor: Meta
+    type: crawler
+  - pattern: "facebookexternalhit"
+    name: FacebookExternalHit
+    vendor: Meta
+    type: crawler
+
+  # Microsoft
+  - pattern: "bingbot"
+    name: Bingbot
+    vendor: Microsoft
+    type: search
+
+  # Common Crawl
+  - pattern: "ccbot"
+    name: CCBot
+    vendor: Common Crawl
+    type: crawler
+
+  # Cohere
+  - pattern: "cohere-ai"
+    name: Cohere-AI
+    vendor: Cohere
+    type: crawler
+
+  # AI21
+  - pattern: "ai2bot"
+    name: AI2Bot
+    vendor: AI2
+    type: crawler
+
+  # You.com
+  - pattern: "youbot"
+    name: YouBot
+    vendor: You.com
+    type: search

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Agent Traffic Analyzer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .paste-box {
+      width: 100%; min-height: 200px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); font-family: monospace; font-size: 0.8rem;
+      padding: 0.75rem; resize: vertical;
+    }
+    .paste-box:focus { border-color: var(--accent); outline: none; }
+    .agent-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.6rem 0; border-bottom: 1px solid var(--border);
+    }
+    .agent-row:last-child { border-bottom: none; }
+    .agent-name { font-weight: 600; min-width: 140px; }
+    .agent-vendor { color: var(--text-muted); font-size: 0.85rem; min-width: 80px; }
+    .agent-type {
+      font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 3px;
+      text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600;
+    }
+    .type-crawler { background: rgba(99,102,241,0.15); color: var(--accent); }
+    .type-browser { background: rgba(34,197,94,0.15); color: var(--green); }
+    .type-search { background: rgba(234,179,8,0.15); color: var(--yellow); }
+    .agent-count { font-weight: 700; min-width: 60px; text-align: right; }
+    .agent-bar {
+      flex: 1; height: 20px; background: var(--bg);
+      border: 1px solid var(--border); border-radius: 3px; overflow: hidden;
+    }
+    .agent-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; }
+    .stat-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem; margin-bottom: 0.5rem;
+    }
+    .stat-box { text-align: center; }
+    .stat-num { font-size: 1.8rem; font-weight: 700; }
+    .stat-label { font-size: 0.8rem; color: var(--text-muted); }
+    .path-list { list-style: none; padding: 0; margin: 0; }
+    .path-list li {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.3rem 0; border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .path-list li:last-child { border-bottom: none; }
+    .path-name { font-family: monospace; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+    .path-count { font-weight: 600; white-space: nowrap; }
+    .status-blocked { color: var(--red); }
+    .status-ok { color: var(--green); }
+    #results { display: none; }
+    .format-help {
+      font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <a href="{{ url_for('index') }}" class="back-link">&larr; Back to scanner</a>
+      <h1>AI Agent Traffic Analyzer</h1>
+      <p class="subtitle">Paste your server access logs to see which AI agents are visiting your store.</p>
+    </header>
+
+    <div class="card">
+      <h2>Paste Access Logs</h2>
+      <p class="intel-subtitle">Supports Apache/Nginx combined format, Cloudflare JSON logs, or any format with user-agent strings.</p>
+      <textarea class="paste-box" id="log-input" placeholder='127.0.0.1 - - [10/Oct/2026:13:55:36 -0700] "GET /products/widget HTTP/1.1" 200 2326 "-" "Mozilla/5.0 (compatible; GPTBot/1.0; +https://openai.com/gptbot)"'></textarea>
+      <div style="margin-top:0.75rem; text-align:center;">
+        <button class="btn-pay" onclick="analyzeLogs()">Analyze Traffic</button>
+      </div>
+      <div class="format-help">
+        <strong>Where to get logs:</strong> Cloudflare &rarr; Analytics &rarr; Logs; Shopify &rarr; not available natively (use Cloudflare proxy or server logs); Vercel/Railway &rarr; log drains.
+      </div>
+    </div>
+
+    <div id="results">
+      <!-- Summary stats -->
+      <div class="card">
+        <h2>Agent Traffic Summary</h2>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-num" id="stat-total">0</div>
+            <div class="stat-label">Total Requests</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color:var(--accent);" id="stat-agent">0</div>
+            <div class="stat-label">AI Agent Requests</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color:var(--yellow);" id="stat-products">0</div>
+            <div class="stat-label">Product Pages Hit</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color:var(--red);" id="stat-blocked">0</div>
+            <div class="stat-label">Blocked (403/429)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent breakdown -->
+      <div class="card">
+        <h2>Agents Detected</h2>
+        <p class="intel-subtitle">AI agents visiting your store, ranked by request volume.</p>
+        <div id="agent-list"></div>
+      </div>
+
+      <!-- Top paths -->
+      <div class="card">
+        <h2>Most Visited Pages</h2>
+        <p class="intel-subtitle">Pages AI agents visit most — are these the ones you want them to see?</p>
+        <ul class="path-list" id="path-list"></ul>
+      </div>
+
+      <!-- CTA -->
+      <div class="card" style="text-align:center;">
+        <h2>See What Agents Experience</h2>
+        <p class="intel-subtitle">Now that you know agents are visiting, find out if they can actually buy.</p>
+        <a href="{{ url_for('index') }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Run an AI Shopping Test</a>
+      </div>
+    </div>
+
+    <footer>
+      <p>agent-a &middot; AI shopping test</p>
+    </footer>
+  </div>
+
+  <script>
+  function analyzeLogs() {
+    var logs = document.getElementById('log-input').value;
+    if (!logs.trim()) return;
+    fetch('/api/agent-traffic', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({logs: logs})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      document.getElementById('stat-total').textContent = d.total_requests.toLocaleString();
+      document.getElementById('stat-agent').textContent = d.agent_requests.toLocaleString();
+      document.getElementById('stat-products').textContent = d.product_pages_visited;
+      document.getElementById('stat-blocked').textContent = d.blocked_requests;
+
+      // Agent list
+      var html = '';
+      var maxReqs = 0;
+      var agents = Object.entries(d.agents);
+      agents.forEach(function(a) { if (a[1].requests > maxReqs) maxReqs = a[1].requests; });
+
+      agents.forEach(function(a) {
+        var name = a[0], info = a[1];
+        var pct = maxReqs > 0 ? (info.requests / maxReqs * 100) : 0;
+        var blocked = (info.status_codes[403] || 0) + (info.status_codes[429] || 0);
+        var blockedHtml = blocked > 0
+          ? ' <span class="status-blocked">(' + blocked + ' blocked)</span>'
+          : ' <span class="status-ok">(all served)</span>';
+        html += '<div class="agent-row">'
+          + '<span class="agent-name">' + name + '</span>'
+          + '<span class="agent-vendor">' + info.vendor + '</span>'
+          + '<span class="agent-type type-' + info.type + '">' + info.type + '</span>'
+          + '<span class="agent-count">' + info.requests + blockedHtml + '</span>'
+          + '<div class="agent-bar"><div class="agent-bar-fill" style="width:' + pct + '%"></div></div>'
+          + '</div>';
+      });
+      document.getElementById('agent-list').innerHTML = html || '<p style="color:var(--text-muted);">No AI agents found in these logs.</p>';
+
+      // Top paths across all agents
+      var pathMap = {};
+      agents.forEach(function(a) {
+        a[1].top_paths.forEach(function(p) {
+          pathMap[p[0]] = (pathMap[p[0]] || 0) + p[1];
+        });
+      });
+      var paths = Object.entries(pathMap).sort(function(a,b) { return b[1]-a[1]; }).slice(0, 15);
+      var pathHtml = '';
+      paths.forEach(function(p) {
+        pathHtml += '<li><span class="path-name">' + p[0] + '</span><span class="path-count">' + p[1] + '</span></li>';
+      });
+      document.getElementById('path-list').innerHTML = pathHtml || '<li style="color:var(--text-muted);">No paths found.</li>';
+
+      document.getElementById('results').style.display = 'block';
+      document.getElementById('results').scrollIntoView({behavior: 'smooth'});
+    });
+  }
+  </script>
+</body>
+</html>

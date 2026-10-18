@@ -2026,6 +2026,25 @@ def api_compare():
     })
 
 
+@app.route("/agent-traffic")
+def agent_traffic_page():
+    return render_template("agent_traffic.html")
+
+
+@app.route("/api/agent-traffic", methods=["POST"])
+def api_agent_traffic():
+    data = request.get_json(silent=True)
+    if not data or not data.get("logs"):
+        return jsonify({"error": "logs field required"}), 400
+    log_text = data["logs"]
+    # Cap at 10MB to prevent abuse
+    if len(log_text) > 10 * 1024 * 1024:
+        return jsonify({"error": "logs too large (max 10MB)"}), 400
+    import agent_traffic
+    result = agent_traffic.analyze(log_text)
+    return jsonify(result)
+
+
 @app.route("/r/<scan_id>/badge.svg")
 def share_badge(scan_id):
     from flask import Response
