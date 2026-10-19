@@ -2231,6 +2231,31 @@ _SEED_TARGETS = [
     ("https://www.iliabeauty.com/collections/all", "beauty"),
     ("https://www.westman-atelier.com/collections/all", "beauty"),
     ("https://www.jonesroadbeauty.com/collections/all", "beauty"),
+    # Beauty
+    ("https://kyliecosmetics.com/collections/all", "beauty"),
+    ("https://fentybeauty.com/collections/all", "beauty"),
+    ("https://sundayriley.com/collections/all", "beauty"),
+    ("https://olaplex.com/collections/all", "beauty"),
+    # Fashion & apparel
+    ("https://skims.com/collections/all", "fashion"),
+    ("https://www.everlane.com/collections/all", "fashion"),
+    ("https://untuckit.com/collections/all", "fashion"),
+    ("https://lunya.co/collections/all", "fashion"),
+    ("https://aloyoga.com/collections/all", "fashion"),
+    ("https://www.adoreme.com/collections/all", "fashion"),
+    # Home & lifestyle
+    ("https://casper.com/collections/all", "home"),
+    ("https://purple.com/collections/all", "home"),
+    ("https://tuftandneedle.com/collections/all", "home"),
+    ("https://framebridge.com/collections/all", "home"),
+    # Accessories & grooming
+    ("https://ridge.com/collections/all", "accessories"),
+    ("https://www.warbyparker.com/collections/all", "accessories"),
+    ("https://harrys.com/collections/all", "grooming"),
+    ("https://us.dollarshaveclub.com/collections/all", "grooming"),
+    # Food & bev
+    ("https://liquid-iv.com/collections/all", "food-bev"),
+    ("https://awaytravel.com/collections/all", "travel"),
 ]
 
 
