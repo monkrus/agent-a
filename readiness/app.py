@@ -2234,21 +2234,14 @@ _SEED_TARGETS = [
 ]
 
 
-@app.route("/api/seed-leaderboard", methods=["POST"])
-def api_seed_leaderboard():
-    """One-off batch scan to populate leaderboard. Requires FLASK_SECRET_KEY as auth."""
-    import hmac
-    auth = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
-    if not auth or not hmac.compare_digest(auth, _flask_secret.strip()):
-        abort(403)
-
+def _seed_worker():
+    """Background worker that scans seed targets and saves results."""
     import time
     checks_path = pathlib.Path(__file__).resolve().parent / "checks" / "shopify-v1.yaml"
     with open(checks_path) as f:
         pack = yaml.safe_load(f)
     checks = pack.get("checks", [])
 
-    done, errors = 0, 0
     for url, vertical in _SEED_TARGETS:
         scan_id = hashlib.md5(f"{url}:{time.time()}".encode()).hexdigest()[:12]
         try:
@@ -2288,12 +2281,23 @@ def api_seed_leaderboard():
             }
             out_path = SCANS_DIR / f"{scan_id}.json"
             out_path.write_text(json.dumps(payload, indent=2))
-            done += 1
         except Exception:
-            errors += 1
+            pass
         time.sleep(1)
 
-    return jsonify({"seeded": done, "errors": errors, "total": len(_SEED_TARGETS)})
+
+@app.route("/api/seed-leaderboard", methods=["POST"])
+def api_seed_leaderboard():
+    """Kick off background batch scan to populate leaderboard. Requires FLASK_SECRET_KEY as auth."""
+    import hmac
+    auth = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if not auth or not hmac.compare_digest(auth, _flask_secret.strip()):
+        abort(403)
+
+    import threading
+    t = threading.Thread(target=_seed_worker, daemon=True)
+    t.start()
+    return jsonify({"status": "started", "targets": len(_SEED_TARGETS)})
 
 
 if __name__ == "__main__":
