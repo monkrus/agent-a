@@ -113,6 +113,14 @@
     </div>
     {% endif %}
 
+    <!-- Search -->
+    <div style="margin-bottom:1rem;">
+      <input type="text" id="lb-search" placeholder="Search stores..." oninput="onSearch()" style="
+        width:100%; padding:0.6rem 1rem; border-radius:8px; border:1px solid var(--border);
+        background:var(--card-bg); color:var(--text); font-size:0.9rem;
+      ">
+    </div>
+
     <!-- Leaderboard table -->
     <div class="card" style="overflow-x:auto;">
       <table class="lb-table" id="lb-table">
@@ -162,6 +170,13 @@
   var currentPage = 1;
   var sortCol = 'score';
   var sortDir = -1; // -1 = descending
+  var searchQuery = '';
+
+  function onSearch() {
+    searchQuery = document.getElementById('lb-search').value.trim().toLowerCase();
+    currentPage = 1;
+    render();
+  }
 
   function sortTable(col) {
     if (sortCol === col) {
@@ -175,8 +190,17 @@
   }
 
   function render() {
+    // Filter by search
+    var filtered = DATA;
+    if (searchQuery) {
+      filtered = DATA.filter(function(e) {
+        return e.domain.toLowerCase().indexOf(searchQuery) !== -1
+            || (e.weakness || '').toLowerCase().indexOf(searchQuery) !== -1;
+      });
+    }
+
     // Sort
-    var sorted = DATA.slice().sort(function(a, b) {
+    var sorted = filtered.slice().sort(function(a, b) {
       var va = a[sortCol], vb = b[sortCol];
       if (typeof va === 'string') {
         va = (va || '').toLowerCase();
