@@ -2237,8 +2237,9 @@ _SEED_TARGETS = [
 @app.route("/api/seed-leaderboard", methods=["POST"])
 def api_seed_leaderboard():
     """One-off batch scan to populate leaderboard. Requires FLASK_SECRET_KEY as auth."""
-    auth = request.headers.get("Authorization", "").replace("Bearer ", "")
-    if not auth or auth != _flask_secret:
+    import hmac
+    auth = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+    if not auth or not hmac.compare_digest(auth, _flask_secret.strip()):
         abort(403)
 
     import time
