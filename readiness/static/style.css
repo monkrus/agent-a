@@ -48,6 +48,7 @@ body {
   color: var(--text);
   text-decoration: none;
   letter-spacing: -0.02em;
+  margin-right: 0.5rem;
 }
 .nav-links {
   display: flex;
