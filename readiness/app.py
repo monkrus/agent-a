@@ -2194,6 +2194,107 @@ def share_badge(scan_id):
                     headers={"Cache-Control": "public, max-age=3600"})
 
 
+# ---- Leaderboard seed (one-off batch scan) ----------------------------------
+_SEED_TARGETS = [
+    ("https://www.fleurdumal.com/collections/all", "lingerie"),
+    ("https://www.cosabella.com/collections/all", "lingerie"),
+    ("https://www.bluebella.com/collections/all", "lingerie"),
+    ("https://www.journelle.com/collections/all", "lingerie"),
+    ("https://www.wearpepper.com/collections/all", "lingerie"),
+    ("https://www.bordelle.co.uk/collections/all", "lingerie"),
+    ("https://www.maisonclose.com/collections/all", "lingerie"),
+    ("https://www.loungeunderwear.com/collections/all", "lingerie"),
+    ("https://www.curvykate.com/collections/all", "lingerie"),
+    ("https://www.syrn.com/collections/all", "lingerie"),
+    ("https://www.pourmoi.co.uk/collections/all", "lingerie"),
+    ("https://www.natori.com/collections/all", "lingerie"),
+    ("https://www.wearcommando.com/collections/all", "lingerie"),
+    ("https://www.nubianskin.com/collections/all", "lingerie"),
+    ("https://www.trueandco.com/collections/all", "lingerie"),
+    ("https://www.harperwilde.com/collections/all", "lingerie"),
+    ("https://www.joineby.com/collections/all", "lingerie"),
+    ("https://www.stripeandstare.com/collections/all", "lingerie"),
+    ("https://www.thistleandspire.com/collections/all", "lingerie"),
+    ("https://www.onlyhearts.com/collections/all", "lingerie"),
+    ("https://www.lonelylabel.com/collections/all", "lingerie"),
+    ("https://www.elselingerie.com/collections/all", "lingerie"),
+    ("https://www.araks.com/collections/all", "lingerie"),
+    ("https://www.shopbts.com/collections/all", "lingerie"),
+    ("https://www.coco-de-mer.com/collections/all", "lingerie"),
+    ("https://www.sarrieri.com/collections/all", "lingerie"),
+    ("https://www.fleurofengland.com/collections/all", "lingerie"),
+    ("https://www.montelle.com/collections/all", "lingerie"),
+    ("https://www.parfaitlingerie.com/collections/all", "lingerie"),
+    ("https://www.trashy.com/collections/all", "lingerie"),
+    ("https://www.saiehello.com/collections/all", "beauty"),
+    ("https://www.meritbeauty.com/collections/all", "beauty"),
+    ("https://www.iliabeauty.com/collections/all", "beauty"),
+    ("https://www.westman-atelier.com/collections/all", "beauty"),
+    ("https://www.jonesroadbeauty.com/collections/all", "beauty"),
+]
+
+
+@app.route("/api/seed-leaderboard", methods=["POST"])
+def api_seed_leaderboard():
+    """One-off batch scan to populate leaderboard. Requires FLASK_SECRET_KEY as auth."""
+    auth = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if not auth or auth != _flask_secret:
+        abort(403)
+
+    import time
+    checks_path = pathlib.Path(__file__).resolve().parent / "checks" / "shopify-v1.yaml"
+    with open(checks_path) as f:
+        pack = yaml.safe_load(f)
+    checks = pack.get("checks", [])
+
+    done, errors = 0, 0
+    for url, vertical in _SEED_TARGETS:
+        scan_id = hashlib.md5(f"{url}:{time.time()}".encode()).hexdigest()[:12]
+        try:
+            page = fetchmod.fetch(url, timeout=20)
+            results = []
+            for c in checks:
+                base = {k: c.get(k) for k in ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}
+                if c.get("type") == "static":
+                    r = scorers.run_static(c, page)
+                    results.append({**base, **r})
+                else:
+                    results.append({**base, "verdict": "UNKNOWN", "detail": "Skipped (seed mode).", "pass_fraction": None})
+
+            num = sum(r["weight"] * r["pass_fraction"] for r in results if r.get("pass_fraction") is not None and r.get("weight"))
+            den = sum(r["weight"] for r in results if r.get("pass_fraction") is not None and r.get("weight"))
+            score = round(100 * num / den, 1) if den else None
+
+            fails = [r for r in results if r.get("verdict") == "FAIL"]
+            critical = [r for r in fails if r.get("severity_if_fail") == "critical"]
+            if critical:
+                headline = f"{len(critical)} critical issue(s): {critical[0]['title']}"
+            elif fails:
+                headline = f"{len(fails)} issue(s). Top: {fails[0]['title']}"
+            else:
+                headline = "All checks passed."
+
+            payload = {
+                "scan_id": scan_id,
+                "meta": {
+                    "target": url, "pack": "shopify-v1", "n": 1,
+                    "shopper": "mock", "tier": "paid",
+                    "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "vertical": vertical,
+                },
+                "readiness_score": score, "confidence_margin": 0,
+                "headline": headline, "results": results,
+            }
+            out_path = SCANS_DIR / f"{scan_id}.json"
+            out_path.write_text(json.dumps(payload, indent=2))
+            done += 1
+        except Exception:
+            errors += 1
+        time.sleep(1)
+
+    return jsonify({"seeded": done, "errors": errors, "total": len(_SEED_TARGETS)})
+
+
 if __name__ == "__main__":
     app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", port=5000)
 else:
