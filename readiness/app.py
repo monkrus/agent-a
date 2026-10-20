@@ -1719,6 +1719,30 @@ def send_report(scan_id):
     return redirect(url_for("results", scan_id=scan_id))
 
 
+@app.route("/test-email")
+def test_email():
+    """Temporary: verify SMTP config works. Remove after confirming."""
+    import readiness.emailer as _em
+    if not _em._is_configured():
+        return "SMTP not configured — missing SMTP_USER or SMTP_PASS", 500
+    to = os.environ.get("FROM_EMAIL", os.environ.get("SMTP_USER", ""))
+    try:
+        import smtplib
+        from email.mime.text import MIMEText as _MT
+        msg = _MT("SMTP test from Agent-A. If you see this, email delivery works.")
+        msg["Subject"] = "Agent-A SMTP Test"
+        msg["From"] = to
+        msg["To"] = to
+        with smtplib.SMTP(os.environ.get("SMTP_HOST", "smtp.gmail.com"),
+                          int(os.environ.get("SMTP_PORT", "587"))) as s:
+            s.starttls()
+            s.login(os.environ.get("SMTP_USER", ""), os.environ.get("SMTP_PASS", ""))
+            s.sendmail(to, [to], msg.as_string())
+        return f"Test email sent to {to} — check your inbox."
+    except Exception as e:
+        return f"SMTP failed: {e}", 500
+
+
 @app.route("/rescan/<scan_id>", methods=["POST"])
 def rescan(scan_id):
     """Free re-scan for paid customers — re-runs the full paid scan."""
