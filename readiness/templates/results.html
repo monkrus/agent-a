@@ -744,6 +744,13 @@
     lines.push('');
     {% endif %}
     {% endfor %}
+    {% if data.impact and data.impact.estimated_monthly_loss %}
+    lines.push('');
+    lines.push('--- Revenue Impact ---');
+    lines.push('Monthly: ${{ "{:,}".format(data.impact.estimated_monthly_loss.low) }} – ${{ "{:,}".format(data.impact.estimated_monthly_loss.high) }}');
+    lines.push('Annual:  ${{ "{:,}".format(data.impact.estimated_annual_loss.low) }} – ${{ "{:,}".format(data.impact.estimated_annual_loss.high) }}');
+    lines.push('Agent failure rate: {{ (data.impact.agent_failure_rate * 100)|round(0)|int }}%');
+    {% endif %}
     {% else %}
     {% set failing_free = data.results|selectattr('verdict', 'equalto', 'FAIL')|list %}
     {% set passing_free = data.results|selectattr('verdict', 'equalto', 'PASS')|list %}
