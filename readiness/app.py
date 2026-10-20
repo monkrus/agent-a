@@ -1701,11 +1701,13 @@ def _validate_email(addr: str) -> str | None:
 @app.route("/send-report/<scan_id>", methods=["POST"])
 def send_report(scan_id):
     """Send the full report to an additional email (e.g. developer)."""
-    if not session.get(f"paid_{scan_id}"):
-        abort(403)
     data = _load_scan(scan_id)
     if not data:
         abort(404)
+    is_paid = (session.get(f"paid_{scan_id}", False)
+               or data.get("meta", {}).get("paid", False))
+    if not is_paid:
+        abort(403)
     to_email = _validate_email(request.form.get("email", ""))
     if not to_email:
         return redirect(url_for("results", scan_id=scan_id))
