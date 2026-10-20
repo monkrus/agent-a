@@ -129,7 +129,8 @@
     es.onerror = function() {
       es.close();
       clearInterval(timerInterval);
-      addLine('<span style="color:#f87171;">Connection lost. Your payment has been received — please contact support.</span>');
+      addLine('<span style="color:#f87171;">Connection lost — browser checks can take a while. Your payment is safe.</span>');
+      addLine('<span style="color:#60a5fa;">Please <a href="javascript:location.reload()" style="color:#60a5fa;text-decoration:underline;">reload this page</a> to reconnect. If the scan is done, you\'ll see your full results.</span>');
     };
   </script>
 </body>
