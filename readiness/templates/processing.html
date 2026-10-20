@@ -14,7 +14,8 @@
 
     <div class="card">
       <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.25rem;">Payment received. Running full scan on:</p>
-      <p style="font-size:0.95rem; font-weight:600; color:var(--text); margin-bottom:1.5rem; word-break:break-all;">{{ target }}</p>
+      <p style="font-size:0.95rem; font-weight:600; color:var(--text); margin-bottom:0.5rem; word-break:break-all;">{{ target }}</p>
+      <p style="font-size:0.85rem; color:#8b8b96; margin-bottom:1.5rem;">Full audit takes 2–4 minutes. Browser purchase tests are the slowest part — please keep this tab open.</p>
 
       <div id="stream-legend" style="font-size:0.9rem; color:#8b8b96; margin-bottom:0.75rem;">
         <span style="color:#4ade80;">&#10003;</span> pass &nbsp;
@@ -50,10 +51,12 @@
       div.scrollIntoView({behavior: 'smooth', block: 'end'});
     }
 
-    var es = new EventSource('/paid-scan-stream/{{ scan_id }}');
+    var scanDone = false;
+    var reconnectCount = 0;
 
-    es.onmessage = function(event) {
+    function handleMessage(event) {
       var d = JSON.parse(event.data);
+      reconnectCount = 0;
 
       if (d.type === 'browser_unavailable') {
         addLine('<div style="background:#1e1b4b;border:1px solid #6366f1;border-radius:8px;padding:0.75rem 1rem;margin:0.5rem 0;font-size:0.9rem;color:#c7d2fe;">'
@@ -102,6 +105,7 @@
         addLine('&nbsp;&nbsp;<span style="color:#4ade80;">&#10003; ' + d.message + '</span>');
       }
       else if (d.type === 'done') {
+        scanDone = true;
         es.close();
         clearInterval(timerInterval);
         var elapsed = Math.floor((Date.now() - scanStart) / 1000);
@@ -124,14 +128,29 @@
         clearInterval(timerInterval);
         addLine('<span style="color:#f87171;">Error: ' + d.message + '</span>');
       }
-    };
+    }
 
-    es.onerror = function() {
+    function handleError() {
+      if (scanDone) return;
       es.close();
-      clearInterval(timerInterval);
-      addLine('<span style="color:#f87171;">Connection lost — browser checks can take a while. Your payment is safe.</span>');
-      addLine('<span style="color:#60a5fa;">Please <a href="javascript:location.reload()" style="color:#60a5fa;text-decoration:underline;">reload this page</a> to reconnect. If the scan is done, you\'ll see your full results.</span>');
-    };
+      reconnectCount++;
+      if (reconnectCount <= 5) {
+        addLine('<span style="color:#facc15;">Connection interrupted — reconnecting (' + reconnectCount + '/5)...</span>');
+        setTimeout(connect, 3000);
+      } else {
+        clearInterval(timerInterval);
+        addLine('<span style="color:#f87171;">Connection lost — browser checks can take a while. Your payment is safe.</span>');
+        addLine('<span style="color:#60a5fa;">Please <a href="javascript:location.reload()" style="color:#60a5fa;text-decoration:underline;">reload this page</a> to reconnect. If the scan is done, you\'ll see your full results.</span>');
+      }
+    }
+
+    var es;
+    function connect() {
+      es = new EventSource('/paid-scan-stream/{{ scan_id }}');
+      es.onmessage = handleMessage;
+      es.onerror = handleError;
+    }
+    connect();
   </script>
 </body>
 </html>
