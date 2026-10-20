@@ -14,10 +14,15 @@
       .back-link, .paywall-card, #compare-form, .btn-pay, .btn-copy, .btn-share,
       #copy-btn, #copy-all-btn, footer, .no-print { display: none !important; }
       .score-number { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .check-block { break-inside: avoid; }
-      .fix-code { max-height: none !important; overflow-y: visible !important; overflow-x: visible !important; white-space: pre-wrap !important; }
-      .fix-block { break-inside: avoid; }
+      .check-block { break-inside: auto; }
+      .check-header { break-inside: avoid; break-after: avoid; }
+      .fix-code { max-height: none !important; overflow-y: visible !important; overflow-x: visible !important; white-space: pre-wrap !important; word-wrap: break-word !important; }
+      .fix-code code { white-space: pre-wrap !important; word-wrap: break-word !important; }
+      .fix-block { break-inside: auto; }
       .check-detail { max-height: none !important; overflow: visible !important; }
+      .check-row { display: block !important; }
+      .check-row .check-label { display: block !important; margin-bottom: 0.15rem; }
+      pre { max-width: 100% !important; overflow: visible !important; }
       .sev, .verdict { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       a { color: #111 !important; text-decoration: none !important; }
       details { display: block !important; }
