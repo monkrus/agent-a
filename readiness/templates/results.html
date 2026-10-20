@@ -337,65 +337,37 @@
       </div>
 
       {% if failing %}
-      <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin:1rem 0 0.5rem;">Top issues found:</p>
-      {% for r in failing[:5] %}
+      <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin:1rem 0 0.5rem;">{{ failing|length }} issue{{ 's' if failing|length != 1 }} found:</p>
+      {% for r in failing %}
       <div class="check-block check-fail">
         <div class="check-header">
-          <span class="verdict-icon">✗</span>
+          <span class="verdict-icon">&#10007;</span>
           <span class="check-title">{{ r.title }}</span>
           <span class="sev sev-{{ r.severity_if_fail }}">{{ r.severity_if_fail }} priority</span>
           <span class="verdict verdict-badge-fail">Needs fix</span>
         </div>
-        {% if teaser_fix and r.id == teaser_check_id %}
-        <div class="check-detail">
-          <div class="check-row">
-            <span class="check-label">Result</span>
-            <span>{{ r.detail }}</span>
-          </div>
-          <div class="fix-block">
-            <div class="fix-header">
-              <span class="fix-label">How to fix this</span>
-              <button class="btn-copy" onclick="copyFix(this)" data-code="{{ ((r.fix ~ '\n\n' ~ teaser_fix) if r.fix else teaser_fix) | e }}">Copy fix</button>
-            </div>
-            <p class="fix-instruction">{{ r.fix or '' }}</p>
-            <pre class="fix-code"><code>{{ teaser_fix | e }}</code></pre>
-          </div>
-          <p style="font-size:0.9rem; color:var(--text-muted); margin-top:0.5rem;">This is a free preview. The full audit includes fixes for all {{ failing|length }} issues.</p>
-        </div>
-        {% elif not loop.first %}
         <div style="padding:0.5rem 0.85rem; border-top:1px solid var(--border); display:flex; align-items:center; gap:0.5rem;">
-          <span style="font-size:0.9rem; color:var(--text-muted);">🔒 Fix recipe available in the full audit</span>
+          <span style="font-size:0.9rem; color:var(--text-muted);">&#128274; Details + fix recipe in the Full Audit</span>
         </div>
-        {% else %}
-        <div style="padding:0.5rem 0.85rem; border-top:1px solid var(--border);">
-          <div class="check-row">
-            <span class="check-label">Result</span>
-            <span>{{ r.detail }}</span>
-          </div>
-        </div>
-        {% endif %}
       </div>
       {% endfor %}
-      {% if failing|length > 5 %}
-      <p style="font-size:0.9rem; color:var(--text-muted); margin-top:0.5rem;">+ {{ failing|length - 5 }} more issues found.</p>
-      {% endif %}
-      <div style="text-align:center; margin-top:1rem;">
+      <div style="text-align:center; margin-top:1.25rem; padding:1.25rem; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:8px;">
+        <p style="font-size:1.05rem; font-weight:600; color:var(--text); margin:0 0 0.25rem;">Your store has {{ failing|length }} issue{{ 's' if failing|length != 1 }} blocking AI sales</p>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin:0 0 1rem;">The Full Audit shows exactly what's wrong, why it matters, and how to fix each one — with copy-paste code.</p>
         {% if browser_available %}
-        <a href="#paywall" style="color:var(--accent); font-weight:600; font-size:0.9rem;">Unlock all {{ failing|length }} fixes — Full AI Shopping Audit $49 ↓</a>
+        <a href="#paywall" class="btn-pay" style="display:inline-block; text-decoration:none;">Get fixes for all {{ failing|length }} issues — $49 &#8595;</a>
         {% else %}
-        <span style="color:var(--text-muted); font-size:0.9rem;">Full audit temporarily unavailable — <a href="#paywall" style="color:#818cf8;">details ↓</a></span>
+        <span style="color:var(--text-muted); font-size:0.9rem;">Full audit temporarily unavailable — <a href="#paywall" style="color:#818cf8;">details &#8595;</a></span>
         {% endif %}
       </div>
       {% endif %}
 
       {% if jsonld_snippet %}
-      <div style="background:var(--surface); border:1px solid rgba(74,222,128,0.3); border-radius:8px; padding:1rem; margin-top:1.25rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-          <span style="font-size:0.9rem; font-weight:600; color:#4ade80;">Fix it now — paste this JSON-LD into your page</span>
-          <button onclick="copySnippet()" id="snippet-btn" style="padding:0.35rem 0.75rem; border-radius:5px; border:1px solid rgba(74,222,128,0.3); background:rgba(74,222,128,0.1); color:#4ade80; font-size:0.9rem; cursor:pointer; font-weight:500;">Copy snippet</button>
+      <div style="background:var(--surface); border:1px solid rgba(99,102,241,0.2); border-radius:8px; padding:1rem; margin-top:1.25rem;">
+        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
+          <span style="font-size:0.9rem; font-weight:600; color:var(--accent);">&#128274; JSON-LD fix snippet ready</span>
         </div>
-        <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:0.75rem;">Add this inside a <code>&lt;script type="application/ld+json"&gt;</code> tag in your product page. Replace the placeholder image, description, and brand with your real data.</p>
-        <pre id="jsonld-snippet" style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:0.75rem; font-size:0.9rem; overflow-x:auto; color:#c8c8d0; margin:0;"><code>{{ jsonld_snippet }}</code></pre>
+        <p style="font-size:0.9rem; color:var(--text-muted); margin:0;">A copy-paste JSON-LD block customized for this product is included in the Full Audit.</p>
       </div>
       {% endif %}
 

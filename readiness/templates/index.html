@@ -84,6 +84,7 @@
           const log = document.getElementById('stream-log');
           const scoreDiv = document.getElementById('stream-score');
           log.innerHTML = '';
+          let failCount = 0;
 
           const scanStart = Date.now();
           const timerInterval = setInterval(function() {
@@ -118,11 +119,11 @@
               addLine('<br><strong style="color:#e0e0e8;">' + d.label + '</strong>');
             }
             else if (d.type === 'check') {
+              if (d.verdict === 'FAIL') failCount++;
               const icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">&#10003;</span>'
                          : d.verdict === 'FAIL' ? '<span style="color:#f87171;">&#10007;</span>'
                          : '<span style="color:#facc15;">?</span>';
-              const detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.9rem;">&mdash; ' + d.detail.substring(0, 120) + '</span>' : '';
-              const html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + detail
+              const html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title
 ;
               const existing = document.getElementById('running-' + d.id);
               if (existing) {
@@ -169,9 +170,14 @@
                   + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">View full report &rarr;</a></div>';
               } else {
                 const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
+                const failLine = failCount > 0
+                  ? '<div style="color:#f87171;font-weight:600;font-size:1rem;margin:0.5rem 0;">' + failCount + ' issue' + (failCount !== 1 ? 's' : '') + ' found</div>'
+                  : '';
+                const ctaText = failCount > 0 ? 'See what\'s broken + how to fix it' : 'View full report';
                 scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
                   + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
-                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">View full report &rarr;</a></div>';
+                  + failLine
+                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">' + ctaText + ' &rarr;</a></div>';
               }
               var ctr = document.getElementById('scan-counter');
               if (ctr) ctr.textContent = parseInt(ctr.textContent || '0') + 1;
