@@ -728,9 +728,9 @@
     lines.push('URL: {{ data.meta.target }}');
     lines.push('{{ data.headline }}');
     lines.push('');
+    {% if paid %}
     {% for r in data.results %}
     lines.push('{{ "PASS" if r.verdict == "PASS" else "FAIL" if r.verdict == "FAIL" else "?" }}  {{ r.id }}  {{ r.title }}');
-    {% if paid %}
     lines.push('    {{ r.detail | replace("\n", " ") | replace("'", "\\'") }}');
     {% if r.verdict == 'FAIL' and r.fix %}
     lines.push('    Fix: {{ r.fix | replace("\n", " ") | replace("'", "\\'") }}');
@@ -740,8 +740,19 @@
     lines.push({{ r.fix_recipe | tojson }});
     lines.push('');
     {% endif %}
-    {% endif %}
     {% endfor %}
+    {% else %}
+    {% set failing_free = data.results|selectattr('verdict', 'equalto', 'FAIL')|list %}
+    {% set passing_free = data.results|selectattr('verdict', 'equalto', 'PASS')|list %}
+    lines.push('{{ passing_free|length }} passing · {{ failing_free|length }} failing');
+    lines.push('');
+    lines.push('Top issues:');
+    {% for r in failing_free %}
+    lines.push('  - {{ r.title }} ({{ r.severity_if_fail }})');
+    {% endfor %}
+    lines.push('');
+    lines.push('Full details + fix recipes: Full AI Shopping Audit ($49)');
+    {% endif %}
     lines.push('');
     lines.push('Scanned by Agent-A — ' + window.location.origin);
     navigator.clipboard.writeText(lines.join('\n')).then(function() {
