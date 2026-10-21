@@ -226,19 +226,27 @@
     <!-- BEFORE/AFTER DELTA -->
     {% if prev_scan and prev_scan.score is not none and data.readiness_score is not none %}
     <div class="card" style="border:1px solid {% if data.readiness_score > prev_scan.score %}rgba(74,222,128,0.4){% elif data.readiness_score < prev_scan.score %}rgba(248,113,113,0.4){% else %}rgba(250,204,21,0.4){% endif %}; background:{% if data.readiness_score > prev_scan.score %}rgba(74,222,128,0.04){% elif data.readiness_score < prev_scan.score %}rgba(248,113,113,0.04){% else %}rgba(250,204,21,0.04){% endif %};">
+      {% set prev_count = prev_scan.check_count|default(0) %}
+      {% set curr_count = data.results|length %}
+      {% set tier_changed = prev_count != curr_count and prev_count > 0 %}
       <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
         <div>
           <span style="font-size:0.9rem; color:var(--text-muted);">Previous scan ({{ prev_scan.timestamp }})</span>
           <div style="font-size:1.8rem; font-weight:700; color:var(--text-muted);">{{ prev_scan.score }}</div>
+          {% if tier_changed %}<span style="font-size:0.8rem; color:var(--text-muted);">{{ prev_count }} checks</span>{% endif %}
         </div>
         <div style="font-size:1.5rem; color:var(--text-muted);">&rarr;</div>
         <div>
           <span style="font-size:0.9rem; color:var(--text-muted);">This scan</span>
           <div style="font-size:1.8rem; font-weight:700; color:{% if data.readiness_score > prev_scan.score %}#4ade80{% elif data.readiness_score < prev_scan.score %}#f87171{% else %}#facc15{% endif %};">{{ data.readiness_score }}</div>
+          {% if tier_changed %}<span style="font-size:0.8rem; color:var(--text-muted);">{{ curr_count }} checks</span>{% endif %}
         </div>
         <div style="margin-left:auto;">
           {% set delta = data.readiness_score - prev_scan.score %}
-          {% if delta > 0 %}
+          {% if tier_changed %}
+          <span style="font-size:1.3rem; font-weight:700; color:#818cf8;">{{ delta|round(0)|int }} points</span>
+          <p style="font-size:0.9rem; color:var(--text-muted); margin:0;">Score changed because the full audit tested {{ curr_count - prev_count }} additional checks</p>
+          {% elif delta > 0 %}
           <span style="font-size:1.3rem; font-weight:700; color:#4ade80;">+{{ delta|round(0)|int }} points</span>
           <p style="font-size:0.9rem; color:#4ade80; margin:0;">Score improved</p>
           {% elif delta < 0 %}
@@ -586,7 +594,8 @@
         <div style="margin-bottom:0.75rem;">
           <span style="color:#4ade80; font-weight:600;">Competitor is missing (you pass):</span>
           <ul style="color:var(--text-muted); padding-left:1.25rem; margin:0.25rem 0;">
-            {% for title in comparison.comp_missing %}<li>{{ title }}</li>{% endfor %}
+            {% for title in comparison.comp_missing[:5] %}<li>{{ title }}</li>{% endfor %}
+            {% if comparison.comp_missing_total > 5 %}<li style="color:var(--text-muted); font-style:italic;">and {{ comparison.comp_missing_total - 5 }} more</li>{% endif %}
           </ul>
         </div>
         {% endif %}
@@ -594,16 +603,28 @@
         <div style="margin-bottom:0.75rem;">
           <span style="color:#f87171; font-weight:600;">You're behind (competitor passes):</span>
           <ul style="color:var(--text-muted); padding-left:1.25rem; margin:0.25rem 0;">
-            {% for title in comparison.you_behind %}<li>{{ title }}</li>{% endfor %}
+            {% for title in comparison.you_behind[:5] %}<li>{{ title }}</li>{% endfor %}
+            {% if comparison.you_behind_total > 5 %}<li style="color:var(--text-muted); font-style:italic;">and {{ comparison.you_behind_total - 5 }} more</li>{% endif %}
           </ul>
         </div>
         {% endif %}
         {% if comparison.both_fail %}
-        <div>
+        <div style="margin-bottom:0.75rem;">
           <span style="color:#facc15; font-weight:600;">Both fail:</span>
           <ul style="color:var(--text-muted); padding-left:1.25rem; margin:0.25rem 0;">
-            {% for title in comparison.both_fail %}<li>{{ title }}</li>{% endfor %}
+            {% for title in comparison.both_fail[:5] %}<li>{{ title }}</li>{% endfor %}
+            {% if comparison.both_fail_total > 5 %}<li style="color:var(--text-muted); font-style:italic;">and {{ comparison.both_fail_total - 5 }} more</li>{% endif %}
           </ul>
+        </div>
+        {% endif %}
+        {% if comparison.both_pass %}
+        <div>
+          <details>
+            <summary style="color:#4ade80; font-weight:600; cursor:pointer;">Both pass ({{ comparison.both_pass_total }} checks)</summary>
+            <ul style="color:var(--text-muted); padding-left:1.25rem; margin:0.25rem 0;">
+              {% for title in comparison.both_pass %}<li>{{ title }}</li>{% endfor %}
+            </ul>
+          </details>
         </div>
         {% endif %}
       </div>

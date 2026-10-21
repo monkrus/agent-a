@@ -47,12 +47,22 @@ _private = _load_private()
 _PLACEHOLDER = None  # No stub text — the YAML 'fix' field provides the advice
 
 
-def generate_fix(check_result: dict, page: dict) -> str | None:
-    """Return a fix recipe for a failing check, or None if it passed."""
+def generate_fix(check_result: dict, page: dict,
+                 all_results: list | None = None) -> str | None:
+    """Return a fix recipe for a failing check, or None if it passed.
+
+    *all_results* is the full list of check results from the same scan,
+    allowing recipes to cross-reference sibling checks (e.g. RDY-006 can
+    see whether RDY-001 and RDY-002 already pass).
+    """
     if check_result.get("verdict") != "FAIL":
         return None
 
     if _private and hasattr(_private, "generate_fix"):
+        import inspect
+        sig = inspect.signature(_private.generate_fix)
+        if len(sig.parameters) >= 3:
+            return _private.generate_fix(check_result, page, all_results)
         return _private.generate_fix(check_result, page)
 
     return _PLACEHOLDER

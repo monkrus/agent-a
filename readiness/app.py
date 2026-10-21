@@ -473,7 +473,7 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
 
     # Generate fix recipes for failing checks
     for r in results:
-        recipe = fixesmod.generate_fix(r, page)
+        recipe = fixesmod.generate_fix(r, page, all_results=results)
         if recipe:
             r["fix_recipe"] = recipe
 
@@ -595,10 +595,12 @@ def _find_previous_scan(target_url, current_scan_id):
         return None
     # Build a summary: score delta + check flips
     prev_score = best.get("readiness_score")
-    prev_verdicts = {r["id"]: r.get("verdict") for r in best.get("results", [])}
+    prev_results = best.get("results", [])
+    prev_verdicts = {r["id"]: r.get("verdict") for r in prev_results}
     return {"score": prev_score, "scan_id": best.get("scan_id"),
             "timestamp": best.get("meta", {}).get("timestamp", "")[:10],
-            "verdicts": prev_verdicts}
+            "verdicts": prev_verdicts,
+            "check_count": len(prev_results)}
 
 
 # ---- Routes ----------------------------------------------------------------
@@ -941,7 +943,7 @@ def scan_stream():
         results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 
         for r in results:
-            recipe = fixesmod.generate_fix(r, page)
+            recipe = fixesmod.generate_fix(r, page, all_results=results)
             if recipe:
                 r["fix_recipe"] = recipe
 
@@ -1100,7 +1102,7 @@ def results(scan_id):
         if failing:
             top = failing[0]
             teaser_check_id = top.get("id")
-            teaser_fix = fixesmod.generate_fix(top, {})
+            teaser_fix = fixesmod.generate_fix(top, {}, all_results=data.get("results", []))
     # Top 3 "Fix These First" — highest impact failing checks (both tiers)
     SEV_RANK = {"critical": 100, "high": 10, "medium": 5, "low": 1}
     all_failing = [r for r in data.get("results", [])
@@ -1194,13 +1196,21 @@ def compare(scan_id):
         # Checks you fail that competitor passes
         you_behind = [r["title"] for r in your_results
                       if r["id"] in (your_fails - comp_fails) and r["id"] in comp_passes]
+        # Checks you both pass
+        both_pass = [r["title"] for r in your_results
+                     if r["id"] in (your_passes & comp_passes)]
         session[f"compare_{scan_id}"] = {
             "score": comp_data.get("readiness_score"),
             "target": comp_url,
             "scan_id": comp_scan_id,
-            "comp_missing": comp_missing[:5],
-            "both_fail": both_fail[:5],
-            "you_behind": you_behind[:5],
+            "comp_missing": comp_missing,
+            "comp_missing_total": len(comp_missing),
+            "both_fail": both_fail,
+            "both_fail_total": len(both_fail),
+            "you_behind": you_behind,
+            "you_behind_total": len(you_behind),
+            "both_pass": both_pass,
+            "both_pass_total": len(both_pass),
         }
         session.pop(f"compare_error_{scan_id}", None)
     except fetchmod._UnsafeURLError:
@@ -1559,7 +1569,7 @@ def paid_scan_stream(scan_id):
         results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
 
         for r in results:
-            recipe = fixesmod.generate_fix(r, page)
+            recipe = fixesmod.generate_fix(r, page, all_results=results)
             if recipe:
                 r["fix_recipe"] = recipe
 
