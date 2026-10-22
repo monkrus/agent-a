@@ -88,15 +88,16 @@ results across six layers:
 - Shareable results link with OG image
 - No API cost, no account, instant
 
-### Deep Agent Audit (42 checks, $49)
-Everything in free, plus:
-- **5 AI extraction checks** — Claude visits the page 5 times, extracts price, availability, product name, return window, shipping. Shows pass rate, ground truth, sample responses
+### Full AI Shopping Audit (42 checks, $499)
+Everything in the free preview, plus:
+- **5 AI extraction checks** — Claude visits the page 10 times, extracts price, availability, product name, return window, shipping. Graded on accuracy and consistency
 - **5 browser agent flows** — AI agent tries to: add to cart, search, reach checkout, navigate from homepage, find related products
-- **Revenue impact estimate** — monthly/annual dollar range (benchmark-based, not measured from your traffic)
+- **Revenue impact estimate** — monthly/annual dollar range (benchmark-based, with transparent math)
 - **Copy-paste fix recipes** for every failing check — Shopify Liquid, config steps, plain-language instructions
 - **Full detail** on every check: result, what you're losing, how to fix
+- **15-minute video walkthrough** — recorded Loom walkthrough of your specific results, delivered within 24 hours
 - **Save as PDF** — download a clean, print-ready report to share with your dev team
-- **Free re-scan coupon** — every paid audit includes a one-time promo code for a free Deep Agent Audit on a different product page
+- **Free re-scan coupon** — every paid audit includes a one-time promo code for a free audit on a different product page
 
 **Safety:** checkout is blocked if browser checks are unavailable (Playwright not installed). Customers never pay for a degraded scan. If a site geo-blocks the scanner, all browser check failures are disclosed with an explanation.
 

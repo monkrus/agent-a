@@ -69,7 +69,7 @@ For production with Stripe:
 export SHOPPER=anthropic
 export ANTHROPIC_API_KEY=sk-...
 export STRIPE_SECRET_KEY=sk_live_...
-export STRIPE_PRICE_ID=price_...              # one-time $49 price object
+export STRIPE_PRICE_ID=price_...              # one-time $499 price object
 export FLASK_SECRET_KEY=$(python -c "import secrets; print(secrets.token_hex(32))")
 python app.py
 ```

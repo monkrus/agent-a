@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agent‑A — Is your store ready for AI shoppers?</title>
-  <meta name="description" content="Free scan: find out if ChatGPT, Gemini, and AI shopping agents can read, extract from, and buy on your product pages. {{ stats.check_counts.free }} free checks across 6 categories, instant results.">
+  <title>Agent-A — AI Shopping Audit for DTC Brands</title>
+  <meta name="description" content="We send a real AI agent to your store. It tries to extract your price, add to cart, and reach checkout. You get a 42-check audit with fix recipes and a video walkthrough. $499.">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -13,12 +13,12 @@
     <div class="nav-inner">
       <div class="nav-links">
         <a href="/" class="nav-brand">Agent&#8209;A</a>
-        <a href="#what-we-check">What we check</a>
+        <a href="#what-you-get">What you get</a>
         <a href="#how-it-works">How it works</a>
         <a href="{{ url_for('leaderboard_page') }}">Leaderboard</a>
         <a href="{{ url_for('agent_traffic_page') }}">AI agents</a>
         <a href="#faq">FAQ</a>
-        <span style="font-size:0.9rem;color:#facc15;font-weight:600;letter-spacing:0.03em;"><span style="font-size:1.25rem;" id="scan-counter">{{ stats.total_scans }}</span> scans completed</span>
+        <span style="font-size:0.9rem;color:#facc15;font-weight:600;letter-spacing:0.03em;"><span style="font-size:1.25rem;" id="scan-counter">{{ stats.total_scans }}</span> audits run</span>
       </div>
     </div>
   </nav>
@@ -27,10 +27,11 @@
 
     <!-- HERO -->
     <header>
-      <h1>AI agents are shopping.<br>Most stores can't sell to them.</h1>
-      <p class="subtitle" style="font-size:1.25rem; line-height:1.7; max-width:700px; margin:1rem auto;">ChatGPT, Perplexity, and Gemini decide what to recommend by reading your product pages. If an agent can't extract your price or find Add&nbsp;to&nbsp;Cart, the sale goes to a competitor — <strong style="color:#f87171;">silently, with nothing in your analytics to explain&nbsp;it.</strong></p>
+      <h1>We send a real AI agent<br>to your store. It tries to buy.</h1>
+      <p class="subtitle" style="font-size:1.25rem; line-height:1.7; max-width:700px; margin:1rem auto;">ChatGPT, Perplexity, and Gemini are already shopping for your customers. We test whether they can actually read your price, find Add&nbsp;to&nbsp;Cart, and reach checkout. <strong style="color:#f87171;">Most stores fail.</strong></p>
     </header>
 
+    <!-- QUICK PREVIEW SCAN -->
     <div class="card hero-card">
 
       {% if error %}
@@ -41,7 +42,7 @@
       <form action="{{ url_for('scan') }}" method="post" class="scan-form" id="scan-form">
         <div class="input-row">
           <input type="text" id="url" name="url" placeholder="your-store.com/products/product-name" required>
-          <button type="submit" id="scan-btn">Scan free</button>
+          <button type="submit" id="scan-btn">Quick preview</button>
           <button type="button" id="clear-btn" style="display:none;" onclick="
             document.getElementById('stream-results').style.display='none';
             document.getElementById('stream-log').innerHTML='';
@@ -54,10 +55,10 @@
         </div>
       </form>
 
-      <p class="note" style="white-space:nowrap;">Paste a product URL, not a homepage. <span style="color:#4ade80;font-weight:600;">Free</span> score in under a minute — <span style="color:#a78bfa;font-weight:600;">Full Audit</span> with fixes $49.</p>
+      <p class="note" style="white-space:nowrap;">Paste a product URL for a free structural preview. The <span style="color:#a78bfa;font-weight:600;">Full Audit</span> sends a real AI shopper.</p>
 
       <div id="stream-results" style="display:none; padding:1.5rem 0;">
-        <div id="stream-legend" style="font-size:0.9rem; color:#8b8b96; margin-bottom:0.75rem;"><span style="color:#4ade80;">&#10003;</span> pass &nbsp; <span style="color:#f87171;">&#10007;</span> fail &nbsp; <span style="color:#facc15;">?</span> inconclusive — not enough information to determine</div>
+        <div id="stream-legend" style="font-size:0.9rem; color:#8b8b96; margin-bottom:0.75rem;"><span style="color:#4ade80;">&#10003;</span> pass &nbsp; <span style="color:#f87171;">&#10007;</span> fail &nbsp; <span style="color:#facc15;">?</span> inconclusive</div>
         <div id="stream-log" style="font-family:monospace; font-size:0.9rem; line-height:1.8; color:#c8c8d0;"></div>
         <div id="stream-score" style="display:none; text-align:center; margin-top:1.5rem;"></div>
       </div>
@@ -79,7 +80,7 @@
             timerSpan.style.cssText = 'color:#8b8b96;font-size:0.9rem;margin-left:0.75rem;';
             document.getElementById('scan-btn').parentNode.appendChild(timerSpan);
           }
-          timerSpan.textContent = 'Scan is running… 0s';
+          timerSpan.textContent = 'Scan is running... 0s';
 
           const log = document.getElementById('stream-log');
           const scoreDiv = document.getElementById('stream-score');
@@ -92,7 +93,7 @@
             const m = Math.floor(elapsed / 60);
             const s = elapsed % 60;
             const ts = m > 0 ? m + ':' + (s < 10 ? '0' : '') + s : s + 's';
-            timerSpan.textContent = 'Scan is running… ' + ts;
+            timerSpan.textContent = 'Scan is running... ' + ts;
           }, 1000);
 
           const es = new EventSource('/scan-stream?url=' + encodeURIComponent(url));
@@ -123,8 +124,7 @@
               const icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">&#10003;</span>'
                          : d.verdict === 'FAIL' ? '<span style="color:#f87171;">&#10007;</span>'
                          : '<span style="color:#facc15;">?</span>';
-              const html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title
-;
+              const html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title;
               const existing = document.getElementById('running-' + d.id);
               if (existing) {
                 existing.innerHTML = html;
@@ -161,28 +161,27 @@
               const es2 = elapsed % 60;
               const finalTime = em > 0 ? em + 'm ' + es2 + 's' : es2 + 's';
               timerSpan.textContent = finalTime;
-              addLine('<br><span style="color:#4ade80;font-weight:bold;">Scan complete &mdash; ' + finalTime + '</span>');
+              addLine('<br><span style="color:#4ade80;font-weight:bold;">Preview complete &mdash; ' + finalTime + '</span>');
               const isBlocked = d.score !== undefined && d.score <= 5 && d.headline && d.headline.indexOf('BLOCKED') !== -1;
               scoreDiv.style.display = 'block';
               if (isBlocked) {
                 scoreDiv.innerHTML = '<div style="font-size:2rem;font-weight:bold;color:#f87171;">BLOCKED</div>'
                   + '<div style="color:#c8c8d0;margin:0.5rem 0;">AI shopping agents cannot access your store</div>'
-                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">View full report &rarr;</a></div>';
+                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">See what\'s blocking them &rarr;</a></div>';
               } else {
                 const color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
                 const failLine = failCount > 0
-                  ? '<div style="color:#f87171;font-weight:600;font-size:1rem;margin:0.5rem 0;">' + failCount + ' issue' + (failCount !== 1 ? 's' : '') + ' found</div>'
+                  ? '<div style="color:#f87171;font-weight:600;font-size:1rem;margin:0.5rem 0;">' + failCount + ' issue' + (failCount !== 1 ? 's' : '') + ' found — this is just the structural preview</div>'
                   : '';
-                const ctaText = failCount > 0 ? 'See what\'s broken + how to fix it' : 'View full report';
                 scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
                   + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
                   + failLine
-                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">' + ctaText + ' &rarr;</a></div>';
+                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">See full results + get the audit &rarr;</a></div>';
               }
               var ctr = document.getElementById('scan-counter');
               if (ctr) ctr.textContent = parseInt(ctr.textContent || '0') + 1;
               document.getElementById('scan-btn').disabled = false;
-              document.getElementById('scan-btn').textContent = 'Scan free';
+              document.getElementById('scan-btn').textContent = 'Quick preview';
               document.getElementById('clear-btn').style.display = '';
             }
             else if (d.type === 'error') {
@@ -192,7 +191,7 @@
               addLine('<span style="color:#f87171;">Error: ' + d.message + '</span>');
               document.getElementById('scan-btn').disabled = false;
               document.getElementById('clear-btn').style.display = '';
-              document.getElementById('scan-btn').textContent = 'Scan free';
+              document.getElementById('scan-btn').textContent = 'Quick preview';
             }
           };
 
@@ -202,81 +201,78 @@
             timerSpan.textContent = '';
             addLine('<span style="color:#f87171;">Connection lost. Please try again.</span>');
             document.getElementById('scan-btn').disabled = false;
-            document.getElementById('scan-btn').textContent = 'Scan free';
+            document.getElementById('scan-btn').textContent = 'Quick preview';
           };
         });
       </script>
     </div>
 
-    <!-- STATS -->
-    <div class="card" style="padding:1rem 1.5rem;">
-      <div class="stat-row" style="gap:1rem;">
-        <div class="stat-item">
-          <span class="stat-number" style="color:#4ade80;">{{ stats.check_counts.free }}</span>
-          <span class="stat-label"><span style="color:#4ade80;font-weight:600;">Free</span> checks</span>
+    <!-- WHAT MAKES THIS DIFFERENT -->
+    <div class="card" style="border:1px solid rgba(99,102,241,0.3); background:linear-gradient(135deg, rgba(99,102,241,0.05), rgba(167,139,250,0.05));">
+      <h2 style="text-align:center; margin-bottom:0.5rem;">Most "AI readiness" tools run static checks.<br>We send an actual AI agent.</h2>
+      <p style="text-align:center; color:var(--text-muted); max-width:600px; margin:0 auto 1.5rem;">Shopify's free scanner checks your schema markup. So does every other tool. We do that too &mdash; but then we send a real AI shopper to your page. It tries to extract your price, find the right variant, add to cart, and reach checkout. You see exactly where it fails.</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1.25rem; max-width:700px; margin:0 auto;">
+        <div style="text-align:center; padding:1rem;">
+          <div style="font-size:2rem; font-weight:700; color:#6366f1;">42</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">checks across 6 categories</div>
         </div>
-        <div class="stat-item">
-          <span class="stat-number" style="background:linear-gradient(90deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">{{ stats.check_counts.paid }}</span>
-          <span class="stat-label"><span style="color:#a78bfa;font-weight:600;">Full Audit</span> checks ($49)</span>
+        <div style="text-align:center; padding:1rem;">
+          <div style="font-size:2rem; font-weight:700; color:#6366f1;">10</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">AI agent visits per check</div>
         </div>
-        <div class="stat-item">
-          <span class="stat-number">4</span>
-          <span class="stat-label">AI crawlers</span>
+        <div style="text-align:center; padding:1rem;">
+          <div style="font-size:2rem; font-weight:700; color:#6366f1;">5</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">browser purchase flows tested</div>
         </div>
-        {% if stats.total_brands >= 25 %}
-        <div class="stat-item">
-          <span class="stat-number">{{ stats.failing_pct }}%</span>
-          <span class="stat-label">Failing critical check</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ stats.total_brands }}</span>
-          <span class="stat-label">Brands scanned</span>
-        </div>
-        {% endif %}
       </div>
     </div>
 
-    <!-- 6 CATEGORIES -->
-    <div id="what-we-check" class="how-it-works" style="scroll-margin-top:70px;">
-      <h2>What we check</h2>
+    <!-- WHAT YOU GET -->
+    <div id="what-you-get" class="how-it-works" style="scroll-margin-top:70px;">
+      <h2>What's in the $499 audit</h2>
       <div class="check-grid">
         <div class="check-item">
           <span class="check-num">01</span>
-          <strong>Can agents read it?</strong>
-          <span>JSON-LD structured data, price in HTML, image alt text, llms.txt, robots.txt, sitemap, page load time, and crawler access for GPTBot, ClaudeBot, PerplexityBot, and OAI-SearchBot.</span>
-          <span class="check-tier" style="color:#4ade80;font-weight:600;">Free</span>
+          <strong>Structural analysis (32 checks)</strong>
+          <span>JSON-LD, price visibility, robots.txt, llms.txt, sitemap, page speed, crawler access across GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot, prompt injection detection, admin exposure, and 8 commerce protocol checks.</span>
         </div>
         <div class="check-item">
           <span class="check-num">02</span>
-          <strong>Can agents extract correctly?</strong>
-          <span>A real AI shopper pulls price, availability, product name, and return policy multiple times — we grade accuracy and consistency across the runs.</span>
-          <span class="check-tier" style="color:#a78bfa;font-weight:600;">Full Audit</span>
+          <strong>AI extraction testing (5 checks)</strong>
+          <span>A real Claude-powered AI shopper visits your page 10 times and extracts price, availability, product name, return policy, and shipping. We grade accuracy against your actual data and consistency across visits.</span>
         </div>
         <div class="check-item">
           <span class="check-num">03</span>
-          <strong>Can agents act on it?</strong>
-          <span>Add-to-cart semantics, variant selectors, guest checkout, and cart API (free). The Full Audit adds browser walkthroughs: a real AI shopper tries to add to cart, search, reach checkout, navigate, and find related products.</span>
-          <span class="check-tier"><span style="color:#4ade80;font-weight:600;">Free</span> + <span style="color:#a78bfa;font-weight:600;">Full Audit</span></span>
+          <strong>Browser purchase flows (5 checks)</strong>
+          <span>An AI agent with a real browser tries to: add to cart, find your product via search, reach checkout, navigate from homepage to product, and discover related products. You see every step it takes.</span>
         </div>
         <div class="check-item">
           <span class="check-num">04</span>
-          <strong>Is it safe and trustworthy?</strong>
-          <span>Prompt injection in page content and reviews, cart rate limiting, checkout bot challenges, and exposed admin or API paths.</span>
-          <span class="check-tier" style="color:#4ade80;font-weight:600;">Free</span>
+          <strong>Revenue impact estimate</strong>
+          <span>Based on your product price and failure pattern, we estimate how much agent-assisted revenue you're leaving on the table monthly and annually, with transparent math you can adjust.</span>
         </div>
         <div class="check-item">
           <span class="check-num">05</span>
-          <strong>Does it hold up under traffic?</strong>
-          <span>Page load time against agent timeouts, and multi-user-agent blocking checked across four AI crawlers.</span>
-          <span class="check-tier" style="color:#4ade80;font-weight:600;">Free</span>
+          <strong>Fix recipes for every failure</strong>
+          <span>Copy-paste code fixes for Shopify, prioritized by severity and weight. Each recipe cross-references related checks so you fix root causes, not symptoms.</span>
         </div>
         <div class="check-item">
           <span class="check-num">06</span>
-          <strong>Does it speak agent protocols?</strong>
-          <span>MCP, OAuth, A2A, Auth.md, markdown negotiation, Link headers, DNS-AID, and Agent Skills / WebMCP / UCP / ACP.</span>
-          <span class="check-tier" style="color:#4ade80;font-weight:600;">Free</span>
+          <strong>15-minute video walkthrough</strong>
+          <span>A recorded Loom walkthrough of your specific results: what's broken, why it matters, what to fix first, and how long each fix takes. Share it with your dev team.</span>
         </div>
       </div>
+    </div>
+
+    <!-- PRICING -->
+    <div class="card paywall-card" style="text-align:center;">
+      <h2 style="margin-bottom:0.5rem;">$499 per product page</h2>
+      <p style="color:var(--text-muted); max-width:550px; margin:0 auto 1.5rem;">One-time audit. 42 checks, real AI agent testing, browser flow traces, fix recipes, revenue impact estimate, and a 15-minute video walkthrough of your results.</p>
+      <div style="display:flex; flex-direction:column; align-items:center; gap:0.75rem;">
+        <a href="#scan-top" class="btn-pay" style="display:inline-block; text-decoration:none; font-size:1.1rem; padding:0.85rem 2rem;" onclick="document.getElementById('url').focus();">Start with a free preview</a>
+        <span style="font-size:0.85rem; color:var(--text-muted);">or email <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">sergeigodev@gmail.com</a> to book directly</span>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:1rem;"><a href="{{ url_for('sample_report') }}" style="color:var(--accent);">See a sample report</a> &middot; Comparable audits from agencies run $890+.</p>
     </div>
 
     <!-- HOW IT WORKS -->
@@ -286,28 +282,28 @@
         <div class="step">
           <span class="step-num">1</span>
           <div>
-            <strong>Paste a product URL</strong>
-            <p>Any product page — optimized for Shopify, works on most platforms. We fetch it exactly the way an AI agent would.</p>
+            <strong>Run the free preview</strong>
+            <p>Paste any product URL above. We run {{ stats.check_counts.free }} structural checks live and give you a score with headline findings in under a minute. No payment, no signup.</p>
           </div>
         </div>
         <div class="step">
           <span class="step-num">2</span>
           <div>
-            <strong>We run {{ stats.check_counts.free }} checks live</strong>
-            <p>We test whether AI shoppers can read your products, buy from you, and stay safe — streamed in real time as each check finishes.</p>
+            <strong>Unlock the full audit ($499)</strong>
+            <p>The full audit sends a real AI shopping agent to your page. It extracts price, availability, and product details 10 times, then opens a browser and tries to add to cart, search, navigate, and reach checkout. Takes 2&ndash;4 minutes, streamed live.</p>
           </div>
         </div>
         <div class="step">
           <span class="step-num">3</span>
           <div>
-            <strong>Get your AI Shopping Score</strong>
-            <p>A 0–100 score showing how well AI shoppers can use your store, with your top issues. The Full Audit ($49) sends a real AI shopper to your store: extraction accuracy, browser purchase flows, estimated revenue impact, and copy-paste fix recipes.</p>
+            <strong>Get your report + video walkthrough</strong>
+            <p>Full per-check results with evidence, fix recipes, revenue impact estimate, and a 15-minute Loom walkthrough tailored to your store. Share with your dev team and start fixing.</p>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- WHO USES THIS -->
+    <!-- WHO'S SHOPPING -->
     <div class="card">
       <h2>Who's already sending agents to your store</h2>
       <div class="agent-logos">
@@ -317,28 +313,62 @@
         <span class="agent-tag">Amazon Rufus</span>
         <span class="agent-tag">Microsoft Copilot</span>
       </div>
-      <p style="font-size:0.9rem; color:var(--text-muted); margin-top:1rem;">When a shopper asks one of these agents to find a gift, it reads your product page to decide whether to recommend you. Wrong structured data or a blocked checkout means you're silently excluded.</p>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-top:1rem;">AI-referred retail traffic grew 393% year-over-year and converts 42% better than traditional search. When a shopper asks one of these agents to find a product, the agent reads your page to decide whether to recommend you. Wrong data or a broken checkout means you're silently excluded.</p>
     </div>
+
+    <!-- STATS -->
+    {% if stats.total_brands >= 10 %}
+    <div class="card" style="padding:1rem 1.5rem;">
+      <div class="stat-row" style="gap:1rem;">
+        <div class="stat-item">
+          <span class="stat-number">{{ stats.total_brands }}</span>
+          <span class="stat-label">Brands audited</span>
+        </div>
+        {% if stats.failing_pct %}
+        <div class="stat-item">
+          <span class="stat-number" style="color:#f87171;">{{ stats.failing_pct }}%</span>
+          <span class="stat-label">Failing a critical check</span>
+        </div>
+        {% endif %}
+        <div class="stat-item">
+          <span class="stat-number">42</span>
+          <span class="stat-label">Checks per audit</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-number">6</span>
+          <span class="stat-label">Categories tested</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
 
     <!-- FAQ -->
     <div id="faq" class="card" style="scroll-margin-top:120px;">
       <h2>FAQ</h2>
       <div class="faq">
         <details>
-          <summary>Is the scan really free?</summary>
-          <p>Yes. The free scan runs {{ stats.check_counts.free }} structural checks and gives you your AI Shopping Score, headline findings, and per-check pass/fail verdicts. The Full Audit ($49) runs {{ stats.check_counts.paid }} checks total — adding real AI shopping tests (price, availability, product name, return policy, shipping accuracy across multiple visits), browser purchase flows (can an AI shopper actually add to cart and reach checkout?), estimated revenue impact, sample AI responses, and copy-paste Shopify fix recipes for every failure.</p>
+          <summary>What's the difference between the free preview and the full audit?</summary>
+          <p>The free preview runs {{ stats.check_counts.free }} structural checks — the same data AI agents would read (JSON-LD, robots.txt, price visibility, security, protocols). It gives you a score and headline findings. The full audit ($499) adds real AI shopping tests: an AI agent extracts your price, availability, and product details across 10 visits, then opens a browser and attempts to add to cart, search for your product, navigate from your homepage, and reach checkout. You also get fix recipes, a revenue impact estimate, and a 15-minute video walkthrough.</p>
+        </details>
+        <details>
+          <summary>Why $499 when Shopify has a free scanner?</summary>
+          <p>Shopify's scanner runs static checks — it looks at your schema markup and page structure. We do that too (for free). The $499 audit goes further: we send a real AI agent to your store and have it try to actually buy. Static checks tell you if the data is present. Our audit tells you if an AI agent can actually use it. Comparable audits from agencies start at $890.</p>
         </details>
         <details>
           <summary>What stores do you support?</summary>
-          <p>Currently optimized for Shopify. Most checks work on any platform, including WooCommerce and BigCommerce. A few checks (like cart API) are Shopify-specific and will show as inconclusive on other platforms.</p>
+          <p>Optimized for Shopify. Most checks work on any platform including WooCommerce and BigCommerce. A few checks (like cart API) are Shopify-specific and show as inconclusive on other platforms.</p>
         </details>
         <details>
-          <summary>Do you actually send AI agents to my page?</summary>
-          <p>The free scan checks your page structure — the same data AI shoppers would read, without calling an LLM. No AI agent touches your page. The Full Audit ($49) sends a real AI shopper to your page multiple times to extract price, availability, product name, return policy, and shipping, plus runs browser flows (add to cart, search, checkout). You get pass rates, sample responses, and fix recipes.</p>
+          <summary>How long does the full audit take?</summary>
+          <p>The free preview takes 15&ndash;30 seconds. The full audit takes 2&ndash;4 minutes because it runs real AI extraction tests and browser purchase flows. Results stream live so you can watch in real time. The video walkthrough is recorded and delivered within 24 hours.</p>
         </details>
         <details>
-          <summary>How long does a scan take?</summary>
-          <p>The free scan typically takes 15–30 seconds (it makes ~20 HTTP requests to probe your site). The Full Audit takes 60–90 seconds because it runs real AI shopping tests and browser flows. The free scan streams results live; the full audit runs after payment and redirects you to the full report.</p>
+          <summary>Can I share the results with my dev team?</summary>
+          <p>Yes. Every audit gets a shareable URL, a copy-to-clipboard summary, a printable PDF view, and an email-to-team function. The video walkthrough is a Loom link you can forward to anyone.</p>
+        </details>
+        <details>
+          <summary>Do you offer ongoing monitoring?</summary>
+          <p>Not yet as a product, but we can set up recurring audits manually. Email <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">sergeigodev@gmail.com</a> if you want monthly re-scans to track improvement.</p>
         </details>
       </div>
     </div>
@@ -349,19 +379,20 @@
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:1rem;">
         <a href="{{ url_for('agent_traffic_page') }}" style="display:block; text-decoration:none; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; transition:border-color 0.2s;">
           <div style="font-weight:600; color:var(--text); margin-bottom:0.3rem;">AI Agents Shopping Guide</div>
-          <div style="font-size:0.85rem; color:var(--text-muted);">Learn which AI agents (ChatGPT, Perplexity, Gemini) are shopping on your store right now — and what happens when they can't buy.</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">Learn which AI agents are shopping on your store right now and what happens when they can't buy.</div>
         </a>
         <a href="{{ url_for('leaderboard_page') }}" style="display:block; text-decoration:none; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; transition:border-color 0.2s;">
           <div style="font-weight:600; color:var(--text); margin-bottom:0.3rem;">AI Shopping Leaderboard</div>
-          <div style="font-size:0.85rem; color:var(--text-muted);">See how DTC brands rank for AI agent readability and shoppability. Updated monthly.</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">See how DTC brands rank for AI agent readability and shoppability across verticals.</div>
         </a>
       </div>
     </div>
 
     <!-- BOTTOM CTA -->
     <div class="card paywall-card">
-      <h2>Every day without a scan<br>is revenue you can't measure losing.</h2>
-      <a href="#scan-top" class="btn-pay" style="display:inline-block; text-decoration:none;" onclick="document.getElementById('url').focus();">Scan your store — free</a>
+      <h2>AI agents are already deciding<br>whether to recommend your store.</h2>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">Find out what they see.</p>
+      <a href="#scan-top" class="btn-pay" style="display:inline-block; text-decoration:none;" onclick="document.getElementById('url').focus();">Run the free preview</a>
     </div>
 
     <footer>

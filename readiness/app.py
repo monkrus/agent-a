@@ -2126,6 +2126,11 @@ def _infer_vertical(domain):
     return _VERTICAL_DOMAINS.get(domain.lower(), "")
 
 
+@app.route("/sample-report")
+def sample_report():
+    return render_template("sample_report.html")
+
+
 @app.route("/agent-traffic")
 def agent_traffic_page():
     return render_template("agent_traffic.html")

@@ -379,7 +379,7 @@
         <p style="font-size:1.05rem; font-weight:600; color:var(--text); margin:0 0 0.25rem;">Your store has {{ failing|length }} issue{{ 's' if failing|length != 1 }} blocking AI sales</p>
         <p style="font-size:0.9rem; color:var(--text-muted); margin:0 0 1rem;">The Full Audit shows exactly what's wrong, why it matters, and how to fix each one — with copy-paste code.</p>
         {% if browser_available %}
-        <a href="#paywall" class="btn-pay" style="display:inline-block; text-decoration:none;">Get fixes for all {{ failing|length }} issues — $49 &#8595;</a>
+        <a href="#paywall" class="btn-pay" style="display:inline-block; text-decoration:none;">Get fixes for all {{ failing|length }} issues — Full Audit &#8595;</a>
         {% else %}
         <span style="color:var(--text-muted); font-size:0.9rem;">Full audit temporarily unavailable — <a href="#paywall" style="color:#818cf8;">details &#8595;</a></span>
         {% endif %}
@@ -657,22 +657,23 @@
 
     <!-- PAYWALL -->
     <div class="card paywall-card" id="paywall">
-      <h2>Full AI Shopping Audit — $49</h2>
-      <p>Your free scan checked page structure. The full audit sends a <strong>real AI shopper</strong> to your store and shows you exactly what happens.</p>
+      <h2>Full AI Shopping Audit — $499</h2>
+      <p>Your free preview checked page structure. The full audit sends a <strong>real AI shopper</strong> to your store — it tries to extract data, add to cart, and reach checkout. You see exactly where it fails.</p>
 
       <p style="font-size:0.9rem; font-weight:600; color:var(--text); margin:0.75rem 0 0.25rem;">What you get:</p>
       <ul style="list-style:none; padding:0; margin:0.5rem 0;">
-        <li style="padding:0.4rem 0;"><strong style="color:#60a5fa;">{{ stats.check_counts.paid }} checks</strong> <span style="color:var(--text-muted);">(vs {{ stats.check_counts.free }} free)</span> — adds AI shopping tests + browser purchase flows</li>
-        <li style="padding:0.4rem 0;"><strong style="color:#a78bfa;">Real AI shopping test</strong> — an AI shopper visits your page {{ data.meta.n }} times, tries to read price, availability, product name, return policy, and shipping. See how often it gets it right</li>
-        <li style="padding:0.4rem 0;"><strong style="color:#f472b6;">Browser purchase test</strong> — an AI shopper tries to add to cart, search for your product, reach checkout, navigate from homepage, and find related products</li>
-        <li style="padding:0.4rem 0;"><strong style="color:#facc15;">Revenue impact estimate</strong> — monthly/annual range based on your failure rate and industry benchmarks</li>
-        <li style="padding:0.4rem 0;"><strong style="color:#4ade80;">Copy-paste fix recipes</strong> — Shopify Liquid code, config steps, and plain-language instructions for every failing check</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#60a5fa;">{{ stats.check_counts.paid }} checks</strong> <span style="color:var(--text-muted);">(vs {{ stats.check_counts.free }} structural)</span> — adds AI extraction tests + browser purchase flows</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#a78bfa;">Real AI extraction test</strong> — an AI shopper visits your page 10 times, extracts price, availability, product name, return policy, and shipping. Graded on accuracy and consistency</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#f472b6;">5 browser purchase flows</strong> — an AI agent opens a real browser and tries: add to cart, search, checkout, homepage navigation, and product comparison</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#facc15;">Revenue impact estimate</strong> — monthly/annual loss range based on your failure pattern, with transparent math</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#4ade80;">Copy-paste fix recipes</strong> — Shopify Liquid code and instructions for every failing check, cross-referenced by root cause</li>
+        <li style="padding:0.4rem 0;"><strong style="color:#818cf8;">15-min video walkthrough</strong> — a recorded Loom walkthrough of your specific results, delivered within 24 hours</li>
       </ul>
 
-      <p style="font-size:0.9rem; color:var(--text-muted); margin:0.5rem 0;">Not included: ongoing monitoring or measured analytics integration. This is a one-time diagnostic report.</p>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin:0.5rem 0;">Comparable agency audits start at $890. We automate the testing so you get deeper analysis at a lower price.</p>
       {% if browser_available %}
       <form action="{{ url_for('checkout', scan_id=data.scan_id) }}" method="post">
-        <button type="submit" class="btn-pay">Run Full AI Shopping Audit — $49</button>
+        <button type="submit" class="btn-pay">Run Full AI Shopping Audit — $499</button>
       </form>
       {% if dev_mode and not has_stripe %}
       <p class="note">DEV MODE — clicking unlocks the report without payment.</p>
@@ -787,7 +788,7 @@
     lines.push('  - ' + {{ r.title | tojson }} + ' ({{ r.severity_if_fail }})');
     {% endfor %}
     lines.push('');
-    lines.push('Full details + fix recipes: Full AI Shopping Audit ($49)');
+    lines.push('Full details + fix recipes: Full AI Shopping Audit ($499)');
     {% endif %}
     lines.push('');
     lines.push('Scanned by Agent-A — ' + window.location.origin);
