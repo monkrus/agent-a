@@ -44,6 +44,17 @@
     @media (max-width: 600px) {
       .two-scores { flex-direction: column; align-items: center; }
     }
+    @media print {
+      body { background: #fff; color: #222; }
+      .top-nav, .btn-share, .btn-pay, .paywall-card, .trace-cta,
+      #embed-code, .no-print { display: none !important; }
+      .container { max-width: 100%; padding: 0.5cm; }
+      .card { border: 1px solid #ddd; break-inside: avoid; }
+      .score-good { color: #16a34a; }
+      .score-ok { color: #ca8a04; }
+      .score-bad { color: #dc2626; }
+      a { color: #222; text-decoration: none; }
+    }
   </style>
 </head>
 <body>
@@ -185,9 +196,10 @@
     </div>
 
     <!-- Share + CTA -->
-    <div class="card" style="text-align:center;">
+    <div class="card no-print" style="text-align:center;">
       <button class="btn-share" onclick="copyShareLink()">Copy share link</button>
       <span id="share-msg" style="font-size:0.9rem; color:var(--green); margin-left:0.5rem; display:none;">Copied!</span>
+      <button class="btn-share" onclick="window.print()" style="margin-left:0.5rem;">Download PDF</button>
     </div>
 
     {% if not agency_name %}

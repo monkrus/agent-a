@@ -127,6 +127,19 @@
       .two-scores { flex-direction: column; align-items: center; }
       .step-selector { font-size: 0.7rem; }
     }
+    @media print {
+      body { background: #fff; color: #222; }
+      .top-nav, .btn-share, .btn-pay, .paywall-card, .back-link,
+      .no-print { display: none !important; }
+      .container { max-width: 100%; padding: 0.5cm; }
+      .card { border: 1px solid #ddd; break-inside: avoid; }
+      .step-screenshot details { open: true; }
+      .step-screenshot[open] img { max-height: 300px; }
+      .score-good { color: #16a34a; }
+      .score-ok { color: #ca8a04; }
+      .score-bad { color: #dc2626; }
+      a { color: #222; text-decoration: none; }
+    }
   </style>
 </head>
 <body>
@@ -253,11 +266,12 @@
     </div>
     {% endif %}
 
-    <div class="card" style="text-align:center;">
+    <div class="card no-print" style="text-align:center;">
       <a href="{{ url_for('share', scan_id=scan_id) }}" class="btn-pay" style="display:inline-block; text-decoration:none;">View Full Scorecard</a>
       <div style="margin-top:0.75rem;">
         <button class="btn-share" onclick="copyShareLink()">Copy trace link</button>
         <span id="share-msg" style="font-size:0.9rem; color:var(--green); margin-left:0.5rem; display:none;">Copied!</span>
+        <button class="btn-share" onclick="window.print()" style="margin-left:0.5rem;">Download PDF</button>
       </div>
     </div>
 
