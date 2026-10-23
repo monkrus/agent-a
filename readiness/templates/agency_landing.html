@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent-A for Agencies — AI Shopping Audits for Your Clients</title>
+  <meta name="description" content="Scan any client store for AI agent readiness. Get white-label reports with fix recipes. $10-20/scan, sell the fixes for $1,500+.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .agency-hero { text-align: center; margin-bottom: 2rem; }
+    .agency-hero h1 { font-size: 2rem; letter-spacing: -0.03em; line-height: 1.3; }
+    .roi-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
+      max-width: 650px; margin: 2rem auto;
+    }
+    .roi-item { text-align: center; }
+    .roi-num { font-size: 2.5rem; font-weight: 800; color: var(--accent); }
+    .roi-label { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.2rem; }
+    .scenario { max-width: 600px; margin: 0 auto; }
+    .scenario-step {
+      display: flex; gap: 1rem; padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .scenario-step:last-child { border-bottom: none; }
+    .scenario-num {
+      flex-shrink: 0; width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; background: var(--accent); color: #fff;
+      font-weight: 700; font-size: 0.85rem;
+    }
+    .scenario-text strong { display: block; margin-bottom: 0.15rem; }
+    .scenario-text p { font-size: 0.9rem; color: var(--text-muted); margin: 0; }
+    .pack-row {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 1rem; max-width: 600px; margin: 1.5rem auto;
+    }
+    .pack { background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 1.25rem; text-align: center; }
+    .pack-popular { border-color: var(--accent); }
+    .pack-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--accent); font-weight: 700; margin-bottom: 0.3rem; }
+    .pack-price { font-size: 1.5rem; font-weight: 700; }
+    .pack-detail { font-size: 0.85rem; color: var(--text-muted); }
+    .pack-per { font-size: 0.8rem; color: var(--accent); margin-top: 0.2rem; }
+    @media (max-width: 600px) {
+      .roi-grid { grid-template-columns: 1fr; gap: 1rem; }
+      .agency-hero h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="nav-inner">
+      <div class="nav-links">
+        <a href="/" class="nav-brand">Agent&#8209;A</a>
+        <a href="/">Free scanner</a>
+        <a href="{{ url_for('leaderboard_page') }}">Leaderboard</a>
+      </div>
+      <div>
+        <a href="{{ url_for('agency_login') }}" style="font-size:0.85rem; color:var(--text-muted); text-decoration:none; margin-right:1rem;">Sign in</a>
+        <a href="{{ url_for('agency_register') }}" class="nav-cta">Create account</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="agency-hero">
+      <h1>Turn every client store into<br>an AI readiness project</h1>
+      <p class="subtitle" style="font-size:1.15rem; max-width:600px; margin:1rem auto; color:var(--text-muted);">
+        Scan any store for AI shopping agent readiness. Get a white-label report with fix recipes.
+        Sell the optimization for $1,500+. Your cost: $10&ndash;20.
+      </p>
+    </div>
+
+    <!-- ROI -->
+    <div class="card">
+      <div class="roi-grid">
+        <div class="roi-item">
+          <div class="roi-num">$10</div>
+          <div class="roi-label">Your cost per scan</div>
+        </div>
+        <div class="roi-item">
+          <div class="roi-num" style="color:var(--green);">$1,500+</div>
+          <div class="roi-label">What you charge to fix it</div>
+        </div>
+        <div class="roi-item">
+          <div class="roi-num" style="color:var(--yellow);">60x</div>
+          <div class="roi-label">Return on scan cost</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCENARIO -->
+    <div class="card">
+      <h2 style="text-align:center; margin-bottom:1.5rem;">How agencies use Agent-A</h2>
+      <div class="scenario">
+        <div class="scenario-step">
+          <div class="scenario-num">1</div>
+          <div class="scenario-text">
+            <strong>Paste your client's product URL</strong>
+            <p>Log into your dashboard, paste a URL, click Scan. The full 42-check audit runs in 3 minutes.</p>
+          </div>
+        </div>
+        <div class="scenario-step">
+          <div class="scenario-num">2</div>
+          <div class="scenario-text">
+            <strong>Share the white-label report</strong>
+            <p>The report shows your agency name, not ours. Share the link with your client: "Your store scored 47/100. An AI agent couldn't reach checkout."</p>
+          </div>
+        </div>
+        <div class="scenario-step">
+          <div class="scenario-num">3</div>
+          <div class="scenario-text">
+            <strong>Sell the fixes</strong>
+            <p>Every failure includes a fix recipe with code. Use them to scope the work. Typical engagement: $1,500&ndash;$3,000 per store.</p>
+          </div>
+        </div>
+        <div class="scenario-step">
+          <div class="scenario-num">4</div>
+          <div class="scenario-text">
+            <strong>Rescan to show improvement</strong>
+            <p>After fixing, rescan to show the before/after. Clients see their score jump. You prove the value.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WHAT'S IN A SCAN -->
+    <div class="card">
+      <h2 style="text-align:center; margin-bottom:1rem;">What's in every scan</h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:1rem;">
+        <div>
+          <strong style="color:var(--text);">42 checks, 6 categories</strong>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Structured data, AI extraction, browser flows, security, performance, protocol discovery.</p>
+        </div>
+        <div>
+          <strong style="color:var(--text);">Real AI shopper testing</strong>
+          <p style="font-size:0.85rem; color:var(--text-muted);">A Claude-powered agent visits the page 10 times and extracts price, availability, product name, returns, shipping.</p>
+        </div>
+        <div>
+          <strong style="color:var(--text);">5 browser purchase flows</strong>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Add to cart, search, checkout, homepage navigation, product comparison. Every step captured with screenshots.</p>
+        </div>
+        <div>
+          <strong style="color:var(--text);">Fix recipes</strong>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Copy-paste Shopify code fixes for every failure, prioritized by severity and weight.</p>
+        </div>
+        <div>
+          <strong style="color:var(--text);">Revenue impact estimate</strong>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Dollar estimate of agent-assisted revenue at risk, with transparent math your client can verify.</p>
+        </div>
+        <div>
+          <strong style="color:var(--text);">White-label report</strong>
+          <p style="font-size:0.85rem; color:var(--text-muted);">Your agency name on every report. Shareable URL, agent trace page, badge embed for client sites.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRICING -->
+    <div class="card" style="text-align:center;">
+      <h2 style="margin-bottom:0.5rem;">Simple per-scan pricing</h2>
+      <p style="color:var(--text-muted); margin-bottom:0.5rem;">Buy credits. Scan client stores. No subscription.</p>
+      <div class="pack-row">
+        <div class="pack">
+          <div class="pack-price">$199</div>
+          <div class="pack-detail">10 scans</div>
+          <div class="pack-per">$20/scan</div>
+        </div>
+        <div class="pack pack-popular">
+          <div class="pack-tag">Most popular</div>
+          <div class="pack-price">$399</div>
+          <div class="pack-detail">25 scans</div>
+          <div class="pack-per">$16/scan</div>
+        </div>
+        <div class="pack">
+          <div class="pack-price">$999</div>
+          <div class="pack-detail">100 scans</div>
+          <div class="pack-per">$10/scan</div>
+        </div>
+      </div>
+      <a href="{{ url_for('agency_register') }}" class="btn-pay" style="display:inline-block; text-decoration:none; font-size:1.1rem; padding:0.85rem 2.5rem;">Create agency account</a>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:1rem;">Need 1,000+ scans? <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">Contact us</a> for volume pricing.</p>
+    </div>
+
+    <!-- SAMPLE -->
+    <div class="card" style="text-align:center;">
+      <h2>See what a report looks like</h2>
+      <p style="color:var(--text-muted); margin-bottom:1rem;">Run a free structural preview on any product URL, or view a sample full report.</p>
+      <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+        <a href="/" class="btn-pay" style="display:inline-block; text-decoration:none; background:var(--surface); border:1px solid var(--accent); color:var(--accent);">Free preview scanner</a>
+        <a href="{{ url_for('sample_report') }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Sample report</a>
+      </div>
+    </div>
+
+    <footer>
+      <p>agent&#8209;a &middot; built by <a href="https://github.com/monkrus" style="color:var(--text-muted);">Sergei Stadnik</a></p>
+    </footer>
+  </div>
+</body>
+</html>

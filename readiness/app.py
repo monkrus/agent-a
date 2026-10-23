@@ -39,8 +39,10 @@ import sys
 from dotenv import load_dotenv
 load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
+import functools
 from flask import (Flask, Response, abort, jsonify, redirect, render_template,
                    request, session, url_for)
+from werkzeug.security import generate_password_hash, check_password_hash
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod   # noqa: E402
@@ -53,6 +55,16 @@ import emailer             # noqa: E402
 from shopper import ask_batch  # noqa: E402
 
 app = Flask(__name__)
+
+
+@app.template_filter("timestamp_to_date")
+def _timestamp_to_date_filter(ts):
+    """Convert a Unix timestamp to a readable date string."""
+    try:
+        return datetime.datetime.fromtimestamp(int(ts)).strftime("%b %d, %Y")
+    except Exception:
+        return "—"
+
 
 # ---- Reverse proxy (Railway, Render, etc.) -----------------------------------
 # Tell Flask it's behind HTTPS so session cookies, redirects, and url_for work.
@@ -137,6 +149,32 @@ def _init_store():
         key TEXT PRIMARY KEY, value INTEGER DEFAULT 0)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS send_limits (
         scan_id TEXT, ts REAL)""")
+    # Agency tables
+    conn.execute("""CREATE TABLE IF NOT EXISTS agencies (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        api_key TEXT UNIQUE NOT NULL,
+        credits INTEGER DEFAULT 0,
+        created_at REAL NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS agency_scans (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agency_id INTEGER NOT NULL,
+        scan_id TEXT NOT NULL,
+        domain TEXT NOT NULL,
+        target_url TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        FOREIGN KEY (agency_id) REFERENCES agencies(id))""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS agency_purchases (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agency_id INTEGER NOT NULL,
+        pack TEXT NOT NULL,
+        credits_added INTEGER NOT NULL,
+        amount_cents INTEGER NOT NULL,
+        stripe_session_id TEXT,
+        created_at REAL NOT NULL,
+        FOREIGN KEY (agency_id) REFERENCES agencies(id))""")
     seed = max(int(os.environ.get("SCAN_COUNT_SEED", "0")), _scan_count)
     conn.execute("""INSERT OR IGNORE INTO counters (key, value) VALUES ('total_scans', ?)""", (seed,))
     conn.commit()
@@ -611,6 +649,12 @@ def index():
     stats["total_scans"] = _get_scan_count()
     stats["check_counts"] = _check_counts()
     return render_template("index.html", stats=stats)
+
+
+@app.route("/agency")
+def agency_landing():
+    """Dedicated landing page for agencies."""
+    return render_template("agency_landing.html")
 
 
 def _index_with_error(error, status=200):
@@ -1593,9 +1637,9 @@ def paid_scan_stream(scan_id):
         impact_est = impactmod.estimate(results)
         _elapsed = round(t.time() - _t0, 1)
 
-        payload = {
-            "scan_id": new_scan_id,
-            "meta": {
+        # Preserve agency metadata from stub (if agency-initiated scan)
+        _orig_meta = data.get("meta", {})
+        _paid_meta = {
                 "target": target_url, "pack": pack, "version": version,
                 "n": n, "shopper": "anthropic", "tier": "paid",
                 "timestamp": now.isoformat(timespec="seconds"),
@@ -1605,7 +1649,13 @@ def paid_scan_stream(scan_id):
                 "free_scan_id": scan_id,
                 "browser_unavailable": not browser_ok,
                 "browser_geo_blocked": all_geo_blocked,
-            },
+        }
+        if _orig_meta.get("agency_id"):
+            _paid_meta["agency_id"] = _orig_meta["agency_id"]
+            _paid_meta["agency_name"] = _orig_meta.get("agency_name", "")
+        payload = {
+            "scan_id": new_scan_id,
+            "meta": _paid_meta,
             "readiness_score": readiness_score,
             "confidence_margin": margin,
             "headline": _headline(results),
@@ -1625,6 +1675,18 @@ def paid_scan_stream(scan_id):
         # response headers (including the session cookie) are already sent.
         # The paid flag is stored in the scan JSON at meta.paid=True instead.
         # The results() route checks this as a fallback.
+
+        # Update agency_scans to point to the final scan_id
+        if _paid_meta.get("agency_id"):
+            try:
+                _conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+                _conn.execute("UPDATE agency_scans SET scan_id = ? WHERE scan_id = ?",
+                              (new_scan_id, scan_id))
+                _conn.commit()
+                _conn.close()
+            except Exception:
+                _logger.exception("Failed to update agency_scans for %s -> %s",
+                                  scan_id, new_scan_id)
 
         # Generate a unique single-use promo code for a free re-scan
         rescan_coupon_id = os.environ.get("STRIPE_RESCAN_COUPON_ID")
@@ -1853,6 +1915,8 @@ def share(scan_id):
     has_traces = any(r.get("type") == "browser" and r.get("browser_result", {}).get("steps")
                      for r in results)
 
+    agency_name = data.get("meta", {}).get("agency_name", "")
+
     return render_template("share.html",
                            data=data, score=score, domain=domain,
                            layers=layers, findings=findings,
@@ -1860,7 +1924,8 @@ def share(scan_id):
                            shoppable_score=rs_scores["shoppable"],
                            has_traces=has_traces, scan_id=scan_id,
                            og_description=og_desc, og_image_url=og_image_url,
-                           canonical_url=canonical_url)
+                           canonical_url=canonical_url,
+                           agency_name=agency_name)
 
 
 # -- Readable vs Shoppable score split ----------------------------------------
@@ -1947,13 +2012,16 @@ def share_trace(scan_id):
 
     canonical_url = request.host_url.rstrip("/") + url_for("share_trace", scan_id=scan_id)
 
+    agency_name = data.get("meta", {}).get("agency_name", "")
+
     return render_template("trace.html",
                            scan_id=scan_id, data=data, domain=domain,
                            flows=flows,
                            readable_score=scores["readable"],
                            shoppable_score=scores["shoppable"],
                            og_description=og_desc,
-                           canonical_url=canonical_url)
+                           canonical_url=canonical_url,
+                           agency_name=agency_name)
 
 
 @app.route("/r/<scan_id>/og.png")
@@ -2349,6 +2417,318 @@ def api_seed_leaderboard():
     t = threading.Thread(target=_seed_worker, daemon=True)
     t.start()
     return jsonify({"status": "started", "targets": len(_SEED_TARGETS)})
+
+
+# ===========================================================================
+# AGENCY SYSTEM — auth, credits, dashboard, scanning
+# ===========================================================================
+
+_CREDIT_PACKS = {
+    "pack_10":  {"credits": 10,  "price_cents": 19900,  "label": "10 scans",  "price_display": "$199"},
+    "pack_25":  {"credits": 25,  "price_cents": 39900,  "label": "25 scans",  "price_display": "$399"},
+    "pack_100": {"credits": 100, "price_cents": 99900,  "label": "100 scans", "price_display": "$999"},
+}
+
+
+def _get_agency(agency_id: int) -> dict | None:
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        row = conn.execute("SELECT id, name, email, api_key, credits, created_at "
+                           "FROM agencies WHERE id = ?", (agency_id,)).fetchone()
+        if not row:
+            return None
+        return {"id": row[0], "name": row[1], "email": row[2],
+                "api_key": row[3], "credits": row[4], "created_at": row[5]}
+    finally:
+        conn.close()
+
+
+def _get_agency_by_email(email: str) -> dict | None:
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        row = conn.execute("SELECT id, name, email, password_hash, api_key, credits, created_at "
+                           "FROM agencies WHERE email = ?", (email.lower().strip(),)).fetchone()
+        if not row:
+            return None
+        return {"id": row[0], "name": row[1], "email": row[2], "password_hash": row[3],
+                "api_key": row[4], "credits": row[5], "created_at": row[6]}
+    finally:
+        conn.close()
+
+
+def _get_agency_scans(agency_id: int, limit: int = 50) -> list[dict]:
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        rows = conn.execute(
+            "SELECT scan_id, domain, target_url, created_at FROM agency_scans "
+            "WHERE agency_id = ? ORDER BY created_at DESC LIMIT ?",
+            (agency_id, limit)).fetchall()
+        return [{"scan_id": r[0], "domain": r[1], "target_url": r[2], "created_at": r[3]}
+                for r in rows]
+    finally:
+        conn.close()
+
+
+def _deduct_credit(agency_id: int) -> bool:
+    """Deduct 1 credit. Returns True if successful, False if insufficient."""
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        cur = conn.execute("UPDATE agencies SET credits = credits - 1 "
+                           "WHERE id = ? AND credits > 0", (agency_id,))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def _add_credits(agency_id: int, amount: int):
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("UPDATE agencies SET credits = credits + ? WHERE id = ?",
+                     (amount, agency_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _record_agency_scan(agency_id: int, scan_id: str, domain: str, target_url: str):
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("INSERT INTO agency_scans (agency_id, scan_id, domain, target_url, created_at) "
+                     "VALUES (?, ?, ?, ?, ?)",
+                     (agency_id, scan_id, domain, target_url, _time.time()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _record_purchase(agency_id: int, pack: str, credits_added: int,
+                     amount_cents: int, stripe_session_id: str | None = None):
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("INSERT INTO agency_purchases (agency_id, pack, credits_added, "
+                     "amount_cents, stripe_session_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                     (agency_id, pack, credits_added, amount_cents,
+                      stripe_session_id, _time.time()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def agency_required(f):
+    """Decorator: redirect to login if no agency session."""
+    @functools.wraps(f)
+    def decorated(*args, **kwargs):
+        agency_id = session.get("agency_id")
+        if not agency_id:
+            return redirect(url_for("agency_login"))
+        agency = _get_agency(agency_id)
+        if not agency:
+            session.pop("agency_id", None)
+            return redirect(url_for("agency_login"))
+        return f(agency, *args, **kwargs)
+    return decorated
+
+
+@app.route("/agency/register", methods=["GET", "POST"])
+def agency_register():
+    if session.get("agency_id"):
+        return redirect(url_for("agency_dashboard"))
+    if request.method == "GET":
+        return render_template("agency_register.html")
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+    if not name or not email or not password:
+        return render_template("agency_register.html", error="All fields are required.")
+    if len(password) < 8:
+        return render_template("agency_register.html", error="Password must be at least 8 characters.")
+    if _get_agency_by_email(email):
+        return render_template("agency_register.html", error="An account with that email already exists.")
+    api_key = f"aa_{secrets.token_hex(24)}"
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("INSERT INTO agencies (name, email, password_hash, api_key, credits, created_at) "
+                     "VALUES (?, ?, ?, ?, ?, ?)",
+                     (name, email, generate_password_hash(password), api_key, 0, _time.time()))
+        conn.commit()
+        row = conn.execute("SELECT id FROM agencies WHERE email = ?", (email,)).fetchone()
+        session["agency_id"] = row[0]
+    finally:
+        conn.close()
+    return redirect(url_for("agency_dashboard"))
+
+
+@app.route("/agency/login", methods=["GET", "POST"])
+def agency_login():
+    if session.get("agency_id"):
+        return redirect(url_for("agency_dashboard"))
+    if request.method == "GET":
+        return render_template("agency_login.html")
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+    agency = _get_agency_by_email(email)
+    if not agency or not check_password_hash(agency["password_hash"], password):
+        return render_template("agency_login.html", error="Invalid email or password.")
+    session["agency_id"] = agency["id"]
+    return redirect(url_for("agency_dashboard"))
+
+
+@app.route("/agency/logout")
+def agency_logout():
+    session.pop("agency_id", None)
+    return redirect(url_for("agency_login"))
+
+
+@app.route("/agency/dashboard")
+@agency_required
+def agency_dashboard(agency):
+    scans = _get_agency_scans(agency["id"])
+    # Load score for each scan
+    for s in scans:
+        data = _load_scan(s["scan_id"])
+        s["score"] = data.get("readiness_score") if data else None
+    return render_template("agency_dashboard.html", agency=agency, scans=scans,
+                           credit_packs=_CREDIT_PACKS)
+
+
+@app.route("/agency/scan", methods=["POST"])
+@agency_required
+def agency_scan(agency):
+    """Start a full (paid-tier) scan using 1 agency credit."""
+    raw_url = request.form.get("url", "")
+    url, err = _normalize_and_validate_url(raw_url)
+    if err:
+        return jsonify({"error": err}), 400
+    if not _deduct_credit(agency["id"]):
+        return jsonify({"error": "No credits remaining. Purchase a credit pack to continue."}), 402
+    # Generate scan_id
+    now = datetime.datetime.now()
+    scan_id = hashlib.sha256(f"{url}:{now.isoformat()}".encode()).hexdigest()[:12]
+    from urllib.parse import urlparse
+    domain = urlparse(url).hostname or url
+    # Save minimal scan stub so processing page can show the target
+    stub = {"scan_id": scan_id, "meta": {"target": url, "timestamp": now.isoformat(),
+            "domain": domain, "agency_id": agency["id"],
+            "agency_name": agency["name"]}}
+    (SCANS_DIR / f"{scan_id}.json").write_text(json.dumps(stub, indent=2))
+    # Record in agency_scans
+    _record_agency_scan(agency["id"], scan_id, domain, url)
+    # Mark as paid so the existing paid_scan_stream works
+    session[f"paid_verified_{scan_id}"] = True
+    return redirect(url_for("agency_processing", scan_id=scan_id))
+
+
+@app.route("/agency/processing/<scan_id>")
+@agency_required
+def agency_processing(agency, scan_id):
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+    # Verify this scan belongs to this agency
+    meta = data.get("meta", {})
+    if meta.get("agency_id") != agency["id"]:
+        # Also check agency_scans table
+        conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+        try:
+            row = conn.execute("SELECT 1 FROM agency_scans WHERE agency_id = ? AND scan_id = ?",
+                               (agency["id"], scan_id)).fetchone()
+        finally:
+            conn.close()
+        if not row:
+            abort(403)
+    target = meta.get("target", "")
+    # Ensure paid_verified is set so SSE stream works
+    session[f"paid_verified_{scan_id}"] = True
+    return render_template("processing.html", scan_id=scan_id, target=target)
+
+
+@app.route("/agency/buy", methods=["POST"])
+@agency_required
+def agency_buy_credits(agency):
+    """Create a Stripe checkout session for a credit pack."""
+    pack_key = request.form.get("pack", "")
+    pack = _CREDIT_PACKS.get(pack_key)
+    if not pack:
+        abort(400, description="Invalid credit pack.")
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    if not stripe_key:
+        if os.environ.get("DEV_MODE", "").lower() == "true":
+            # Dev mode: add credits directly
+            _add_credits(agency["id"], pack["credits"])
+            _record_purchase(agency["id"], pack_key, pack["credits"], pack["price_cents"])
+            return redirect(url_for("agency_dashboard"))
+        abort(503, description="Payment system is not configured.")
+    import stripe
+    stripe.api_key = stripe_key
+    checkout_session = stripe.checkout.Session.create(
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "unit_amount": pack["price_cents"],
+                "product_data": {"name": f"Agent-A {pack['label']} credit pack"},
+            },
+            "quantity": 1,
+        }],
+        mode="payment",
+        success_url=request.host_url.rstrip("/") +
+                     url_for("agency_payment_success") +
+                     "?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url=request.host_url.rstrip("/") + url_for("agency_dashboard"),
+        metadata={"agency_id": str(agency["id"]), "pack": pack_key},
+    )
+    return redirect(checkout_session.url, code=303)
+
+
+@app.route("/agency/payment-success")
+@agency_required
+def agency_payment_success(agency):
+    """Verify Stripe payment and add credits."""
+    stripe_session_id = request.args.get("session_id", "")
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    if not stripe_key or not stripe_session_id:
+        return redirect(url_for("agency_dashboard"))
+    try:
+        import stripe
+        stripe.api_key = stripe_key
+        cs = stripe.checkout.Session.retrieve(stripe_session_id)
+        meta = cs.metadata.to_dict() if hasattr(cs.metadata, "to_dict") else dict(cs.metadata or {})
+        if cs.payment_status not in ("paid", "no_payment_required"):
+            _logger.warning("Agency credit purchase not paid: %s", cs.payment_status)
+            return redirect(url_for("agency_dashboard"))
+        if str(meta.get("agency_id")) != str(agency["id"]):
+            _logger.warning("Agency ID mismatch in credit purchase: %s vs %s",
+                            meta.get("agency_id"), agency["id"])
+            return redirect(url_for("agency_dashboard"))
+        pack_key = meta.get("pack", "")
+        pack = _CREDIT_PACKS.get(pack_key)
+        if not pack:
+            _logger.warning("Unknown pack in credit purchase: %s", pack_key)
+            return redirect(url_for("agency_dashboard"))
+        # Check for duplicate redemption
+        conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+        try:
+            dup = conn.execute("SELECT 1 FROM agency_purchases WHERE stripe_session_id = ?",
+                               (stripe_session_id,)).fetchone()
+        finally:
+            conn.close()
+        if dup:
+            _logger.info("Duplicate credit purchase redemption: %s", stripe_session_id)
+            return redirect(url_for("agency_dashboard"))
+        _add_credits(agency["id"], pack["credits"])
+        _record_purchase(agency["id"], pack_key, pack["credits"],
+                         pack["price_cents"], stripe_session_id)
+        _logger.info("Agency %s purchased %s (%d credits)", agency["id"], pack_key, pack["credits"])
+    except Exception:
+        _logger.exception("Agency credit purchase verification failed")
+    return redirect(url_for("agency_dashboard"))
+
+
+@app.route("/agency/api-key")
+@agency_required
+def agency_api_key(agency):
+    """Return the agency's API key (for copy/paste in dashboard)."""
+    return jsonify({"api_key": agency["api_key"]})
 
 
 if __name__ == "__main__":

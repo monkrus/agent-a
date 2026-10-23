@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Agent-A — AI Shopping Audit for DTC Brands</title>
-  <meta name="description" content="We send a real AI agent to your store. It tries to extract your price, add to cart, and reach checkout. You get a 42-check audit with fix recipes and a video walkthrough. $499.">
+  <title>Agent-A — AI Shopping Readiness Scanner</title>
+  <meta name="description" content="We send a real AI agent to any store. It tries to extract the price, add to cart, and reach checkout. 42-check audit with browser flow traces and fix recipes. Free preview, pay-per-scan for agencies.">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
@@ -18,7 +18,7 @@
         <a href="{{ url_for('leaderboard_page') }}">Leaderboard</a>
         <a href="{{ url_for('agent_traffic_page') }}">AI agents</a>
         <a href="#faq">FAQ</a>
-        <span style="font-size:0.9rem;color:#facc15;font-weight:600;letter-spacing:0.03em;"><span style="font-size:1.25rem;" id="scan-counter">{{ stats.total_scans }}</span> audits run</span>
+        <a href="{{ url_for('agency_login') }}" class="nav-cta">Agency login</a>
       </div>
     </div>
   </nav>
@@ -55,7 +55,7 @@
         </div>
       </form>
 
-      <p class="note" style="white-space:nowrap;">Paste a product URL for a free structural preview. The <span style="color:#a78bfa;font-weight:600;">Full Audit</span> sends a real AI shopper.</p>
+      <p class="note" style="white-space:nowrap;">Free structural preview. <a href="{{ url_for('agency_login') }}" style="color:#a78bfa;font-weight:600;text-decoration:none;">Agency accounts</a> get the full audit with browser flows.</p>
 
       <div id="stream-results" style="display:none; padding:1.5rem 0;">
         <div id="stream-legend" style="font-size:0.9rem; color:#8b8b96; margin-bottom:0.75rem;"><span style="color:#4ade80;">&#10003;</span> pass &nbsp; <span style="color:#f87171;">&#10007;</span> fail &nbsp; <span style="color:#facc15;">?</span> inconclusive</div>
@@ -176,10 +176,8 @@
                 scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
                   + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
                   + failLine
-                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">See full results + get the audit &rarr;</a></div>';
+                  + '<div style="margin-top:1rem;"><a href="/results/' + d.scan_id + '" class="btn-pay" style="display:inline-block;text-decoration:none;">See full results &rarr;</a></div>';
               }
-              var ctr = document.getElementById('scan-counter');
-              if (ctr) ctr.textContent = parseInt(ctr.textContent || '0') + 1;
               document.getElementById('scan-btn').disabled = false;
               document.getElementById('scan-btn').textContent = 'Quick preview';
               document.getElementById('clear-btn').style.display = '';
@@ -229,7 +227,7 @@
 
     <!-- WHAT YOU GET -->
     <div id="what-you-get" class="how-it-works" style="scroll-margin-top:70px;">
-      <h2>What's in the $499 audit</h2>
+      <h2>What's in a full scan</h2>
       <div class="check-grid">
         <div class="check-item">
           <span class="check-num">01</span>
@@ -244,7 +242,7 @@
         <div class="check-item">
           <span class="check-num">03</span>
           <strong>Browser purchase flows (5 checks)</strong>
-          <span>An AI agent with a real browser tries to: add to cart, find your product via search, reach checkout, navigate from homepage to product, and discover related products. You see every step it takes.</span>
+          <span>An AI agent with a real browser tries to: add to cart, find your product via search, reach checkout, navigate from homepage to product, and discover related products. You see every step with screenshots.</span>
         </div>
         <div class="check-item">
           <span class="check-num">04</span>
@@ -258,21 +256,35 @@
         </div>
         <div class="check-item">
           <span class="check-num">06</span>
-          <strong>15-minute video walkthrough</strong>
-          <span>A recorded Loom walkthrough of your specific results: what's broken, why it matters, what to fix first, and how long each fix takes. Share it with your dev team.</span>
+          <strong>White-label reports</strong>
+          <span>Agency accounts get branded reports with their name — share directly with clients. Includes shareable URLs, agent trace pages with step-by-step screenshots, and badge embeds.</span>
         </div>
       </div>
     </div>
 
-    <!-- PRICING -->
-    <div class="card paywall-card" style="text-align:center;">
-      <h2 style="margin-bottom:0.5rem;">$499 per product page</h2>
-      <p style="color:var(--text-muted); max-width:550px; margin:0 auto 1.5rem;">One-time audit. 42 checks, real AI agent testing, browser flow traces, fix recipes, revenue impact estimate, and a 15-minute video walkthrough of your results.</p>
-      <div style="display:flex; flex-direction:column; align-items:center; gap:0.75rem;">
-        <a href="#scan-top" class="btn-pay" style="display:inline-block; text-decoration:none; font-size:1.1rem; padding:0.85rem 2rem;" onclick="document.getElementById('url').focus();">Start with a free preview</a>
-        <span style="font-size:0.85rem; color:var(--text-muted);">or email <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">sergeigodev@gmail.com</a> to book directly</span>
+    <!-- FOR AGENCIES -->
+    <div class="card paywall-card" id="agencies" style="text-align:center; scroll-margin-top:70px;">
+      <h2 style="margin-bottom:0.5rem;">Built for Shopify agencies</h2>
+      <p style="color:var(--text-muted); max-width:550px; margin:0 auto 1.5rem;">Scan any client store, get a white-label report with fix recipes. Your clients see the problems &mdash; you sell the fixes. 60x markup on every scan.</p>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:1rem; max-width:600px; margin:0 auto 1.5rem;">
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;">
+          <div style="font-size:1.4rem; font-weight:700;">$199</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">10 scans</div>
+          <div style="font-size:0.8rem; color:var(--accent);">$20/scan</div>
+        </div>
+        <div style="background:var(--bg); border:1px solid var(--accent); border-radius:8px; padding:1rem; text-align:center;">
+          <div style="font-size:1.4rem; font-weight:700;">$399</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">25 scans</div>
+          <div style="font-size:0.8rem; color:var(--accent);">$16/scan</div>
+        </div>
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;">
+          <div style="font-size:1.4rem; font-weight:700;">$999</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">100 scans</div>
+          <div style="font-size:0.8rem; color:var(--accent);">$10/scan</div>
+        </div>
       </div>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:1rem;"><a href="{{ url_for('sample_report') }}" style="color:var(--accent);">See a sample report</a> &middot; Comparable audits from agencies run $890+.</p>
+      <a href="{{ url_for('agency_register') }}" class="btn-pay" style="display:inline-block; text-decoration:none; font-size:1.1rem; padding:0.85rem 2rem;">Create agency account</a>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-top:1rem;"><a href="{{ url_for('sample_report') }}" style="color:var(--accent);">See a sample report</a> &middot; <a href="{{ url_for('agency_login') }}" style="color:var(--accent);">Already have an account?</a></p>
     </div>
 
     <!-- HOW IT WORKS -->
@@ -289,15 +301,15 @@
         <div class="step">
           <span class="step-num">2</span>
           <div>
-            <strong>Unlock the full audit ($499)</strong>
-            <p>The full audit sends a real AI shopping agent to your page. It extracts price, availability, and product details 10 times, then opens a browser and tries to add to cart, search, navigate, and reach checkout. Takes 2&ndash;4 minutes, streamed live.</p>
+            <strong>Create an agency account</strong>
+            <p>Sign up, buy a credit pack, and scan any client's store. The full scan sends a real AI shopping agent, tests browser purchase flows, and takes 2&ndash;4 minutes streamed live.</p>
           </div>
         </div>
         <div class="step">
           <span class="step-num">3</span>
           <div>
-            <strong>Get your report + video walkthrough</strong>
-            <p>Full per-check results with evidence, fix recipes, revenue impact estimate, and a 15-minute Loom walkthrough tailored to your store. Share with your dev team and start fixing.</p>
+            <strong>Send the report to your client</strong>
+            <p>Every scan produces a white-label report with your agency name: scores, findings, fix recipes, agent traces with screenshots, and badge embeds. Share the link or download a PDF.</p>
           </div>
         </div>
       </div>
@@ -347,28 +359,28 @@
       <h2>FAQ</h2>
       <div class="faq">
         <details>
-          <summary>What's the difference between the free preview and the full audit?</summary>
-          <p>The free preview runs {{ stats.check_counts.free }} structural checks — the same data AI agents would read (JSON-LD, robots.txt, price visibility, security, protocols). It gives you a score and headline findings. The full audit ($499) adds real AI shopping tests: an AI agent extracts your price, availability, and product details across 10 visits, then opens a browser and attempts to add to cart, search for your product, navigate from your homepage, and reach checkout. You also get fix recipes, a revenue impact estimate, and a 15-minute video walkthrough.</p>
+          <summary>What's the difference between the free preview and a full scan?</summary>
+          <p>The free preview runs {{ stats.check_counts.free }} structural checks — the same data AI agents would read (JSON-LD, robots.txt, price visibility, security, protocols). It gives you a score and headline findings. A full scan (via agency account) adds real AI shopping tests: an AI agent extracts price, availability, and product details across 10 visits, then opens a browser and attempts to add to cart, search for the product, navigate from the homepage, and reach checkout. You also get fix recipes, a revenue impact estimate, and step-by-step screenshots.</p>
         </details>
         <details>
-          <summary>Why $499 when Shopify has a free scanner?</summary>
-          <p>Shopify's scanner runs static checks — it looks at your schema markup and page structure. We do that too (for free). The $499 audit goes further: we send a real AI agent to your store and have it try to actually buy. Static checks tell you if the data is present. Our audit tells you if an AI agent can actually use it. Comparable audits from agencies start at $890.</p>
+          <summary>How is this different from Shopify's free scanner?</summary>
+          <p>Shopify's scanner runs static checks — it looks at your schema markup and page structure. We do that too (for free). The full scan goes further: we send a real AI agent to the store and have it try to actually buy. Static checks tell you if the data is present. Our scan tells you if an AI agent can actually use it.</p>
         </details>
         <details>
           <summary>What stores do you support?</summary>
           <p>Optimized for Shopify. Most checks work on any platform including WooCommerce and BigCommerce. A few checks (like cart API) are Shopify-specific and show as inconclusive on other platforms.</p>
         </details>
         <details>
-          <summary>How long does the full audit take?</summary>
-          <p>The free preview takes 15&ndash;30 seconds. The full audit takes 2&ndash;4 minutes because it runs real AI extraction tests and browser purchase flows. Results stream live so you can watch in real time. The video walkthrough is recorded and delivered within 24 hours.</p>
+          <summary>How long does a full scan take?</summary>
+          <p>The free preview takes 15&ndash;30 seconds. A full scan takes 2&ndash;4 minutes because it runs real AI extraction tests and browser purchase flows. Results stream live so you can watch in real time.</p>
         </details>
         <details>
-          <summary>Can I share the results with my dev team?</summary>
-          <p>Yes. Every audit gets a shareable URL, a copy-to-clipboard summary, a printable PDF view, and an email-to-team function. The video walkthrough is a Loom link you can forward to anyone.</p>
+          <summary>Can I white-label the reports?</summary>
+          <p>Yes. Agency scans produce reports with your agency name instead of Agent-A branding. Share the link directly with your clients.</p>
         </details>
         <details>
-          <summary>Do you offer ongoing monitoring?</summary>
-          <p>Not yet as a product, but we can set up recurring audits manually. Email <a href="mailto:sergeigodev@gmail.com" style="color:var(--accent);">sergeigodev@gmail.com</a> if you want monthly re-scans to track improvement.</p>
+          <summary>What's the ROI for agencies?</summary>
+          <p>Each scan costs $10&ndash;$20 depending on your pack. A typical agency charges $1,500&ndash;$3,000 for the optimization work identified by the report. That's 60&ndash;150x return on the scan cost.</p>
         </details>
       </div>
     </div>

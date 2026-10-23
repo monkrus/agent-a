@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ agency.name }} — Agent-A Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .dash-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+    .dash-header h1 { font-size: 1.4rem; letter-spacing: -0.02em; }
+    .credit-badge { font-size: 1.1rem; font-weight: 700; color: var(--accent); background: rgba(99,102,241,0.12);
+      padding: 0.4rem 1rem; border-radius: 8px; }
+
+    .scan-form-row { display: flex; gap: 0.5rem; margin-bottom: 0.3rem; }
+    .scan-form-row input { flex: 1; padding: 0.7rem 0.9rem; font-size: 1rem;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); outline: none; }
+    .scan-form-row input:focus { border-color: var(--accent); }
+    .scan-form-row button { padding: 0.7rem 1.2rem; font-size: 1rem; font-weight: 600;
+      background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer;
+      white-space: nowrap; }
+    .scan-form-row button:hover { background: var(--accent-hover); }
+    .scan-cost-note { font-size: 0.8rem; color: var(--text-muted); }
+
+    .section-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .pack-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+    .pack-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: 1rem; text-align: center; }
+    .pack-card:hover { border-color: var(--accent); }
+    .pack-price { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+    .pack-credits { font-size: 0.9rem; color: var(--text-muted); margin: 0.3rem 0; }
+    .pack-per { font-size: 0.8rem; color: var(--accent); margin-bottom: 0.6rem; }
+    .pack-btn { display: inline-block; padding: 0.45rem 1rem; font-size: 0.85rem; font-weight: 600;
+      background: var(--accent); color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+    .pack-btn:hover { background: var(--accent-hover); }
+
+    .scan-table { width: 100%; border-collapse: collapse; }
+    .scan-table th { text-align: left; font-size: 0.8rem; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.04em; padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid var(--border); }
+    .scan-table td { padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border);
+      font-size: 0.9rem; }
+    .scan-table tr:last-child td { border-bottom: none; }
+    .scan-table a { color: var(--accent); text-decoration: none; }
+    .scan-table a:hover { text-decoration: underline; }
+
+    .empty-state { text-align: center; color: var(--text-muted); padding: 2rem;
+      font-size: 0.95rem; }
+
+    .api-key-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+    .api-key-value { font-family: monospace; font-size: 0.85rem; background: var(--bg);
+      padding: 0.4rem 0.7rem; border-radius: 4px; border: 1px solid var(--border);
+      color: var(--text-muted); max-width: 350px; overflow: hidden; text-overflow: ellipsis; }
+    .copy-btn { padding: 0.3rem 0.7rem; font-size: 0.8rem; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted);
+      cursor: pointer; }
+    .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    .nav-agency { display: flex; align-items: center; gap: 1rem; }
+    .nav-agency a { font-size: 0.85rem; color: var(--text-muted); text-decoration: none; }
+    .nav-agency a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+  <nav class="top-nav">
+    <div class="nav-inner">
+      <div class="nav-links">
+        <a href="/" class="nav-brand">Agent&#8209;A</a>
+      </div>
+      <div class="nav-agency">
+        <span style="font-size:0.85rem; color:var(--text-muted);">{{ agency.name }}</span>
+        <a href="{{ url_for('agency_logout') }}">Sign out</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="dash-header">
+      <h1>Dashboard</h1>
+      <div class="credit-badge">{{ agency.credits }} credit{{ 's' if agency.credits != 1 else '' }}</div>
+    </div>
+
+    <!-- SCAN FORM -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3 class="section-title">Run a scan</h3>
+      <form action="{{ url_for('agency_scan') }}" method="post">
+        <div class="scan-form-row">
+          <input type="text" name="url" placeholder="https://store.com/products/product-name" required>
+          <button type="submit">Scan (1 credit)</button>
+        </div>
+      </form>
+      <div class="scan-cost-note">Full 42-check audit with browser flows + screenshots. Takes ~3 minutes.</div>
+    </div>
+
+    <!-- SCAN HISTORY -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3 class="section-title">Scan history</h3>
+      {% if scans %}
+      <table class="scan-table">
+        <thead>
+          <tr><th>Domain</th><th>Score</th><th>Date</th><th>Report</th></tr>
+        </thead>
+        <tbody>
+          {% for s in scans %}
+          <tr>
+            <td title="{{ s.target_url }}">{{ s.domain }}</td>
+            <td>
+              {% if s.score is not none %}
+              <span class="{% if s.score >= 80 %}score-good{% elif s.score >= 50 %}score-ok{% else %}score-bad{% endif %}"
+                    style="font-weight:700;">{{ s.score }}</span>
+              {% else %}
+              <span style="color:var(--text-muted);">—</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--text-muted); font-size:0.85rem;">{{ s.created_at | int | timestamp_to_date }}</td>
+            <td><a href="{{ url_for('share', scan_id=s.scan_id) }}">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">No scans yet. Paste a product URL above to run your first audit.</div>
+      {% endif %}
+    </div>
+
+    <!-- BUY CREDITS -->
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h3 class="section-title">Buy credits</h3>
+      <div class="pack-grid">
+        {% for key, pack in credit_packs.items() %}
+        <div class="pack-card">
+          <div class="pack-price">{{ pack.price_display }}</div>
+          <div class="pack-credits">{{ pack.credits }} scans</div>
+          <div class="pack-per">${{ (pack.price_cents / pack.credits / 100) | round(0) | int }}/scan</div>
+          <form action="{{ url_for('agency_buy_credits') }}" method="post" style="display:inline;">
+            <input type="hidden" name="pack" value="{{ key }}">
+            <button type="submit" class="pack-btn">Buy</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- API KEY -->
+    <div class="card">
+      <h3 class="section-title">API key</h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem;">Use this key for programmatic access (coming soon).</p>
+      <div class="api-key-row">
+        <code class="api-key-value" id="api-key-val">{{ agency.api_key }}</code>
+        <button class="copy-btn" onclick="copyKey()">Copy</button>
+        <span id="copy-msg" style="font-size:0.8rem; color:var(--green); display:none;">Copied!</span>
+      </div>
+    </div>
+
+    <footer>
+      <p>agent-a</p>
+    </footer>
+  </div>
+
+  <script>
+  function copyKey() {
+    navigator.clipboard.writeText(document.getElementById('api-key-val').textContent).then(function() {
+      var msg = document.getElementById('copy-msg');
+      msg.style.display = 'inline';
+      setTimeout(function() { msg.style.display = 'none'; }, 2000);
+    });
+  }
+  </script>
+</body>
+</html>

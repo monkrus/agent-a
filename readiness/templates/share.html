@@ -190,14 +190,20 @@
       <span id="share-msg" style="font-size:0.9rem; color:var(--green); margin-left:0.5rem; display:none;">Copied!</span>
     </div>
 
+    {% if not agency_name %}
     <div class="card paywall-card">
       <h2>Test Your Own Store</h2>
       <p>See if AI shopping agents can actually buy from your product pages.</p>
       <a href="{{ url_for('index') }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Run a Shopping Test</a>
     </div>
+    {% endif %}
 
     <footer>
+      {% if agency_name %}
+      <p>Report by {{ agency_name }}</p>
+      {% else %}
       <p>agent-a &middot; AI shopping test</p>
+      {% endif %}
     </footer>
   </div>
 
