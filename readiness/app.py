@@ -2015,6 +2015,15 @@ def _find_scan_by_domain(domain, exclude_scan_id=None):
     return best
 
 
+@app.route("/report/<domain>")
+def report_by_domain(domain):
+    """SEO-friendly permalink: redirect to latest scan for a domain."""
+    data = _find_scan_by_domain(domain)
+    if not data:
+        abort(404)
+    return redirect(url_for("share", scan_id=data.get("scan_id")))
+
+
 @app.route("/api/compare")
 def api_compare():
     """Return comparison data for a domain. ?domain=example.com&exclude=<scan_id>"""

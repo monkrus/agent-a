@@ -108,6 +108,21 @@
       font-size: 1rem;
     }
 
+    .step-screenshot {
+      margin-top: 0.4rem;
+    }
+    .step-screenshot summary {
+      cursor: pointer; font-size: 0.8rem; color: var(--accent);
+      user-select: none;
+    }
+    .step-screenshot summary:hover { text-decoration: underline; }
+    .step-screenshot img {
+      margin-top: 0.4rem; border-radius: 6px;
+      border: 1px solid var(--border);
+      max-width: 100%; height: auto;
+      max-height: 400px; object-fit: contain;
+    }
+
     @media (max-width: 600px) {
       .two-scores { flex-direction: column; align-items: center; }
       .step-selector { font-size: 0.7rem; }
@@ -176,6 +191,12 @@
           <div class="step-result {% if 'fail' in s.result|lower or 'error' in s.result|lower %}step-result-err{% else %}step-result-ok{% endif %}">
             {{ s.result }}
           </div>
+          {% endif %}
+          {% if s.screenshot %}
+          <details class="step-screenshot">
+            <summary>View screenshot</summary>
+            <img src="data:image/jpeg;base64,{{ s.screenshot }}" alt="Step {{ s.step }} screenshot" loading="lazy">
+          </details>
           {% endif %}
         </li>
         {% endfor %}

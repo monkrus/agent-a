@@ -426,6 +426,7 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
                             "value": "",
                             "reason": f"Stuck: clicked '{selector}' {repeat_count + 1} times with no progress",
                             "result": "fail",
+                            "screenshot": screenshot,
                         })
                         break
                 else:
@@ -438,6 +439,7 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
                     "selector": selector,
                     "value": action.get("value", ""),
                     "reason": action.get("reason", ""),
+                    "screenshot": screenshot,
                 }
 
                 if act in ("done", "fail"):
@@ -905,7 +907,8 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
                         steps.append({"step": step_num, "action": "fail",
                                       "selector": selector, "value": "",
                                       "reason": f"Stuck: repeated '{selector}' {repeat_count + 1} times",
-                                      "result": "fail"})
+                                      "result": "fail",
+                                      "screenshot": screenshot})
                         break
                 else:
                     repeat_count = 0
@@ -913,7 +916,8 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
 
                 step_record = {"step": step_num, "action": act, "selector": selector,
                                "value": action.get("value", ""),
-                               "reason": action.get("reason", "")}
+                               "reason": action.get("reason", ""),
+                               "screenshot": screenshot}
 
                 if act in ("done", "fail"):
                     step_record["result"] = act
