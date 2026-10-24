@@ -80,6 +80,10 @@
       <div class="credit-badge">{{ agency.credits }} credit{{ 's' if agency.credits != 1 else '' }}</div>
     </div>
 
+    {% if error %}
+    <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--red); padding:0.6rem 0.9rem; border-radius:6px; margin-bottom:1rem; font-size:0.9rem;">{{ error }}</div>
+    {% endif %}
+
     <!-- SCAN FORM -->
     <div class="card" style="margin-bottom:1.5rem;">
       <h3 class="section-title">Run a scan</h3>

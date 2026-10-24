@@ -2599,8 +2599,9 @@ def agency_dashboard(agency):
     for s in scans:
         data = _load_scan(s["scan_id"])
         s["score"] = data.get("readiness_score") if data else None
+    error = request.args.get("error")
     return render_template("agency_dashboard.html", agency=agency, scans=scans,
-                           credit_packs=_CREDIT_PACKS)
+                           credit_packs=_CREDIT_PACKS, error=error)
 
 
 @app.route("/agency/scan", methods=["POST"])
@@ -2610,9 +2611,9 @@ def agency_scan(agency):
     raw_url = request.form.get("url", "")
     url, err = _normalize_and_validate_url(raw_url)
     if err:
-        return jsonify({"error": err}), 400
+        return redirect(url_for("agency_dashboard", error=err))
     if not _deduct_credit(agency["id"]):
-        return jsonify({"error": "No credits remaining. Purchase a credit pack to continue."}), 402
+        return redirect(url_for("agency_dashboard", error="No credits remaining. Purchase a credit pack to continue."))
     # Generate scan_id
     now = datetime.datetime.now()
     scan_id = hashlib.sha256(f"{url}:{now.isoformat()}".encode()).hexdigest()[:12]
