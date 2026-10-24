@@ -640,8 +640,10 @@ footer {
   display: block;
   font-size: 2rem;
   font-weight: 700;
-  color: var(--accent);
+  color: #818cf8;
   letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-bottom: 0.25rem;
 }
 .stat-label {
   font-size: 0.9rem;
