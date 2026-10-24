@@ -93,6 +93,60 @@
       </div>
     </div>
 
+    <!-- Before/after comparison -->
+    {% if prev_scan and prev_scan.score is not none and score is not none %}
+    <div class="card" style="border:1px solid {% if score > prev_scan.score %}rgba(74,222,128,0.4){% elif score < prev_scan.score %}rgba(248,113,113,0.4){% else %}rgba(250,204,21,0.4){% endif %}; background:{% if score > prev_scan.score %}rgba(74,222,128,0.04){% elif score < prev_scan.score %}rgba(248,113,113,0.04){% else %}rgba(250,204,21,0.04){% endif %};">
+      <div style="display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;">
+        <div>
+          <span style="font-size:0.9rem; color:var(--text-muted);">Previous scan ({{ prev_scan.timestamp }})</span>
+          <div style="font-size:1.8rem; font-weight:700; color:var(--text-muted);">{{ prev_scan.score }}</div>
+        </div>
+        <div style="font-size:1.5rem; color:var(--text-muted);">&rarr;</div>
+        <div>
+          <span style="font-size:0.9rem; color:var(--text-muted);">This scan</span>
+          <div style="font-size:1.8rem; font-weight:700; color:{% if score > prev_scan.score %}#4ade80{% elif score < prev_scan.score %}#f87171{% else %}#facc15{% endif %};">{{ score }}</div>
+        </div>
+        <div style="margin-left:auto;">
+          {% set delta = score - prev_scan.score %}
+          {% if delta > 0 %}
+          <span style="font-size:1.3rem; font-weight:700; color:#4ade80;">+{{ delta|round(0)|int }} points</span>
+          <p style="font-size:0.9rem; color:#4ade80; margin:0;">Score improved</p>
+          {% elif delta < 0 %}
+          <span style="font-size:1.3rem; font-weight:700; color:#f87171;">{{ delta|round(0)|int }} points</span>
+          <p style="font-size:0.9rem; color:#f87171; margin:0;">Score decreased</p>
+          {% else %}
+          <span style="font-size:1.3rem; font-weight:700; color:#facc15;">No change</span>
+          {% endif %}
+        </div>
+      </div>
+      {% set fixed_checks = [] %}
+      {% set broken_checks = [] %}
+      {% for r in data.results %}
+        {% if prev_scan.verdicts.get(r.id) == 'FAIL' and r.verdict == 'PASS' %}
+          {% if fixed_checks.append(r) %}{% endif %}
+        {% elif prev_scan.verdicts.get(r.id) == 'PASS' and r.verdict == 'FAIL' %}
+          {% if broken_checks.append(r) %}{% endif %}
+        {% endif %}
+      {% endfor %}
+      {% if fixed_checks %}
+      <div style="margin-top:0.75rem;">
+        <span style="font-size:0.9rem; font-weight:600; color:#4ade80;">Fixed since last scan:</span>
+        <ul style="margin:0.25rem 0 0; padding-left:1.25rem; font-size:0.9rem; color:var(--text-muted);">
+          {% for r in fixed_checks %}<li>{{ r.title }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% if broken_checks %}
+      <div style="margin-top:0.75rem;">
+        <span style="font-size:0.9rem; font-weight:600; color:#f87171;">New issues since last scan:</span>
+        <ul style="margin:0.25rem 0 0; padding-left:1.25rem; font-size:0.9rem; color:var(--text-muted);">
+          {% for r in broken_checks %}<li>{{ r.title }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Top 3 findings -->
     {% if findings %}
     <div class="card">

@@ -547,6 +547,9 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
             "timestamp": now.isoformat(timespec="seconds"),
             "page_status": page.get("status"),
             "duration_seconds": _elapsed,
+            "shopper_model": os.environ.get("SHOPPER_MODEL", "claude-sonnet-4-6"),
+            "browser_model": os.environ.get("BROWSER_AGENT_MODEL", "claude-haiku-4-5-20251001"),
+            "check_version": version,
         },
         "readiness_score": readiness_score,
         "confidence_margin": margin,
@@ -1649,6 +1652,9 @@ def paid_scan_stream(scan_id):
                 "free_scan_id": scan_id,
                 "browser_unavailable": not browser_ok,
                 "browser_geo_blocked": all_geo_blocked,
+                "shopper_model": os.environ.get("SHOPPER_MODEL", "claude-sonnet-4-6"),
+                "browser_model": os.environ.get("BROWSER_AGENT_MODEL", "claude-haiku-4-5-20251001"),
+                "check_version": version,
         }
         if _orig_meta.get("agency_id"):
             _paid_meta["agency_id"] = _orig_meta["agency_id"]
@@ -1917,6 +1923,10 @@ def share(scan_id):
 
     agency_name = data.get("meta", {}).get("agency_name", "")
 
+    # Before/after: find previous scan of same URL
+    prev_scan = _find_previous_scan(data.get("meta", {}).get("target", ""),
+                                    data.get("scan_id", ""))
+
     return render_template("share.html",
                            data=data, score=score, domain=domain,
                            layers=layers, findings=findings,
@@ -1925,7 +1935,8 @@ def share(scan_id):
                            has_traces=has_traces, scan_id=scan_id,
                            og_description=og_desc, og_image_url=og_image_url,
                            canonical_url=canonical_url,
-                           agency_name=agency_name)
+                           agency_name=agency_name,
+                           prev_scan=prev_scan)
 
 
 # -- Readable vs Shoppable score split ----------------------------------------
@@ -2617,6 +2628,35 @@ def agency_scan(agency):
     # Mark as paid so the existing paid_scan_stream works
     session[f"paid_verified_{scan_id}"] = True
     return redirect(url_for("agency_processing", scan_id=scan_id))
+
+
+@app.route("/agency/rescan/<scan_id>", methods=["POST"])
+@agency_required
+def agency_rescan(agency, scan_id):
+    """Rescan the same URL from a previous agency scan. Deducts 1 credit."""
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+    target_url = data.get("meta", {}).get("target", "")
+    if not target_url:
+        abort(400)
+    # Verify scan belongs to this agency
+    if data.get("meta", {}).get("agency_id") != agency["id"]:
+        abort(403)
+    if not _deduct_credit(agency["id"]):
+        return redirect(url_for("agency_dashboard"))
+    # Create new scan with same URL
+    now = datetime.datetime.now()
+    new_id = hashlib.sha256(f"{target_url}:{now.isoformat()}:rescan".encode()).hexdigest()[:12]
+    from urllib.parse import urlparse
+    domain = urlparse(target_url).hostname or target_url
+    stub = {"scan_id": new_id, "meta": {"target": target_url, "timestamp": now.isoformat(),
+            "domain": domain, "agency_id": agency["id"],
+            "agency_name": agency["name"]}}
+    (SCANS_DIR / f"{new_id}.json").write_text(json.dumps(stub, indent=2))
+    _record_agency_scan(agency["id"], new_id, domain, target_url)
+    session[f"paid_verified_{new_id}"] = True
+    return redirect(url_for("agency_processing", scan_id=new_id))
 
 
 @app.route("/agency/processing/<scan_id>")
