@@ -2711,6 +2711,7 @@ def agency_buy_credits(agency):
             "quantity": 1,
         }],
         mode="payment",
+        allow_promotion_codes=True,
         success_url=request.host_url.rstrip("/") +
                      url_for("agency_payment_success") +
                      "?session_id={CHECKOUT_SESSION_ID}",
