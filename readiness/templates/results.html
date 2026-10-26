@@ -691,11 +691,20 @@
     <div class="card">
       <h2>Send to your developer</h2>
       <p>Forward this report with all the fix recipes to your dev team.</p>
+      {% if send_msg %}
+      <div style="padding:0.6rem 0.9rem; border-radius:6px; margin-bottom:0.75rem; font-size:0.9rem;
+        {% if team_sent %}background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:var(--green);
+        {% else %}background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--red);{% endif %}">
+        {{ send_msg }}
+      </div>
+      {% endif %}
+      {% if not team_sent %}
       <form action="{{ url_for('send_report', scan_id=data.scan_id) }}" method="post" style="display:flex;gap:8px;align-items:center;">
         <input type="email" name="email" placeholder="developer@yourcompany.com" required
                style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;">
         <button type="submit" class="btn-pay" style="white-space:nowrap;">Send Report</button>
       </form>
+      {% endif %}
     </div>
     {% endif %}
 

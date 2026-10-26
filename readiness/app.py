@@ -1134,6 +1134,7 @@ def results(scan_id):
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
     email_sent_to = session.get(f"email_{scan_id}")
     team_sent = session.pop(f"sent_{scan_id}", False)
+    send_msg = session.pop(f"send_msg_{scan_id}", None)
     payment_error = session.pop(f"payment_error_{scan_id}", None)
     has_email = emailer._is_configured()
     access_blocked = any(r.get("gated") for r in data.get("results", []))
@@ -1177,7 +1178,7 @@ def results(scan_id):
     return render_template("results.html", data=data, paid=paid,
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            payment_error=payment_error,
-                           email_sent_to=email_sent_to, team_sent=team_sent,
+                           email_sent_to=email_sent_to, team_sent=team_sent, send_msg=send_msg,
                            has_email=has_email, access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
                            compare_error=compare_error, rescan_promo=rescan_promo,
@@ -1792,10 +1793,14 @@ def send_report(scan_id):
     if _check_send_limit(scan_id):
         return redirect(url_for("results", scan_id=scan_id))
     target = data.get("meta", {}).get("target", "")
-    emailer.send_report(to_email, data,
-                        subject=f"AI Shopping Report for {target} (shared with you)",
-                        base_url=request.host_url.rstrip("/"))
-    session[f"sent_{scan_id}"] = True
+    ok = emailer.send_report(to_email, data,
+                             subject=f"AI Shopping Report for {target} (shared with you)",
+                             base_url=request.host_url.rstrip("/"))
+    if ok:
+        session[f"sent_{scan_id}"] = True
+        session[f"send_msg_{scan_id}"] = f"Report sent to {to_email}"
+    else:
+        session[f"send_msg_{scan_id}"] = "Failed to send email. Please try again or copy the results instead."
     return redirect(url_for("results", scan_id=scan_id))
 
 
