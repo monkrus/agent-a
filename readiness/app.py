@@ -1660,6 +1660,9 @@ def paid_scan_stream(scan_id):
         if _orig_meta.get("agency_id"):
             _paid_meta["agency_id"] = _orig_meta["agency_id"]
             _paid_meta["agency_name"] = _orig_meta.get("agency_name", "")
+        if _orig_meta.get("rescan_of"):
+            _paid_meta["rescan_of"] = _orig_meta["rescan_of"]
+            _paid_meta["free_rescan"] = _orig_meta.get("free_rescan", False)
         payload = {
             "scan_id": new_scan_id,
             "meta": _paid_meta,
@@ -2600,10 +2603,21 @@ def agency_logout():
 @agency_required
 def agency_dashboard(agency):
     scans = _get_agency_scans(agency["id"])
-    # Load score for each scan
+    # Build set of scan_ids that have been rescanned (one pass over .scans/)
+    rescanned_ids = set()
+    for p in SCANS_DIR.glob("*.json"):
+        try:
+            meta = json.loads(p.read_text()).get("meta", {})
+            parent = meta.get("rescan_of")
+            if parent:
+                rescanned_ids.add(parent)
+        except (json.JSONDecodeError, OSError):
+            continue
+    # Load score and rescan status for each scan
     for s in scans:
         data = _load_scan(s["scan_id"])
         s["score"] = data.get("readiness_score") if data else None
+        s["has_free_rescan"] = s["scan_id"] not in rescanned_ids
     error = request.args.get("error")
     return render_template("agency_dashboard.html", agency=agency, scans=scans,
                            credit_packs=_CREDIT_PACKS, error=error)
@@ -2639,7 +2653,7 @@ def agency_scan(agency):
 @app.route("/agency/rescan/<scan_id>", methods=["POST"])
 @agency_required
 def agency_rescan(agency, scan_id):
-    """Rescan the same URL from a previous agency scan. Deducts 1 credit."""
+    """Rescan the same URL. First rescan per scan is free; subsequent ones cost 1 credit."""
     data = _load_scan(scan_id)
     if not data:
         abort(404)
@@ -2649,8 +2663,22 @@ def agency_rescan(agency, scan_id):
     # Verify scan belongs to this agency
     if data.get("meta", {}).get("agency_id") != agency["id"]:
         abort(403)
-    if not _deduct_credit(agency["id"]):
-        return redirect(url_for("agency_dashboard"))
+    # Check if this scan already used its free rescan
+    # Count existing rescans of this scan_id (by checking metadata in .scans/)
+    rescan_count = 0
+    for p in SCANS_DIR.glob("*.json"):
+        if p.stem == scan_id:
+            continue
+        try:
+            meta = json.loads(p.read_text()).get("meta", {})
+            if meta.get("rescan_of") == scan_id:
+                rescan_count += 1
+        except (json.JSONDecodeError, OSError):
+            continue
+    free_rescan = rescan_count == 0
+    if not free_rescan:
+        if not _deduct_credit(agency["id"]):
+            return redirect(url_for("agency_dashboard", error="No credits remaining. First rescan is free; additional rescans cost 1 credit."))
     # Create new scan with same URL
     now = datetime.datetime.now()
     new_id = hashlib.sha256(f"{target_url}:{now.isoformat()}:rescan".encode()).hexdigest()[:12]
@@ -2658,7 +2686,8 @@ def agency_rescan(agency, scan_id):
     domain = urlparse(target_url).hostname or target_url
     stub = {"scan_id": new_id, "meta": {"target": target_url, "timestamp": now.isoformat(),
             "domain": domain, "agency_id": agency["id"],
-            "agency_name": agency["name"]}}
+            "agency_name": agency["name"], "rescan_of": scan_id,
+            "free_rescan": free_rescan}}
     (SCANS_DIR / f"{new_id}.json").write_text(json.dumps(stub, indent=2))
     _record_agency_scan(agency["id"], new_id, domain, target_url)
     session[f"paid_verified_{new_id}"] = True

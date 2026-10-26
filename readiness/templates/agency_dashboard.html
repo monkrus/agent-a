@@ -121,9 +121,15 @@
             <td>
               {% if s.score is not none %}
               <form action="{{ url_for('agency_rescan', scan_id=s.scan_id) }}" method="post" style="display:inline;">
+                {% if s.has_free_rescan %}
+                <button type="submit" style="padding:0.25rem 0.6rem; font-size:0.8rem; background:transparent;
+                  border:1px solid var(--green); border-radius:4px; color:var(--green); cursor:pointer;"
+                  title="Free rescan — verify your fixes">Rescan (free)</button>
+                {% else %}
                 <button type="submit" style="padding:0.25rem 0.6rem; font-size:0.8rem; background:transparent;
                   border:1px solid var(--border); border-radius:4px; color:var(--text-muted); cursor:pointer;"
-                  title="Rescan this URL (1 credit)">Rescan</button>
+                  title="Rescan this URL (1 credit)">Rescan (1 credit)</button>
+                {% endif %}
               </form>
               {% endif %}
             </td>
