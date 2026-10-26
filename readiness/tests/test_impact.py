@@ -26,6 +26,18 @@ class TestExtractPrice:
                            sample_answers=["49.99", "49.99"])]
         assert _extract_price(results) == 49.99
 
+    def test_cents_vs_dollars_correction(self):
+        """JSON-LD says 9900.0 but agents consistently say 99.00 → use 99.00."""
+        results = [_result(category="price-extraction", ground_truth=9900.0,
+                           sample_answers=["99.00", "99.00", "99.00"])]
+        assert _extract_price(results) == 99.0
+
+    def test_no_false_cents_correction(self):
+        """Don't correct when the ratio isn't ~100x."""
+        results = [_result(category="price-extraction", ground_truth=29.99,
+                           sample_answers=["29.99", "29.99"])]
+        assert _extract_price(results) == 29.99
+
     def test_returns_none_if_missing(self):
         results = [_result(category="structured-data")]
         assert _extract_price(results) is None

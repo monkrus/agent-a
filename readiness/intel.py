@@ -216,13 +216,15 @@ def _analyze_structured_data(page: dict) -> dict:
     types = []
     for obj in jsonld:
         if isinstance(obj, dict):
-            t = obj.get("@type", "Unknown")
+            t = obj.get("@type")
+            if not t:
+                continue
             if isinstance(t, list):
                 types.extend(t)
             else:
                 types.append(t)
 
-    return {"present": True, "types": list(set(types)), "count": len(jsonld)}
+    return {"present": True, "types": list(set(types)) or ["Untyped"], "count": len(jsonld)}
 
 
 def _detect_agent_commerce(page: dict, llms_txt_content: str | None) -> list[dict]:

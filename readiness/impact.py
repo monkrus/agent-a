@@ -99,22 +99,43 @@ def estimate(results: list[dict], product_price: float | None = None,
 
 
 def _extract_price(results: list[dict]) -> float | None:
-    """Pull product price from scan results."""
+    """Pull product price from scan results.
+
+    Cross-references JSON-LD ground truth with agent-extracted prices to
+    detect cents-vs-dollars bugs (e.g. JSON-LD says 9900.00 when the real
+    price is $99.00).
+    """
+    gt_price = None
+    agent_prices = []
+
     for r in results:
-        # Try ground truth first
+        if r.get("category") != "price-extraction":
+            continue
         gt = r.get("ground_truth")
-        if r.get("category") == "price-extraction" and isinstance(gt, (int, float)):
-            return float(gt)
-    # Try agent answers
-    for r in results:
-        if r.get("category") == "price-extraction":
-            for ans in r.get("sample_answers", []):
-                try:
-                    v = float(str(ans).replace(",", "").replace("$", ""))
-                    if 0 < v < 100_000:
-                        return v
-                except (ValueError, TypeError):
-                    continue
+        if isinstance(gt, (int, float)):
+            gt_price = float(gt)
+        for ans in r.get("sample_answers", []):
+            try:
+                v = float(str(ans).replace(",", "").replace("$", ""))
+                if 0 < v < 100_000:
+                    agent_prices.append(v)
+            except (ValueError, TypeError):
+                continue
+
+    if gt_price is not None and agent_prices:
+        # Check for cents-vs-dollars: if majority of agent answers are
+        # ~100x smaller than GT, the JSON-LD is likely in cents.
+        median_agent = sorted(agent_prices)[len(agent_prices) // 2]
+        if gt_price > 0 and median_agent > 0:
+            ratio = gt_price / median_agent
+            if 90 <= ratio <= 110:
+                # JSON-LD is ~100x the agent price → cents bug
+                return median_agent
+
+    if gt_price is not None:
+        return gt_price
+    if agent_prices:
+        return sorted(agent_prices)[len(agent_prices) // 2]
     return None
 
 

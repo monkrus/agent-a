@@ -1774,6 +1774,21 @@ def grade_shopper(check, page, answers):
                     "detail": f"no ground truth for '{check.get('ground_truth')}' "
                               f"(page doesn't expose it cleanly — itself a weakness)."}
 
+        # Cents-vs-dollars detection for price checks.
+        # If JSON-LD price is ~100x what agents consistently extract,
+        # the JSON-LD is likely in cents (e.g. 9900 instead of 99.00).
+        cents_corrected = False
+        if check.get("ground_truth") == "price" and isinstance(gt, float) and gt > 0:
+            agent_nums = [_norm_num(a) for a in answers]
+            agent_nums = [v for v in agent_nums if v is not None and v > 0]
+            if agent_nums:
+                median_agent = sorted(agent_nums)[len(agent_nums) // 2]
+                ratio = gt / median_agent
+                if 90 <= ratio <= 110:
+                    # JSON-LD is ~100x agent price → cents bug
+                    gt = median_agent
+                    cents_corrected = True
+
         # For price checks: accept alternate product prices (sale/member price)
         # but NOT arbitrary page prices like shipping ($5.99) or tax.
         # Only accept alternates within 20-150% of the GT price.
@@ -1811,6 +1826,8 @@ def grade_shopper(check, page, answers):
                         hits += 1
         frac = hits / n if n else None
         detail = f"{hits}/{n} runs matched ground truth ({gt})."
+        if cents_corrected:
+            detail += f" (Note: JSON-LD price appears to be in cents — corrected from {gt * 100:.0f} to {gt:.2f}.)"
         if alt_hits:
             detail = f"{hits}/{n} runs returned a valid price ({hits - alt_hits} matched JSON-LD ${gt}, {alt_hits} matched a visible page price)."
         if error_count:

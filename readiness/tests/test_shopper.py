@@ -227,6 +227,32 @@ class TestAlternativePriceAcceptance:
         assert r["pass_fraction"] == 0.0
         assert r["verdict"] == "FAIL"
 
+    def test_cents_vs_dollars_correction(self):
+        """JSON-LD price in cents (9900) vs agent extracting $99 → corrected, agents pass."""
+        page = _page(
+            text="Izzy Bra - $99.00 - In Stock",
+            jsonld=[{"@type": "Product", "offers": {"price": "9900.00",
+                     "priceCurrency": "USD",
+                     "availability": "https://schema.org/InStock"}}],
+        )
+        check = {"grade": "correctness", "ground_truth": "price",
+                 "severity_if_fail": "critical"}
+        answers = ["99.00", "99.00", "99.00", "99.00", "99.00"]
+        r = scorers.grade_shopper(check, page, answers)
+        assert r["pass_fraction"] == 1.0
+        assert r["verdict"] == "PASS"
+        assert "cents" in r["detail"].lower()
+
+    def test_no_false_cents_correction(self):
+        """Normal price (29.99 in JSON-LD, agent says 29.99) → no correction."""
+        page = _product_page()  # default page has price 29.99
+        check = {"grade": "correctness", "ground_truth": "price",
+                 "severity_if_fail": "critical"}
+        answers = ["29.99", "29.99", "29.99", "29.99", "29.99"]
+        r = scorers.grade_shopper(check, page, answers)
+        assert r["pass_fraction"] == 1.0
+        assert "cents" not in r.get("detail", "").lower()
+
     def test_non_price_checks_unaffected(self):
         """Availability grading should not use alternative price logic."""
         page = _product_page()
