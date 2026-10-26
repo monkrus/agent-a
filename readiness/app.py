@@ -1699,9 +1699,10 @@ def paid_scan_stream(scan_id):
                                   scan_id, new_scan_id)
 
         # Generate a unique single-use promo code for a free re-scan
+        # (only for Stripe customers, not agency scans — agencies use credits)
         rescan_coupon_id = os.environ.get("STRIPE_RESCAN_COUPON_ID")
         _stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
-        if _stripe_key and rescan_coupon_id:
+        if _stripe_key and rescan_coupon_id and not _orig_meta.get("agency_id"):
             try:
                 import stripe as _stripe
                 _stripe.api_key = _stripe_key
@@ -1809,11 +1810,14 @@ def send_report(scan_id):
 
 @app.route("/rescan/<scan_id>", methods=["POST"])
 def rescan(scan_id):
-    """Free re-scan for paid customers — re-runs the full paid scan."""
+    """Re-scan for paid customers. Agency scans route through agency rescan (credit-based)."""
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    # Only allow re-scan if the original scan was paid
+    # Agency scans must go through the agency rescan flow (credit-based)
+    if data.get("meta", {}).get("agency_id"):
+        return redirect(url_for("agency_rescan", scan_id=scan_id), code=307)
+    # Only allow re-scan if the original scan was paid (Stripe customers)
     is_paid = (session.get(f"paid_{scan_id}", False)
                or data.get("meta", {}).get("paid", False))
     if not is_paid:
