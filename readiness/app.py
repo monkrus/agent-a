@@ -41,7 +41,7 @@ load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
 import functools
 from flask import (Flask, Response, abort, jsonify, redirect, render_template,
-                   request, session, url_for)
+                   request, send_file, session, url_for)
 from werkzeug.security import generate_password_hash, check_password_hash
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -2229,6 +2229,16 @@ def _infer_vertical(domain):
 @app.route("/sample-report")
 def sample_report():
     return render_template("sample_report.html")
+
+
+@app.route("/vision/<name>")
+def vision_report(name):
+    """Serve static AI-vision reports (e.g. /vision/ninagashi)."""
+    safe = "".join(c for c in name if c.isalnum() or c in "-_").lower()
+    report = pathlib.Path(__file__).resolve().parent / f"ai-vision-{safe}.html"
+    if not report.is_file():
+        abort(404)
+    return send_file(report, mimetype="text/html")
 
 
 @app.route("/agent-traffic")
