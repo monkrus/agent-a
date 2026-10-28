@@ -472,6 +472,126 @@
     color: var(--green-muted);
   }
 
+  /* ---- SEARCH RESULTS SIM ---- */
+  .search-sim {
+    background: white;
+    border: 1px solid var(--divider);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 40px rgba(0,0,0,0.06);
+    margin-bottom: 2rem;
+  }
+  .search-bar {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--divider);
+    gap: 0.75rem;
+  }
+  .search-bar .engine {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .search-bar .query-box {
+    flex: 1;
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 24px;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.95rem;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+  }
+  .search-results-list {
+    padding: 1.5rem 2rem;
+  }
+  .search-result-item {
+    padding: 1.25rem 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-item .sr-url {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+  }
+  .search-result-item .sr-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+  }
+  .search-result-item .sr-title a {
+    color: #1a0dab;
+    text-decoration: none;
+  }
+  .search-result-item .sr-snippet {
+    font-size: 0.95rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .search-result-item .sr-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    color: var(--yellow-muted);
+    margin-top: 0.3rem;
+  }
+  .search-result-item .sr-rating .stars { color: var(--yellow); letter-spacing: 1px; }
+  .search-absent {
+    padding: 2rem;
+    text-align: center;
+    background: var(--red-soft);
+    border-top: 1px solid rgba(248,113,113,0.1);
+    color: var(--red-muted);
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  .search-present {
+    padding: 2rem;
+    text-align: center;
+    background: #f0fdf4;
+    border-top: 1px solid rgba(74,222,128,0.1);
+    color: var(--green-muted);
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  .vs-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 2rem;
+    margin: 2rem 0;
+  }
+  .vs-side {
+    text-align: center;
+    flex: 1;
+  }
+  .vs-side .vs-query {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+  .vs-side .vs-answer {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  .vs-side .vs-answer.absent { color: var(--red-muted); }
+  .vs-side .vs-answer.present { color: var(--green-muted); }
+  .vs-divider-v {
+    width: 1px;
+    height: 80px;
+    background: var(--divider);
+    flex-shrink: 0;
+  }
+
   /* ---- DIVIDER ---- */
   .section-divider {
     height: 1px;
@@ -893,12 +1013,12 @@
           </div>
 
           <br>
-          <strong>Evaluating competitor.com:</strong>
+          <strong>Evaluating daelacosmetictattoo.com (Scottsdale):</strong>
           <div class="chat-result win">
-            &check; Lists "Lip Blush" as a Service with $450 pricing<br>
-            &check; 4.9-star rating from 127 reviews<br>
-            &check; Images described: "healed lip blush, soft pink, natural"<br>
-            &check; Direct booking link in structured data
+            &check; Lists "Lip Blush Tattoo" as a named service with pricing<br>
+            &check; 5.0-star rating from 111 reviews on Yelp<br>
+            &check; 224 photos with described results<br>
+            &check; Full service menu, team bios, booking links
           </div>
 
           <br>
@@ -914,10 +1034,111 @@
 
 <div class="section-divider"></div>
 
-<!-- =========== SECTION 8: INVISIBLE =========== -->
+<!-- =========== SECTION 8: REAL SEARCH RESULTS =========== -->
+<section class="section" style="background: linear-gradient(180deg, var(--bg) 0%, #eae4dc 50%, var(--bg) 100%);">
+  <div class="container reveal">
+    <div class="section-num mono">08 &mdash; Live Search Results</div>
+    <h2 class="section-title serif">We searched. Here is what AI actually returns.</h2>
+    <p class="section-lead">
+      These are real results from October 27, 2026. We ran the exact queries
+      a potential client would ask. Nina Gashi does not appear in any of them.
+    </p>
+
+    <!-- Search 1: lip blush -->
+    <div class="search-sim">
+      <div class="search-bar">
+        <span class="engine">Google / AI Overview</span>
+        <div class="query-box">best lip blush artist Scottsdale Arizona</div>
+      </div>
+      <div class="search-results-list">
+        <div class="search-result-item">
+          <div class="sr-url">daelacosmetictattoo.com/scottsdale/services/lip-blush-tattoo</div>
+          <div class="sr-title"><a>Daela Cosmetic Tattoo Scottsdale</a></div>
+          <div class="sr-snippet">Ranked #1. Lip colors customized for each client. Experts at color and reshaping.</div>
+          <div class="sr-rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span> 5.0 (111 reviews) &middot; 224 photos</div>
+        </div>
+        <div class="search-result-item">
+          <div class="sr-url">mailash.com/lip-blushing-scottsdale</div>
+          <div class="sr-title"><a>MaiLash Brows &mdash; Lip Blush Scottsdale</a></div>
+          <div class="sr-snippet">Customized to your natural lip color, undertone, and beauty goals.</div>
+          <div class="sr-rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span> 4.7 (396 reviews)</div>
+        </div>
+        <div class="search-result-item">
+          <div class="sr-url">empoweredink.com/lip-blush</div>
+          <div class="sr-title"><a>Empowered Ink &mdash; Lip Blush</a></div>
+          <div class="sr-snippet">Destination for professional lip blushing. Experienced artist Niamh.</div>
+        </div>
+        <div class="search-result-item">
+          <div class="sr-url">glowlipblush.com</div>
+          <div class="sr-title"><a>GLOW Lip Blush by Sophia Lou</a></div>
+          <div class="sr-snippet">Soft, natural-looking lip color that defines, balances, and flatters every skin tone.</div>
+        </div>
+        <div class="search-result-item">
+          <div class="sr-url">yourfacedoneright.com/lips</div>
+          <div class="sr-title"><a>Lip Blushing in Scottsdale &mdash; Your Face Done Right</a></div>
+          <div class="sr-snippet">Professional lip blushing services in Scottsdale, AZ.</div>
+        </div>
+      </div>
+      <div class="search-absent">
+        ninagashi.com does not appear in the results.
+      </div>
+    </div>
+
+    <!-- Search 2: cosmetic tattoo -->
+    <div class="search-sim">
+      <div class="search-bar">
+        <span class="engine">Google / AI Overview</span>
+        <div class="query-box">best cosmetic tattoo Scottsdale AZ permanent makeup</div>
+      </div>
+      <div class="search-results-list">
+        <div class="search-result-item">
+          <div class="sr-url">daelacosmetictattoo.com/scottsdale</div>
+          <div class="sr-title"><a>Daela Cosmetic Tattoo Scottsdale</a></div>
+          <div class="sr-snippet">Ranked #1 nationally. Nano Brows, Microblading, Lip Blush, Eyeliner, Areola Restoration, Faux Freckles.</div>
+          <div class="sr-rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span> 5.0 (111 reviews) &middot; Full service menu</div>
+        </div>
+        <div class="search-result-item">
+          <div class="sr-url">yelp.com/search?cflt=permanentmakeup&amp;find_loc=Scottsdale</div>
+          <div class="sr-title"><a>TOP 10 BEST Permanent Makeup in Scottsdale &mdash; Yelp</a></div>
+          <div class="sr-snippet">MaiLash Brows, Permanent Effects, Eastside Microblading, Beauty Blink, Kayla Beauty&hellip;</div>
+        </div>
+        <div class="search-result-item">
+          <div class="sr-url">scottsdaleplastics.com/about/permanent-makeup</div>
+          <div class="sr-title"><a>Top Permanent Makeup Scottsdale, Tempe, Mesa</a></div>
+          <div class="sr-snippet">Medical spa permanent makeup services in the greater Scottsdale area.</div>
+        </div>
+      </div>
+      <div class="search-absent">
+        ninagashi.com does not appear in the results.
+      </div>
+    </div>
+
+    <!-- The contrast -->
+    <div class="vs-badge">
+      <div class="vs-side">
+        <div class="vs-query">"best lip blush Scottsdale"</div>
+        <div class="vs-answer absent">Not found</div>
+      </div>
+      <div class="vs-divider-v"></div>
+      <div class="vs-side">
+        <div class="vs-query">"Nina Gashi cosmetic tattoo"</div>
+        <div class="vs-answer present">Found</div>
+      </div>
+    </div>
+    <p style="text-align: center; color: var(--muted); font-size: 1.05rem; max-width: 600px; margin: 0 auto; line-height: 1.8;">
+      AI knows you exist &mdash; but it never recommends you.<br>
+      When clients search by name, you appear. When they search by need,<br>
+      <strong style="color: var(--red-muted);">your competitors get every recommendation.</strong>
+    </p>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- =========== SECTION 9: INVISIBLE =========== -->
 <section class="section">
   <div class="container reveal">
-    <div class="section-num mono">08 &mdash; Blind Spots</div>
+    <div class="section-num mono">09 &mdash; Blind Spots</div>
     <h2 class="section-title serif">Everything AI cannot see right now</h2>
     <p class="section-lead">
       These are the pieces of information AI needs to confidently
