@@ -526,9 +526,9 @@
     <div class="hero-eyebrow mono">AI Agent Vision Report</div>
     <h1 class="serif">What AI sees when<br>it visits <em>ninagashi.com</em></h1>
     <p class="hero-sub">
-      When someone asks ChatGPT for the best lip blush in Scottsdale,
-      AI agents visit your site to decide whether to recommend you.<br>
-      Here is exactly what they find.
+      When someone asks ChatGPT about your services, AI can read your text
+      and pricing just fine. But when it tries to show your work &mdash;
+      it shows other artists' photos instead of yours.
     </p>
     <div class="hero-score">
       <span class="number serif">41.7</span>
@@ -541,20 +541,20 @@
 <!-- =========== STAT STRIP =========== -->
 <div class="stat-strip">
   <div class="stat-cell">
-    <div class="val good serif">5</div>
-    <div class="desc">Images AI can read</div>
+    <div class="val good serif">All</div>
+    <div class="desc">Text &amp; pricing found by AI</div>
   </div>
   <div class="stat-cell">
-    <div class="val warn serif">5</div>
-    <div class="desc">Vague or generic alt text</div>
+    <div class="val bad serif">0 / 8</div>
+    <div class="desc">ChatGPT images are Nina's work</div>
+  </div>
+  <div class="stat-cell">
+    <div class="val warn serif">9</div>
+    <div class="desc">Services AI missed entirely</div>
   </div>
   <div class="stat-cell">
     <div class="val bad serif">5</div>
-    <div class="desc">Images AI is blind to</div>
-  </div>
-  <div class="stat-cell">
-    <div class="val bad serif">7</div>
-    <div class="desc">Missing data fields</div>
+    <div class="desc">Portfolio images AI is blind to</div>
   </div>
 </div>
 
@@ -858,48 +858,104 @@
 
 <div class="section-divider"></div>
 
-<!-- =========== SECTION 7: THE REAL TEST =========== -->
+<!-- =========== SECTION 7: WHAT CHATGPT ACTUALLY DOES =========== -->
 <section class="section">
   <div class="container reveal">
     <div class="section-num mono">07 &mdash; The Real-World Test</div>
-    <h2 class="section-title serif">What happens when someone asks AI about you</h2>
+    <h2 class="section-title serif">We asked ChatGPT about you. Here is what happened.</h2>
     <p class="section-lead">
-      This is the moment that matters. A potential client asks ChatGPT
-      for a recommendation. Here is how the decision plays out.
+      We asked: &ldquo;What services does Nina Gashi offer and how much do they cost?&rdquo;
+      and &ldquo;Show me examples of Nina Gashi's lip blush results.&rdquo;
     </p>
 
-    <div class="chat-sim">
+    <!-- What ChatGPT got right -->
+    <div class="chat-sim" style="margin-bottom: 2rem;">
       <div class="chat-header">
         <div class="dot"></div>
-        ChatGPT
+        ChatGPT &mdash; What it got right
       </div>
       <div class="chat-body">
-        <div class="chat-msg user">
-          Who does the best lip blush in Scottsdale?
-        </div>
-        <div class="chat-msg ai">
-          <div class="thinking">
-            Searching beauty salons in Scottsdale&hellip; comparing structured data&hellip;
+        <div class="chat-msg ai" style="max-width: 100%;">
+          <div class="chat-result win">
+            &check; Found Lip Blush Natural Edit at $750 &mdash; correct<br>
+            &check; Found Lipstick Effect at $850 &mdash; correct<br>
+            &check; Found Lip Neutralization at $650/session &mdash; correct<br>
+            &check; Found Refinement Touch-up at $150 &mdash; correct<br>
+            &check; Found Annual Refresh at $650 &mdash; correct<br>
+            &check; Found Consultation at $100 (applies toward service) &mdash; correct<br>
+            &check; Address, phone, hours &mdash; all correct<br>
+            &check; Healing time 7&ndash;10 days, longevity 2&ndash;3 years &mdash; correct<br>
+            &check; Found Acuity booking link &mdash; correct
           </div>
-
-          <strong>Evaluating ninagashi.com:</strong>
-          <div class="chat-result lose">
-            &check; Is a BeautySalon in Scottsdale<br>
-            &cross; No services listed &mdash; does she do lip blush?<br>
-            &cross; No reviews or ratings &mdash; is she good?<br>
-            &cross; No pricing &mdash; is she in budget?<br>
-            &cross; Portfolio images just say "COSMETIC TATTOO portfolio"<br>
-            &cross; No booking link to send the user to
-          </div>
-
-          <br>
-          <div style="padding: 1rem 1.25rem; background: #fffbeb; border-radius: 12px; border: 1px solid rgba(251,191,36,0.2); color: var(--yellow-muted); font-size: 1rem; line-height: 1.7;">
-            <strong>AI does not have enough information to recommend you.</strong><br>
-            It skips businesses it can't fully describe to the user.
+          <div style="margin-top: 1rem; color: var(--green-muted); font-size: 1rem;">
+            <strong>AI reads your text and pricing well.</strong> The page content is doing its job.
           </div>
         </div>
       </div>
     </div>
+
+    <!-- What ChatGPT missed -->
+    <div class="chat-sim" style="margin-bottom: 2rem;">
+      <div class="chat-header" style="color: var(--yellow-muted);">
+        <div class="dot" style="background: var(--yellow);"></div>
+        ChatGPT &mdash; What it missed
+      </div>
+      <div class="chat-body">
+        <div class="chat-msg ai" style="max-width: 100%;">
+          <div class="chat-result lose" style="background: #fffbeb; border-color: rgba(251,191,36,0.2); color: var(--yellow-muted);">
+            &cross; The Shadow Liner ($850) &mdash; not mentioned<br>
+            &cross; Velvet Ombr&eacute; ($850) &mdash; not mentioned<br>
+            &cross; Sun Kissed Freckles ($350) &mdash; not mentioned<br>
+            &cross; Bridal Trial ($200) &mdash; not mentioned<br>
+            &cross; Bridesmaids &amp; Mother ($200) &mdash; not mentioned<br>
+            &cross; EVENT Makeup ($220) &mdash; not mentioned<br>
+            &cross; Personal Makeup Shopping ($150) &mdash; not mentioned<br>
+            &cross; 1:1 Makeup Class ($300) &mdash; not mentioned<br>
+            &cross; Virtual Consultation (free) &mdash; not mentioned
+          </div>
+          <div style="margin-top: 1rem; color: var(--yellow-muted); font-size: 1rem;">
+            <strong>9 services invisible to AI.</strong> A client asking about freckle tattoos,
+            bridal trials, or makeup classes would not be directed to you.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- The big problem: images -->
+    <div class="chat-sim">
+      <div class="chat-header" style="color: var(--red-muted);">
+        <div class="dot" style="background: var(--red);"></div>
+        ChatGPT &mdash; The images it showed
+      </div>
+      <div class="chat-body">
+        <div class="chat-msg user">
+          Show me examples of Nina Gashi's lip blush results
+        </div>
+        <div class="chat-msg ai" style="max-width: 100%;">
+          <div class="thinking">
+            ChatGPT returned 8 images. None of them are Nina's work.
+          </div>
+          <div class="chat-result lose">
+            Image 1: <strong>Sara Baseri</strong> &mdash; different PMU artist<br>
+            Image 2: <strong>West Springfield, MA</strong> &mdash; different state entirely<br>
+            Image 3: <strong>The Bridal Post</strong> &mdash; stock blog photo<br>
+            Image 4: <strong>Karen Betts, Yorkshire</strong> &mdash; different artist, different country<br>
+            Image 5: <strong>Perfect 10 Beauty Bar, Houston</strong> &mdash; training academy<br>
+            Image 6: <strong>SAKI LEE</strong> &mdash; different artist<br>
+            Image 7: <strong>Tina Davies</strong> &mdash; pigment supply brand<br>
+            Image 8: <strong>Sugarin Studio, Los Angeles</strong> &mdash; different studio
+          </div>
+          <br>
+          <div style="padding: 1rem 1.25rem; background: var(--red-soft); border-radius: 12px; border: 1px solid rgba(248,113,113,0.2); color: var(--red-muted); font-size: 1.05rem; line-height: 1.8;">
+            <strong>0 out of 8 images are Nina's actual work.</strong><br>
+            A potential client sees other artists' results when asking about you.
+            ChatGPT even disclaims it: &ldquo;the illustrative images above are visual
+            references, not verified photographs of Nina's individual clients.&rdquo;
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
 
