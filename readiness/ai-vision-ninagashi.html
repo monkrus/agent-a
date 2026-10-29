@@ -79,9 +79,9 @@
   }
   .hero h1 {
     font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(3rem, 6vw, 5rem);
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
     font-weight: 300;
-    line-height: 1.1;
+    line-height: 1.15;
     color: var(--text);
     margin-bottom: 1.5rem;
   }
@@ -90,8 +90,8 @@
     font-size: 1.15rem;
     color: var(--muted);
     font-weight: 300;
-    max-width: 560px;
-    margin: 0 auto 3rem;
+    max-width: 600px;
+    margin: 0 auto;
     line-height: 1.8;
   }
 
@@ -116,7 +116,7 @@
     font-size: 1.1rem;
     color: var(--muted);
     font-weight: 300;
-    max-width: 600px;
+    max-width: 650px;
     margin-bottom: 3rem;
     line-height: 1.8;
   }
@@ -126,7 +126,91 @@
     margin: 0;
   }
 
-  /* ---- CHATGPT SIM ---- */
+  /* ---- COMPARISON TABLE ---- */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2rem;
+  }
+  .compare-table th {
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cold-light);
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--divider);
+  }
+  .compare-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--divider);
+    font-size: 0.95rem;
+    vertical-align: top;
+  }
+  .compare-table td:first-child {
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .compare-table .good { color: var(--green-muted); }
+  .compare-table .warn { color: var(--yellow-muted); }
+  .compare-table .bad { color: var(--red-muted); }
+
+  /* ---- PLATFORM CARDS ---- */
+  .platform-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .platform-card {
+    background: white;
+    border: 1px solid var(--divider);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.04);
+  }
+  .platform-card .card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--divider);
+    font-weight: 600;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .platform-card .card-header .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .platform-card .card-body {
+    padding: 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: #374151;
+  }
+  .platform-card .stat {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+  .platform-card .stat-label {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .platform-card .detail {
+    font-size: 0.9rem;
+    color: var(--muted);
+    line-height: 1.6;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--divider);
+  }
+
+  /* ---- CHAT SIM ---- */
   .chat-sim {
     background: white;
     border: 1px solid var(--divider);
@@ -166,23 +250,12 @@
     line-height: 1.7;
     color: #374151;
   }
-  .chat-msg.ai .thinking {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.9rem;
-    color: var(--cold-light);
-    font-style: italic;
-    margin-bottom: 1rem;
-    padding: 0.75rem 1rem;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 3px solid var(--divider);
-  }
   .chat-result {
     padding: 1rem 1.25rem;
     border-radius: 12px;
     margin-top: 0.75rem;
     font-size: 0.95rem;
-    line-height: 1.6;
+    line-height: 1.7;
   }
   .chat-result.lose {
     background: var(--red-soft);
@@ -194,143 +267,11 @@
     border: 1px solid rgba(74,222,128,0.15);
     color: var(--green-muted);
   }
-
-  /* ---- SPLIT COMPARISON ---- */
-  .split {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border: 1px solid var(--divider);
-    border-radius: 16px;
-    overflow: hidden;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 40px rgba(0,0,0,0.04);
-  }
-  .split-human {
-    background: var(--warm-bg);
-    padding: 2.5rem;
-    border-right: 1px solid var(--divider);
-  }
-  .split-ai {
-    background: var(--cold-bg);
-    padding: 2.5rem;
-  }
-  .split-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid;
-  }
-  .split-label.human { color: var(--warm-deep); border-color: rgba(201,160,135,0.3); }
-  .split-label.ai { color: var(--cold); border-color: rgba(100,116,139,0.3); }
-
-  .img-card {
-    border-radius: 12px;
-    padding: 2rem;
-    margin-bottom: 1rem;
-    text-align: center;
-    min-height: 120px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-  .img-card .file-tag {
-    position: absolute;
-    top: 10px;
-    left: 12px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    opacity: 0.5;
-  }
-  .img-card.human-img {
-    background: linear-gradient(135deg, rgba(201,160,135,0.25), rgba(139,108,92,0.15));
-    border: 1px solid rgba(201,160,135,0.3);
-    color: #4a3228;
-    font-size: 1.15rem;
-    line-height: 1.7;
-    font-style: italic;
-    font-family: 'Cormorant Garamond', serif;
-    font-weight: 600;
-  }
-  .img-card.ai-good {
-    background: rgba(74,222,128,0.06);
-    border: 2px dashed rgba(74,222,128,0.3);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.95rem;
-    color: var(--green-muted);
-  }
-  .img-card.ai-weak {
-    background: rgba(251,191,36,0.06);
-    border: 2px dashed rgba(251,191,36,0.3);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.95rem;
+  .chat-result.mixed {
+    background: #fffbeb;
+    border: 1px solid rgba(251,191,36,0.15);
     color: var(--yellow-muted);
   }
-  .img-card.ai-bad {
-    background: rgba(248,113,113,0.06);
-    border: 2px dashed rgba(248,113,113,0.3);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.95rem;
-    color: var(--red-muted);
-  }
-  .verdict {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.9rem;
-    margin-top: 0.75rem;
-  }
-  .verdict::before {
-    content: '';
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .verdict.good { color: var(--green-muted); }
-  .verdict.good::before { background: var(--green); }
-  .verdict.weak { color: var(--yellow-muted); }
-  .verdict.weak::before { background: var(--yellow); }
-  .verdict.bad { color: var(--red-muted); }
-  .verdict.bad::before { background: var(--red); }
-  .verdict .note { color: var(--muted); font-weight: 300; }
-
-  /* ---- IMAGE TABLE ---- */
-  .img-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1.5rem;
-  }
-  .img-table th {
-    text-align: left;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.8rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--cold-light);
-    padding: 0.75rem 1rem;
-    border-bottom: 2px solid var(--divider);
-  }
-  .img-table td {
-    padding: 0.6rem 1rem;
-    border-bottom: 1px solid var(--divider);
-    font-size: 0.95rem;
-    vertical-align: top;
-  }
-  .img-table td:first-child {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    color: var(--cold);
-    max-width: 200px;
-    word-break: break-all;
-  }
-  .img-table .good { color: var(--green-muted); }
-  .img-table .warn { color: var(--yellow-muted); }
-  .img-table .bad { color: var(--red-muted); }
 
   /* ---- FIX GRID ---- */
   .fix-grid {
@@ -374,6 +315,34 @@
     background: #fffbeb;
     color: var(--yellow-muted);
   }
+  .fix-card .priority.low {
+    background: #f0fdf4;
+    color: var(--green-muted);
+  }
+
+  /* ---- VERDICT BANNER ---- */
+  .verdict-banner {
+    padding: 2rem 2.5rem;
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    line-height: 1.8;
+    font-size: 1.05rem;
+  }
+  .verdict-banner.good {
+    background: #f0fdf4;
+    border: 1px solid rgba(74,222,128,0.2);
+    color: var(--green-muted);
+  }
+  .verdict-banner.bad {
+    background: var(--red-soft);
+    border: 1px solid rgba(248,113,113,0.2);
+    color: var(--red-muted);
+  }
+  .verdict-banner.mixed {
+    background: #fffbeb;
+    border: 1px solid rgba(251,191,36,0.2);
+    color: var(--yellow-muted);
+  }
 
   /* ---- FOOTER ---- */
   .footer {
@@ -388,7 +357,6 @@
     border-bottom: 1px solid rgba(201,160,135,0.3);
   }
 
-  /* ---- ANIMATION ---- */
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(30px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -404,10 +372,9 @@
   }
 
   @media (max-width: 768px) {
-    .split { grid-template-columns: 1fr; }
-    .split-human { border-right: none; border-bottom: 1px solid var(--divider); }
+    .platform-grid { grid-template-columns: 1fr; }
     .fix-grid { grid-template-columns: 1fr; }
-    .hero h1 { font-size: 2.5rem; }
+    .hero h1 { font-size: 2.2rem; }
     .section { padding: 3.5rem 0; }
   }
 </style>
@@ -418,282 +385,255 @@
 <section class="hero">
   <div class="hero-content">
     <div class="hero-eyebrow mono">AI Agent Vision Report</div>
-    <h1 class="serif">When a client asks AI<br>about <em>Nina Gashi</em></h1>
+    <h1 class="serif">We asked <em>ChatGPT, Gemini,</em><br>and <em>Perplexity</em> about you</h1>
     <p class="hero-sub">
-      We asked ChatGPT, Gemini, and Perplexity about your services.
-      They found your prices and booking link. But when a client asked
-      to see your work &mdash; AI showed other artists' photos instead of yours.
+      We asked all three: &ldquo;What services does Nina Gashi offer,
+      how much do they cost, and can you show me her lip blush results?&rdquo;
+      <br><br>
+      Two platforms read your site well. One couldn't read it at all.
+      None of them could show your actual work.
     </p>
   </div>
 </section>
 
-<!-- =========== SECTION 1: THE IMAGES PROBLEM =========== -->
+<!-- =========== SECTION 1: SCORECARD =========== -->
 <section class="section">
   <div class="container reveal">
-    <div class="section-num mono">01 &mdash; The biggest problem</div>
-    <h2 class="section-title serif">AI shows other artists' work when clients ask about you</h2>
+    <div class="section-num mono">01 &mdash; The results</div>
+    <h2 class="section-title serif">How each AI platform performed</h2>
     <p class="section-lead">
-      We asked ChatGPT: &ldquo;Show me examples of Nina Gashi's lip blush results.&rdquo;
-      It returned 8 images. None are yours.
+      Same question, three platforms, very different results.
     </p>
 
-    <div class="chat-sim" style="margin-bottom: 2rem;">
-      <div class="chat-header" style="color: var(--red-muted);">
-        <div class="dot" style="background: var(--red);"></div>
-        ChatGPT &mdash; images it showed for &ldquo;Nina Gashi lip blush&rdquo;
-      </div>
-      <div class="chat-body">
-        <div class="chat-msg user">
-          Show me examples of Nina Gashi's lip blush results
+    <div class="platform-grid">
+      <!-- ChatGPT -->
+      <div class="platform-card">
+        <div class="card-header">
+          <div class="dot" style="background: var(--green);"></div>
+          ChatGPT
         </div>
-        <div class="chat-msg ai" style="max-width: 100%;">
-          <div class="thinking">
-            ChatGPT returned 8 images. None of them are Nina's work.
-          </div>
-          <div class="chat-result lose">
-            Image 1: <strong>Sara Baseri</strong> &mdash; different PMU artist<br>
-            Image 2: <strong>West Springfield, MA</strong> &mdash; different state entirely<br>
-            Image 3: <strong>The Bridal Post</strong> &mdash; stock blog photo<br>
-            Image 4: <strong>Karen Betts, Yorkshire</strong> &mdash; different artist, different country<br>
-            Image 5: <strong>Perfect 10 Beauty Bar, Houston</strong> &mdash; training academy<br>
-            Image 6: <strong>SAKI LEE</strong> &mdash; different artist<br>
-            Image 7: <strong>Tina Davies</strong> &mdash; pigment supply brand<br>
-            Image 8: <strong>Sugarin Studio, Los Angeles</strong> &mdash; different studio
-          </div>
-          <br>
-          <div style="padding: 1rem 1.25rem; background: var(--red-soft); border-radius: 12px; border: 1px solid rgba(248,113,113,0.2); color: var(--red-muted); font-size: 1.05rem; line-height: 1.8;">
-            <strong>0 out of 8 images are yours.</strong><br>
-            A potential client sees competitors' results when asking about you.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <p style="color: var(--muted); font-size: 1rem; max-width: 700px; line-height: 1.8;">
-      <strong style="color: var(--text);">Why this happens:</strong>
-      Your portfolio images use generic alt text like &ldquo;COSMETIC TATTOO portfolio by Nina Gashi&rdquo;
-      &mdash; the same label on every image. AI cannot tell what any photo shows, so it pulls
-      images from other artists who have better-labeled photos.
-    </p>
-  </div>
-</section>
-
-<div class="section-divider"></div>
-
-<!-- =========== SECTION 2: WHAT AI FOUND vs MISSED =========== -->
-<section class="section">
-  <div class="container reveal">
-    <div class="section-num mono">02 &mdash; Services</div>
-    <h2 class="section-title serif">AI found 7 of your 18 services</h2>
-    <p class="section-lead">
-      We asked: &ldquo;What services does Nina Gashi offer and how much do they cost?&rdquo;
-    </p>
-
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-      <!-- Found -->
-      <div class="chat-sim">
-        <div class="chat-header">
-          <div class="dot"></div>
-          Found correctly
-        </div>
-        <div class="chat-body">
-          <div class="chat-result win">
-            &check; Lip Blush Natural Edit &mdash; $750<br>
-            &check; Lipstick Effect &mdash; $850<br>
-            &check; Lip Neutralization &mdash; $650<br>
-            &check; Refinement Touch-up &mdash; $150<br>
-            &check; Annual Refresh &mdash; $650<br>
-            &check; Consultation &mdash; $100<br>
-            &check; Address and phone<br>
-            &check; Acuity booking link
+        <div class="card-body">
+          <div class="stat good" style="color: var(--green-muted);">17 / 17</div>
+          <div class="stat-label">services found with correct prices</div>
+          <div class="detail">
+            Found every service, every price, address, phone,
+            booking link, healing time, and longevity.
+            Linked to Nina's portfolio for results.
+            Showed 3 inline images &mdash; 2 were other businesses.
           </div>
         </div>
       </div>
 
-      <!-- Missed -->
-      <div class="chat-sim">
-        <div class="chat-header" style="color: var(--yellow-muted);">
+      <!-- Gemini -->
+      <div class="platform-card">
+        <div class="card-header">
           <div class="dot" style="background: var(--yellow);"></div>
-          Not mentioned at all
+          Gemini
         </div>
-        <div class="chat-body">
-          <div class="chat-result lose" style="background: #fffbeb; border-color: rgba(251,191,36,0.2); color: var(--yellow-muted);">
-            &cross; The Shadow Liner &mdash; $850<br>
-            &cross; Velvet Ombr&eacute; &mdash; $850<br>
-            &cross; LashLine Enhancement &mdash; $650<br>
-            &cross; Sun Kissed Freckles &mdash; $350<br>
-            &cross; Bridal Makeup &mdash; $350<br>
-            &cross; 1:1 Makeup Class &mdash; $300<br>
-            &cross; EVENT Makeup &mdash; $220<br>
-            &cross; Bridal Trial &mdash; $200<br>
-            &cross; Bridesmaids &amp; Mother &mdash; $200<br>
-            &cross; Personal Makeup Shopping &mdash; $150<br>
-            &cross; Virtual Consultation &mdash; free
+        <div class="card-body">
+          <div class="stat warn" style="color: var(--yellow-muted);">15 / 17</div>
+          <div class="stat-label">services found with correct prices</div>
+          <div class="detail">
+            Missed Velvet Ombr&eacute; ($850) and Virtual Consultation (free).
+            Couldn't show images but linked to Nina's portfolio.
+            Found healing info.
+          </div>
+        </div>
+      </div>
+
+      <!-- Perplexity -->
+      <div class="platform-card">
+        <div class="card-header">
+          <div class="dot" style="background: var(--red);"></div>
+          Perplexity
+        </div>
+        <div class="card-body">
+          <div class="stat bad" style="color: var(--red-muted);">0 / 17</div>
+          <div class="stat-label">prices found</div>
+          <div class="detail">
+            Found only 4 service categories (lip blush, lashline, bridal, event)
+            with zero prices. Got confused by a different business
+            called &ldquo;Beauty Mark by Nina.&rdquo;
+            Told the client to call for pricing.
           </div>
         </div>
       </div>
     </div>
 
-    <p style="color: var(--muted); font-size: 1rem; max-width: 700px; line-height: 1.8;">
-      A client asking AI about freckle tattoos, bridal makeup, lashline enhancement,
-      or makeup classes will not be sent to you. Those 11 services are invisible to AI.
-    </p>
+    <!-- What this means -->
+    <div class="verdict-banner mixed">
+      <strong>What this means:</strong> A client asking ChatGPT can book you in 30 seconds.
+      A client asking Perplexity gets told to call &mdash; or worse, gets sent to a
+      different business. Same website, completely different outcomes depending
+      on which AI the client uses.
+    </div>
   </div>
 </section>
 
 <div class="section-divider"></div>
 
-<!-- =========== SECTION 3: YOUR IMAGES =========== -->
+<!-- =========== SECTION 2: SERVICES DETAIL =========== -->
 <section class="section">
   <div class="container reveal">
-    <div class="section-num mono">03 &mdash; Your images through AI eyes</div>
-    <h2 class="section-title serif">5 of your 15 images work for AI. 10 don't.</h2>
-    <p class="section-lead">
-      AI can't see photos. It reads the alt text label you gave each image.
-      Here are three examples &mdash; one good, one vague, one useless.
-    </p>
+    <div class="section-num mono">02 &mdash; Services breakdown</div>
+    <h2 class="section-title serif">What each AI found &mdash; service by service</h2>
 
-    <!-- Best example -->
-    <div class="split" style="margin-bottom: 1.5rem;">
-      <div class="split-human">
-        <div class="split-label human">Your visitor sees</div>
-        <div class="img-card human-img">
-          <div class="file-tag mono">hero_image.webp</div>
-          Full-width editorial photo &mdash;<br>
-          soft-lit lip blush artistry
-        </div>
-      </div>
-      <div class="split-ai">
-        <div class="split-label ai">AI reads</div>
-        <div class="img-card ai-good">
-          <div class="file-tag mono">alt text</div>
-          "Elegant cosmetic tattoo, lip blush,<br>
-          and bridal beauty by Nina Gashi"
-        </div>
-        <div class="verdict good">
-          <strong>Good.</strong>
-          <span class="note">AI knows exactly what this shows.</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Vague example -->
-    <div class="split" style="margin-bottom: 1.5rem;">
-      <div class="split-human">
-        <div class="split-label human">Your visitor sees</div>
-        <div class="img-card human-img">
-          <div class="file-tag mono">Nina.jpeg</div>
-          Professional portrait of Nina &mdash;<br>
-          the artist behind the work
-        </div>
-      </div>
-      <div class="split-ai">
-        <div class="split-label ai">AI reads</div>
-        <div class="img-card ai-weak">
-          <div class="file-tag mono">alt text</div>
-          "Soft natural aesthetics,<br>light on skin"
-        </div>
-        <div class="verdict weak">
-          <strong>Vague.</strong>
-          <span class="note">AI doesn't know this is the artist.</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bad example -->
-    <div class="split" style="margin-bottom: 2rem;">
-      <div class="split-human">
-        <div class="split-label human">Your visitor sees</div>
-        <div class="img-card human-img">
-          <div class="file-tag mono">portfolio/2026/08/&hellip;</div>
-          Portfolio gallery &mdash; healed results,<br>
-          technique quality, proof of artistry
-        </div>
-      </div>
-      <div class="split-ai">
-        <div class="split-label ai">AI reads</div>
-        <div class="img-card ai-bad">
-          <div class="file-tag mono">alt text</div>
-          "COSMETIC TATTOO portfolio<br>by Nina Gashi"<br><br>
-          <span style="font-size: 0.8rem; opacity: 0.6;">
-            (same label on every portfolio image)
-          </span>
-        </div>
-        <div class="verdict bad">
-          <strong>Useless.</strong>
-          <span class="note">AI has no idea what this photo shows.</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Summary table -->
-    <table class="img-table">
+    <table class="compare-table">
       <thead>
         <tr>
-          <th>Image</th>
-          <th>Alt text AI reads</th>
-          <th>Rating</th>
+          <th>Service</th>
+          <th>Price</th>
+          <th>ChatGPT</th>
+          <th>Gemini</th>
+          <th>Perplexity</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td>hero_image.webp</td><td>"Elegant cosmetic tattoo, lip blush, and bridal beauty by Nina Gashi"</td><td class="good">Good</td></tr>
-        <tr><td>row.jpeg</td><td>"Close up of healed lip blush"</td><td class="good">Good</td></tr>
-        <tr><td>portfolio_eye.png</td><td>"Close up of lashline enhancement and natural skin texture"</td><td class="good">Good</td></tr>
-        <tr><td>bride.jpeg</td><td>"Glowing skin and bridal makeup close up"</td><td class="good">Good</td></tr>
-        <tr><td>aligned.jpeg</td><td>"Detailed skin texture and soft lips"</td><td class="good">Good</td></tr>
-        <tr><td>Nina.jpeg</td><td>"Soft natural aesthetics, light on skin"</td><td class="warn">Vague</td></tr>
-        <tr><td>cosmatic.jpeg</td><td>"The Lip Package"</td><td class="warn">Vague</td></tr>
-        <tr><td>IMG_8247_4.webp</td><td>"Bridal Makeup"</td><td class="warn">Vague</td></tr>
-        <tr><td>about-home.jpeg</td><td>"Linen texture background for Nina Gashi services"</td><td class="warn">Vague</td></tr>
-        <tr><td>event-makeup.JPG</td><td>"The Bridal &amp; Event Collection"</td><td class="warn">Vague</td></tr>
-        <tr><td>the-asunta-lip.jpg</td><td>"The Lip Collection"</td><td class="bad">Useless</td></tr>
-        <tr><td>lips/3167D9BE&hellip;.webp</td><td>"Refinements"</td><td class="bad">Useless</td></tr>
-        <tr><td>consultation-luxury.png</td><td>"Consultation"</td><td class="bad">Useless</td></tr>
-        <tr><td>portfolio (cosmetic)</td><td>"COSMETIC TATTOO portfolio by Nina Gashi"</td><td class="bad">Useless</td></tr>
-        <tr><td>portfolio (event)</td><td>"EVENT BEAUTY portfolio by Nina Gashi"</td><td class="bad">Useless</td></tr>
+        <tr><td>Lip Blush Natural Edit</td><td>$750</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Lipstick Effect</td><td>$850</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Velvet Ombr&eacute;</td><td>$850</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Lip Neutralization</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>LashLine Enhancement</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Shadow Liner</td><td>$850</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Sun Kissed Freckles</td><td>$350</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Refinement Touch-up</td><td>$150</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Annual Refresh</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Bridal Makeup</td><td>$350</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Bridal Trial</td><td>$200</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Bridesmaids &amp; Mother</td><td>$200</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Event Makeup</td><td>$220</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>1:1 Makeup Class</td><td>$300</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Personal Makeup Shopping</td><td>$150</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Consultation</td><td>$100</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Virtual Consultation</td><td>Free</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
       </tbody>
     </table>
+
+    <p style="color: var(--muted); font-size: 0.95rem; line-height: 1.7;">
+      <strong style="color: var(--text);">Why Perplexity failed:</strong>
+      Your site is built with Next.js, which renders content with JavaScript.
+      Perplexity's crawler likely can't execute JavaScript, so it sees an empty page
+      where your services and prices should be. ChatGPT and Gemini can browse
+      the rendered page, so they read everything.
+    </p>
   </div>
 </section>
 
 <div class="section-divider"></div>
 
-<!-- =========== SECTION 4: WHAT TO FIX =========== -->
+<!-- =========== SECTION 3: IMAGES =========== -->
 <section class="section">
   <div class="container reveal">
-    <div class="section-num mono">04 &mdash; What to fix</div>
-    <h2 class="section-title serif">Four changes that make AI recommend you</h2>
+    <div class="section-num mono">03 &mdash; Your portfolio</div>
+    <h2 class="section-title serif">None of them could show your actual work</h2>
+    <p class="section-lead">
+      We asked all three to show Nina Gashi's lip blush results.
+      None displayed your portfolio photos inline.
+    </p>
+
+    <div class="platform-grid" style="margin-bottom: 2rem;">
+      <div class="platform-card">
+        <div class="card-header">
+          <div class="dot" style="background: var(--yellow);"></div>
+          ChatGPT
+        </div>
+        <div class="card-body">
+          Showed 3 thumbnail images from search results.
+          At least 2 were from <strong>other businesses</strong>
+          (West Springfield, MA and Kensington Makeup Scottsdale).
+          <br><br>
+          Did link to your actual portfolio and added a disclaimer:
+          &ldquo;for the most reliable view of Nina's actual work,
+          use her official cosmetic tattoo portfolio.&rdquo;
+        </div>
+      </div>
+      <div class="platform-card">
+        <div class="card-header">
+          <div class="dot" style="background: var(--yellow);"></div>
+          Gemini
+        </div>
+        <div class="card-body">
+          <strong>No images shown.</strong>
+          Described your work in text
+          (&ldquo;soft, sheer flush,&rdquo; &ldquo;translucent, healthy tint&rdquo;)
+          and linked to your portfolio page.
+        </div>
+      </div>
+      <div class="platform-card">
+        <div class="card-header">
+          <div class="dot" style="background: var(--green);"></div>
+          Perplexity
+        </div>
+        <div class="card-body">
+          Actually found images from <strong>your own site</strong> &mdash;
+          a lip close-up and a portfolio photo.
+          But couldn't tell if they were healed or fresh results,
+          and the portfolio page didn't fully load.
+        </div>
+      </div>
+    </div>
+
+    <p style="color: var(--muted); font-size: 0.95rem; line-height: 1.7; max-width: 700px;">
+      <strong style="color: var(--text);">Why this happens:</strong>
+      Your portfolio images use generic alt text like
+      &ldquo;COSMETIC TATTOO portfolio by Nina Gashi&rdquo; &mdash;
+      the same label on every photo. AI can't tell what any image shows,
+      so it either pulls images from other artists (ChatGPT), describes your
+      work without showing it (Gemini), or shows your images but can't
+      explain them (Perplexity).
+    </p>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- =========== SECTION 4: VERDICT =========== -->
+<section class="section">
+  <div class="container reveal">
+    <div class="section-num mono">04 &mdash; The verdict</div>
+    <h2 class="section-title serif">Your site is better than most &mdash; with two gaps</h2>
+
+    <div class="verdict-banner good" style="margin-bottom: 2rem;">
+      <strong>The good news:</strong> ChatGPT and Gemini read your services, prices, contact info,
+      and booking link correctly. Your site's structured data and page content
+      are doing their job for the two biggest AI platforms. Most small businesses
+      don't score this well.
+    </div>
+
+    <div style="font-size: 1.05rem; line-height: 1.8; color: var(--text); max-width: 700px; margin-bottom: 3rem;">
+      <strong>Two things to fix:</strong>
+    </div>
 
     <div class="fix-grid">
       <div class="fix-card">
-        <div class="priority high">High priority</div>
-        <h4 class="serif">Rewrite portfolio alt text</h4>
-        <p>Each portfolio image needs a unique description of what it shows:
+        <div class="priority high">Fix 1 &mdash; high impact</div>
+        <h4 class="serif">Make your prices visible to Perplexity</h4>
+        <p>Perplexity can't read your prices because your site renders them
+          with JavaScript. Adding prices to your structured data (Offer schema)
+          or pre-rendering the services page would let every AI &mdash; including
+          Perplexity &mdash; answer &ldquo;how much does Nina charge?&rdquo; instantly.</p>
+      </div>
+      <div class="fix-card">
+        <div class="priority high">Fix 2 &mdash; high impact</div>
+        <h4 class="serif">Give each portfolio image a unique description</h4>
+        <p>Right now every portfolio image says &ldquo;COSMETIC TATTOO portfolio by Nina Gashi.&rdquo;
+          Change each one to describe the result:
           &ldquo;Healed lip blush, natural pink, 3 weeks post-treatment&rdquo;
-          instead of &ldquo;COSMETIC TATTOO portfolio by Nina Gashi.&rdquo;
-          This is the single biggest reason AI shows other artists' photos.</p>
+          or &ldquo;Lashline enhancement, subtle definition, no-makeup look.&rdquo;
+          This is the only way AI can show your actual work instead of other artists' photos.</p>
       </div>
       <div class="fix-card">
-        <div class="priority high">High priority</div>
-        <h4 class="serif">Add all 18 services to structured data with prices</h4>
-        <p>Your /services page has service names in structured data but no prices.
-          Adding Offer schema with the dollar amount for each service means AI
-          can answer &ldquo;how much does Nina charge for freckles?&rdquo; instantly
-          &mdash; without reading the full page.</p>
+        <div class="priority med">Nice to have</div>
+        <h4 class="serif">Add client reviews</h4>
+        <p>No ratings or reviews appear on your site. When AI compares you
+          to competitors, it has no quality signal. Even a few testimonials
+          with an aggregate rating would help.</p>
       </div>
       <div class="fix-card">
-        <div class="priority med">Medium priority</div>
-        <h4 class="serif">Add reviews to your site</h4>
-        <p>No ratings or reviews appear on the site or in structured data.
-          When AI compares you to competitors, it has no quality signal.
-          Even 5&ndash;10 client testimonials with an aggregate rating would help.</p>
-      </div>
-      <div class="fix-card">
-        <div class="priority med">Medium priority</div>
+        <div class="priority med">Nice to have</div>
         <h4 class="serif">Add booking action to structured data</h4>
-        <p>AI found your Acuity link by crawling the page. Adding a ReserveAction
-          to your structured data ensures every AI &mdash; not just ChatGPT &mdash;
-          finds it on the first try.</p>
+        <p>ChatGPT found your Acuity link by crawling. Adding a ReserveAction
+          to your structured data makes it instant and reliable across all platforms.</p>
       </div>
     </div>
   </div>
@@ -706,9 +646,11 @@
       Generated by <a href="https://agent-a.up.railway.app">Agent-A</a>
       &nbsp;&middot;&nbsp; October 28, 2026
     </p>
-    <p style="margin-top: 0.75rem; max-width: 480px; margin-left: auto; margin-right: auto;">
-      This report shows what happened when we asked ChatGPT
-      about ninagashi.com. Want help fixing these issues?
+    <p style="margin-top: 0.75rem; max-width: 520px; margin-left: auto; margin-right: auto;">
+      We asked ChatGPT, Gemini, and Perplexity about ninagashi.com
+      on October 28, 2026. These are the actual results.
+      <br>
+      Want help with the fixes?
       <a href="mailto:sergeigodev@gmail.com">Get in touch.</a>
     </p>
   </div>
