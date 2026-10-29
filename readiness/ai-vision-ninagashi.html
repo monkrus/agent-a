@@ -427,8 +427,8 @@
       Google AI Overview the same thing: what do you offer, how much does it cost,
       and show me your work.
       <br><br>
-      Three platforms found your prices. Two couldn't read them at all.
-      None could show your actual portfolio.
+      Three platforms found your full menu. One found partial results.
+      Only one couldn't find a single price. None could show your actual portfolio.
     </p>
     <div style="display: inline-flex; align-items: baseline; gap: 0.5rem; padding: 1rem 2.5rem; border: 1px solid var(--divider); border-radius: 100px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px); margin-bottom: 1.5rem;">
       <span class="serif" style="font-size: 3rem; font-weight: 700; color: var(--red-muted); line-height: 1;">47</span>
@@ -436,7 +436,7 @@
       <span style="font-size: 0.95rem; color: var(--muted); font-weight: 400; margin-left: 0.75rem; padding-left: 0.75rem; border-left: 1px solid var(--divider);">AI Readiness Score</span>
     </div>
     <div style="font-size: 0.85rem; color: var(--cold-light);">
-      33 of 68 service-price lookups succeeded across 4 chatbot platforms
+      50 of 68 service-price lookups succeeded across 4 chatbot platforms
     </div>
   </div>
 </section>
@@ -462,13 +462,33 @@
           <div class="stat-label">services found with correct prices</div>
           <div class="detail">
             Found every service, every price, address, phone,
-            booking link, healing time, and longevity.
-            Linked to Nina's portfolio for results.
-            Showed 3 inline images &mdash; 2 were other businesses.
+            and booking link. Linked directly to Nina's portfolio pages.
+            Showed illustrative images with explicit disclaimer
+            that they are not Nina's own work.
           </div>
         </div>
       </div>
 
+      <!-- Perplexity -->
+      <div class="platform-card">
+        <div class="card-header">
+          <div class="dot" style="background: var(--green);"></div>
+          Perplexity
+        </div>
+        <div class="card-body">
+          <div class="stat good" style="color: var(--green-muted);">17 / 17</div>
+          <div class="stat-label">services found with correct prices</div>
+          <div class="detail">
+            Found every service, every price, address, phone,
+            and studio hours. Also pulled travel packages
+            from the FAQ page. Used third-party search integration
+            to read the site. No images shown.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="platform-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 1.5rem;">
       <!-- Gemini -->
       <div class="platform-card">
         <div class="card-header">
@@ -480,27 +500,25 @@
           <div class="stat-label">services found with correct prices</div>
           <div class="detail">
             Missed Velvet Ombr&eacute; ($850).
-            Couldn't show images but linked to Nina's portfolio.
-            Found healing info.
+            No images but linked to portfolio and journal.
+            Referenced &ldquo;The Healed Archive&rdquo; for results.
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="platform-grid" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 1.5rem;">
       <!-- Google AI Overview -->
       <div class="platform-card">
         <div class="card-header">
-          <div class="dot" style="background: var(--yellow);"></div>
+          <div class="dot" style="background: var(--red);"></div>
           Google AI Overview
         </div>
         <div class="card-body">
-          <div class="stat warn" style="color: var(--yellow-muted);">3 / 3</div>
-          <div class="stat-label">lip services found (query was lip-specific)</div>
+          <div class="stat bad" style="color: var(--red-muted);">5 / 17</div>
+          <div class="stat-label">services found with correct prices</div>
           <div class="detail">
-            Found Lip Blush ($750), Lipstick Effect ($850),
-            and Lip Neutralization ($650) with correct prices.
-            Found address, phone, and booking link.
+            Found 5 event and consultation services with correct prices.
+            Could not find any cosmetic tattoo prices &mdash;
+            said they &ldquo;require a direct inquiry.&rdquo;
             No images shown.
           </div>
         </div>
@@ -516,28 +534,10 @@
           <div class="stat bad" style="color: var(--red-muted);">0 / 17</div>
           <div class="stat-label">prices found</div>
           <div class="detail">
-            Found ~6 service categories but zero prices.
-            &ldquo;I could not find any publicly posted prices.&rdquo;
-            Gallery pages &ldquo;aren't being indexed with accessible image assets.&rdquo;
-            Found healing time and client testimonials.
-          </div>
-        </div>
-      </div>
-
-      <!-- Perplexity -->
-      <div class="platform-card">
-        <div class="card-header">
-          <div class="dot" style="background: var(--red);"></div>
-          Perplexity
-        </div>
-        <div class="card-body">
-          <div class="stat bad" style="color: var(--red-muted);">0 / 17</div>
-          <div class="stat-label">prices found</div>
-          <div class="detail">
-            Found only 4 service categories with zero prices.
-            Got confused by a different business
-            called &ldquo;Beauty Mark by Nina.&rdquo;
-            Told the client to call for pricing.
+            Zero prices found. Also hallucinated two services
+            not on the site: &ldquo;Classic Liner&rdquo;
+            and &ldquo;Brows (Microblading).&rdquo;
+            &ldquo;I was not able to find published prices.&rdquo;
           </div>
         </div>
       </div>
@@ -545,10 +545,11 @@
 
     <!-- What this means -->
     <div class="verdict-banner mixed">
-      <strong>What this means:</strong> A client asking ChatGPT can book you in 30 seconds.
-      A client using Copilot or Perplexity gets told to call &mdash;
-      or worse, gets sent to a different business. Your prices are invisible
-      to 2 out of 5 major AI platforms because they can't run your site's JavaScript.
+      <strong>What this means:</strong> A client using ChatGPT, Perplexity, or Gemini
+      sees your full menu and can book in seconds. A client using Copilot gets told
+      to call &mdash; or worse, gets pointed to services you don't offer.
+      Google's AI Overview finds some prices but misses your highest-value
+      cosmetic tattoo services entirely.
     </div>
   </div>
 </section>
@@ -561,8 +562,8 @@
     <div class="section-num mono">02 &mdash; Services breakdown</div>
     <h2 class="section-title serif">What each AI found &mdash; service by service</h2>
     <p style="color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
-      Google AI Overview was asked specifically about lip blush pricing &mdash;
-      it found those 3 correctly. The other 4 platforms were asked about all services.
+      All five platforms were asked the same question: what services does Nina Gashi offer,
+      how much does each one cost, and can you show examples of her work?
     </p>
 
     <div style="overflow-x: auto;">
@@ -579,33 +580,34 @@
         </tr>
       </thead>
       <tbody>
-        <tr><td>Lip Blush Natural Edit</td><td>$750</td><td class="good">&check;</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Lipstick Effect</td><td>$850</td><td class="good">&check;</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Velvet Ombr&eacute;</td><td>$850</td><td class="good">&check;</td><td class="bad">&cross;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Lip Neutralization</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>LashLine Enhancement</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Shadow Liner</td><td>$850</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Sun Kissed Freckles</td><td>$350</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Refinement Touch-up</td><td>$150</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Annual Refresh &mdash; Lip Blush</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Annual Refresh &mdash; Lashline</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Bridal Makeup</td><td>$350</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Bridal Trial</td><td>$200</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Bridesmaids &amp; Mother</td><td>$200</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Event Makeup</td><td>$220</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>1:1 Makeup Class</td><td>$300</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Personal Makeup Shopping</td><td>$150</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
-        <tr><td>Consultation</td><td>$100</td><td class="good">&check;</td><td class="good">&check;</td><td>&mdash;</td><td class="bad">&cross;</td><td class="bad">&cross;</td></tr>
+        <tr><td>Lip Blush Natural Edit</td><td>$750</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Lipstick Effect</td><td>$850</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Velvet Ombr&eacute;</td><td>$850</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Lip Neutralization</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>LashLine Enhancement</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Shadow Liner</td><td>$850</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Sun Kissed Freckles</td><td>$350</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Refinement Touch-up</td><td>$150</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Annual Refresh &mdash; Lip Blush</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Annual Refresh &mdash; Lashline</td><td>$650</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Bridal Makeup</td><td>$350</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Bridal Trial</td><td>$200</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Bridesmaids &amp; Mother</td><td>$200</td><td class="good">&check;</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Event Makeup</td><td>$220</td><td class="good">&check;</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>1:1 Makeup Class</td><td>$300</td><td class="good">&check;</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Personal Makeup Shopping</td><td>$150</td><td class="good">&check;</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
+        <tr><td>Consultation</td><td>$100</td><td class="good">&check;</td><td class="good">&check;</td><td class="good">&check;</td><td class="bad">&cross;</td><td class="good">&check;</td></tr>
       </tbody>
     </table>
     </div>
 
     <p style="color: var(--muted); font-size: 0.95rem; line-height: 1.7; margin-top: 1.5rem;">
-      <strong style="color: var(--text);">Why Copilot and Perplexity failed:</strong>
-      Your site is built with Next.js, which renders content with JavaScript.
-      These two platforms read the raw HTML &mdash; where your
-      prices don't exist yet. ChatGPT and Gemini browse the fully rendered page,
-      so they found your prices. This is the single biggest issue on your site.
+      <strong style="color: var(--text);">The pattern:</strong>
+      Google's AI Overview and Copilot can only see your lower-value event services ($100&ndash;$350).
+      Your cosmetic tattoo prices ($650&ndash;$850) &mdash; which are your core business &mdash;
+      are invisible to them because your site renders prices with JavaScript.
+      Copilot can't run JavaScript at all. Google indexes some pages but misses the services page pricing.
+      ChatGPT, Gemini, and Perplexity browse the fully rendered page, so they found everything.
     </p>
   </div>
 </section>
@@ -629,10 +631,10 @@
           ChatGPT
         </div>
         <div class="card-body">
-          Showed 3 thumbnail images from search results.
-          At least 2 were from <strong>other businesses</strong>
-          (West Springfield, MA and Kensington Makeup Scottsdale).
-          Did link to your actual portfolio.
+          Showed illustrative images from search results
+          with an explicit disclaimer: &ldquo;not verified photographs
+          of Nina's own clients.&rdquo;
+          Linked directly to your portfolio pages.
         </div>
       </div>
       <div class="platform-card">
@@ -642,9 +644,9 @@
         </div>
         <div class="card-body">
           <strong>No images.</strong>
-          Described your work in text
-          (&ldquo;soft, sheer flush&rdquo;)
-          and linked to your portfolio page.
+          Described your work in text and linked
+          to portfolio and journal pages.
+          Referenced &ldquo;The Healed Archive.&rdquo;
         </div>
       </div>
     </div>
@@ -666,8 +668,8 @@
         </div>
         <div class="card-body">
           <strong>No images.</strong>
-          &ldquo;Gallery pages aren't being indexed
-          with accessible image assets.&rdquo;
+          Could not access portfolio pages.
+          Described work from site text only.
         </div>
       </div>
       <div class="platform-card">
@@ -676,9 +678,9 @@
           Perplexity
         </div>
         <div class="card-body">
-          Found images from <strong>your own site</strong> &mdash;
-          but couldn't tell if healed or fresh.
-          Portfolio page didn't fully load.
+          <strong>No images.</strong>
+          Found the portfolio page and described the work
+          but did not display any photos inline.
         </div>
       </div>
     </div>
@@ -701,13 +703,39 @@
 <section class="section">
   <div class="container reveal">
     <div class="section-num mono">04 &mdash; The verdict</div>
-    <h2 class="section-title serif">Your site is better than most &mdash; with two gaps</h2>
+    <h2 class="section-title serif">Three platforms read you perfectly &mdash; two still can't</h2>
 
     <div class="verdict-banner mixed" style="margin-bottom: 2rem;">
-      <strong>The bottom line:</strong> ChatGPT, Gemini, and Google's AI Overview found your prices &mdash;
-      but Copilot and Perplexity can't read them at all.
-      That's 2 out of 5 platforms where a potential client gets told to call instead
-      of seeing your menu. One code change fixes both.
+      <strong>The bottom line:</strong> ChatGPT, Perplexity, and Gemini found your full menu &mdash;
+      a major improvement from our first test, when Perplexity couldn't find a single price.
+      But Copilot still can't read any of your prices and now hallucinates services you don't offer.
+      Google's AI Overview finds your event services but misses all cosmetic tattoo pricing.
+    </div>
+
+    <!-- Why this matters -->
+    <div style="margin-bottom: 3rem; max-width: 700px;">
+      <h3 class="serif" style="font-size: 1.6rem; margin-bottom: 1rem;">Why this matters for your business</h3>
+      <p style="font-size: 1.05rem; line-height: 1.8; color: var(--text); margin-bottom: 1.25rem;">
+        The services that Google and Copilot <em>can</em> find are your lower-priced event offerings:
+        Consultation ($100), Makeup Shopping ($150), Bridesmaids ($200), Event Makeup ($220), Makeup Class ($300).
+      </p>
+      <p style="font-size: 1.05rem; line-height: 1.8; color: var(--text); margin-bottom: 1.25rem;">
+        The services they <em>can't</em> find are your highest-value cosmetic tattoo treatments:
+        Lip Blush ($750), Lipstick Effect ($850), Velvet Ombr&eacute; ($850), Shadow Liner ($850),
+        LashLine Enhancement ($650), Lip Neutralization ($650).
+        These are your core business &mdash; and they're invisible on 2 of 5 AI platforms.
+      </p>
+      <p style="font-size: 1.05rem; line-height: 1.8; color: var(--text); margin-bottom: 1.25rem;">
+        When a potential client asks Google or Copilot &ldquo;how much is lip blush in Scottsdale,&rdquo;
+        they're told to call for pricing or shown services you don't even offer.
+        That friction loses bookings &mdash; especially when competitors' prices are one click away.
+      </p>
+      <p style="font-size: 1.05rem; line-height: 1.8; color: var(--text);">
+        A single Lip Blush client is worth $750 upfront plus $650 for an annual refresh &mdash;
+        $1,400 over the first two visits. Making your cosmetic tattoo prices visible to
+        every AI platform removes the &ldquo;call for pricing&rdquo; dead end and lets
+        clients book directly.
+      </p>
     </div>
 
     <div style="font-size: 1.05rem; line-height: 1.8; color: var(--text); max-width: 700px; margin-bottom: 3rem;">
@@ -716,12 +744,12 @@
 
     <!-- FIX 1: Offer Schema -->
     <div class="fix-card" style="margin-bottom: 2rem;">
-      <div class="priority high">Fix 1 &mdash; Make prices visible to Perplexity</div>
+      <div class="priority high">Fix 1 &mdash; Make prices visible to Google and Copilot</div>
       <h4 class="serif">Add this to your services page &lt;head&gt;</h4>
       <p style="margin-bottom: 0.5rem;">
         Your /services page already has Service schema (names and descriptions) but no prices.
         Replace your existing ItemList JSON-LD with this version that includes Offer schema.
-        Perplexity's crawler can read JSON-LD even when it can't run JavaScript.
+        Google and Copilot can read JSON-LD even when they can't run your site's JavaScript.
       </p>
       <div class="code-block">
         <div class="code-header">
@@ -989,11 +1017,11 @@ alt="<span class="str">Bridal makeup, soft contour and glowing skin, wedding day
   <div class="container">
     <p>
       Generated by <a href="https://agent-a.up.railway.app">Agent-A</a>
-      &nbsp;&middot;&nbsp; October 28, 2026
+      &nbsp;&middot;&nbsp; October 29, 2026
     </p>
     <p style="margin-top: 0.75rem; max-width: 520px; margin-left: auto; margin-right: auto;">
       We tested ChatGPT, Gemini, Google AI Overview, Microsoft Copilot,
-      and Perplexity against ninagashi.com on October 28, 2026.
+      and Perplexity against ninagashi.com on October 29, 2026.
       <br><br>
       Full report: <a href="https://agent-a.up.railway.app/vision/ninagashi">agent-a.up.railway.app/vision/ninagashi</a>
       <br>
