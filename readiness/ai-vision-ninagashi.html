@@ -320,6 +320,39 @@
     color: var(--green-muted);
   }
 
+  /* ---- CODE BLOCK ---- */
+  .code-block {
+    background: #0c0f14;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 1rem;
+    box-shadow: 0 4px 30px rgba(0,0,0,0.1);
+  }
+  .code-block .code-header {
+    background: #161b22;
+    padding: 0.6rem 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #6b7280;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .code-block pre {
+    padding: 1.25rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: #c9d1d9;
+    overflow-x: auto;
+    margin: 0;
+    white-space: pre;
+  }
+  .code-block pre .key { color: #79c0ff; }
+  .code-block pre .str { color: #a5d6ff; }
+  .code-block pre .num { color: #ffa657; }
+  .code-block pre .comment { color: #484f58; }
+
   /* ---- VERDICT BANNER ---- */
   .verdict-banner {
     padding: 2rem 2.5rem;
@@ -393,6 +426,14 @@
       Two platforms read your site well. One couldn't read it at all.
       None of them could show your actual work.
     </p>
+    <div style="display: inline-flex; align-items: baseline; gap: 0.5rem; padding: 1rem 2.5rem; border: 1px solid var(--divider); border-radius: 100px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px); margin-bottom: 1.5rem;">
+      <span class="serif" style="font-size: 3rem; font-weight: 700; color: var(--yellow-muted); line-height: 1;">63</span>
+      <span style="font-size: 1.1rem; color: var(--muted); font-weight: 300;">/100</span>
+      <span style="font-size: 0.95rem; color: var(--muted); font-weight: 400; margin-left: 0.75rem; padding-left: 0.75rem; border-left: 1px solid var(--divider);">AI Readiness Score</span>
+    </div>
+    <div style="font-size: 0.85rem; color: var(--cold-light);">
+      32 of 51 service lookups succeeded across 3 platforms
+    </div>
   </div>
 </section>
 
@@ -587,7 +628,7 @@
 
 <div class="section-divider"></div>
 
-<!-- =========== SECTION 4: VERDICT =========== -->
+<!-- =========== SECTION 4: VERDICT + FIXES =========== -->
 <section class="section">
   <div class="container reveal">
     <div class="section-num mono">04 &mdash; The verdict</div>
@@ -595,45 +636,280 @@
 
     <div class="verdict-banner good" style="margin-bottom: 2rem;">
       <strong>The good news:</strong> ChatGPT and Gemini read your services, prices, contact info,
-      and booking link correctly. Your site's structured data and page content
+      and booking link correctly. Your structured data and page content
       are doing their job for the two biggest AI platforms. Most small businesses
       don't score this well.
     </div>
 
     <div style="font-size: 1.05rem; line-height: 1.8; color: var(--text); max-width: 700px; margin-bottom: 3rem;">
-      <strong>Two things to fix:</strong>
+      <strong>Two fixes. Both are copy-paste. Here's the code.</strong>
     </div>
 
-    <div class="fix-grid">
-      <div class="fix-card">
-        <div class="priority high">Fix 1 &mdash; high impact</div>
-        <h4 class="serif">Make your prices visible to Perplexity</h4>
-        <p>Perplexity can't read your prices because your site renders them
-          with JavaScript. Adding prices to your structured data (Offer schema)
-          or pre-rendering the services page would let every AI &mdash; including
-          Perplexity &mdash; answer &ldquo;how much does Nina charge?&rdquo; instantly.</p>
+    <!-- FIX 1: Offer Schema -->
+    <div class="fix-card" style="margin-bottom: 2rem;">
+      <div class="priority high">Fix 1 &mdash; Make prices visible to Perplexity</div>
+      <h4 class="serif">Add this to your services page &lt;head&gt;</h4>
+      <p style="margin-bottom: 0.5rem;">
+        Your /services page already has Service schema (names and descriptions) but no prices.
+        Replace your existing ItemList JSON-LD with this version that includes Offer schema.
+        Perplexity's crawler can read JSON-LD even when it can't run JavaScript.
+      </p>
+      <div class="code-block">
+        <div class="code-header">
+          <span>JSON-LD &mdash; paste into /services &lt;head&gt;</span>
+        </div>
+<pre><span class="comment">// Add this &lt;script type="application/ld+json"&gt; to your services page.</span>
+<span class="comment">// It replaces your existing ItemList with one that includes prices.</span>
+{
+  "<span class="key">@context</span>": "<span class="str">https://schema.org</span>",
+  "<span class="key">@type</span>": "<span class="str">ItemList</span>",
+  "<span class="key">name</span>": "<span class="str">Nina Gashi Services</span>",
+  "<span class="key">itemListElement</span>": [
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">1</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Lip Blush: The Natural Edit</span>",
+        "<span class="key">description</span>": "<span class="str">Soft color enhancement that improves tone, border definition, and lip balance</span>",
+        "<span class="key">provider</span>": { "<span class="key">@id</span>": "<span class="str">https://ninagashi.com/#business</span>" },
+        "<span class="key">offers</span>": {
+          "<span class="key">@type</span>": "<span class="str">Offer</span>",
+          "<span class="key">price</span>": "<span class="num">750.00</span>",
+          "<span class="key">priceCurrency</span>": "<span class="str">USD</span>"
+        }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">2</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Lipstick Effect - The Makeup Edit</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">850.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">3</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Velvet Ombré - The Velvet Edit</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">850.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">4</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Lip Neutralization</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">650.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">5</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">LashLine Enhancement</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">650.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">6</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">The Shadow Liner</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">850.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">7</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Sun Kissed Freckles</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">350.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">8</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">The Refinement Touch-up</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">150.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">9</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Annual Refresh - Lip Blush</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">650.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">10</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Annual Refresh - Lashline</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">650.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">11</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Bridal Makeup</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">350.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">12</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Bridal Trial</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">200.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">13</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Bridesmaids &amp; Mother</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">200.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">14</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">EVENT Makeup</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">220.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">15</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">1:1 Makeup class</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">300.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">16</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Personal Makeup Shopping</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">150.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    },
+    {
+      "<span class="key">@type</span>": "<span class="str">ListItem</span>",
+      "<span class="key">position</span>": <span class="num">17</span>,
+      "<span class="key">item</span>": {
+        "<span class="key">@type</span>": "<span class="str">Service</span>",
+        "<span class="key">name</span>": "<span class="str">Consultation</span>",
+        "<span class="key">offers</span>": { "<span class="key">@type</span>": "<span class="str">Offer</span>", "<span class="key">price</span>": "<span class="num">100.00</span>", "<span class="key">priceCurrency</span>": "<span class="str">USD</span>" }
+      }
+    }
+  ]
+}</pre>
       </div>
-      <div class="fix-card">
-        <div class="priority high">Fix 2 &mdash; high impact</div>
-        <h4 class="serif">Give each portfolio image a unique description</h4>
-        <p>Right now every portfolio image says &ldquo;COSMETIC TATTOO portfolio by Nina Gashi.&rdquo;
-          Change each one to describe the result:
-          &ldquo;Healed lip blush, natural pink, 3 weeks post-treatment&rdquo;
-          or &ldquo;Lashline enhancement, subtle definition, no-makeup look.&rdquo;
-          This is the only way AI can show your actual work instead of other artists' photos.</p>
+    </div>
+
+    <!-- FIX 2: Alt Text -->
+    <div class="fix-card" style="margin-bottom: 2rem;">
+      <div class="priority high">Fix 2 &mdash; Give each portfolio image a unique description</div>
+      <h4 class="serif">Replace generic alt text with specific descriptions</h4>
+      <p style="margin-bottom: 0.5rem;">
+        Right now every portfolio image says &ldquo;COSMETIC TATTOO portfolio by Nina Gashi.&rdquo;
+        AI can't tell what any photo shows. Change each one to describe the actual result.
+      </p>
+      <div class="code-block">
+        <div class="code-header">
+          <span>Alt text &mdash; before &amp; after</span>
+        </div>
+<pre><span class="comment">// BEFORE (same on every image):</span>
+alt="<span class="str">COSMETIC TATTOO portfolio by Nina Gashi</span>"
+
+<span class="comment">// AFTER (unique per image):</span>
+alt="<span class="str">Healed lip blush, natural pink tone, 3 weeks post-treatment by Nina Gashi</span>"
+alt="<span class="str">Lashline enhancement close-up, subtle definition, no-makeup look</span>"
+alt="<span class="str">Lip neutralization before and after, cool-toned correction to warm pink</span>"
+alt="<span class="str">Lipstick effect cosmetic tattoo, saturated berry shade, healed result</span>"
+alt="<span class="str">Sun kissed freckles, natural placement across nose and cheeks</span>"
+alt="<span class="str">Bridal makeup, soft contour and glowing skin, wedding day look</span>"
+
+<span class="comment">// Pattern: [procedure] + [visible result] + [detail that proves quality]</span></pre>
       </div>
-      <div class="fix-card">
-        <div class="priority med">Nice to have</div>
-        <h4 class="serif">Add client reviews</h4>
-        <p>No ratings or reviews appear on your site. When AI compares you
-          to competitors, it has no quality signal. Even a few testimonials
-          with an aggregate rating would help.</p>
+    </div>
+
+    <!-- FIX 3: ReserveAction -->
+    <div class="fix-card" style="margin-bottom: 2rem;">
+      <div class="priority med">Nice to have &mdash; Booking action</div>
+      <h4 class="serif">Add ReserveAction so every AI finds your booking link instantly</h4>
+      <p style="margin-bottom: 0.5rem;">
+        ChatGPT found your Acuity link by crawling. This makes it machine-readable.
+        Add it to your existing BeautySalon JSON-LD on the homepage.
+      </p>
+      <div class="code-block">
+        <div class="code-header">
+          <span>JSON-LD &mdash; add to your BeautySalon schema</span>
+        </div>
+<pre><span class="comment">// Add this inside your existing BeautySalon JSON-LD block:</span>
+"<span class="key">potentialAction</span>": {
+  "<span class="key">@type</span>": "<span class="str">ReserveAction</span>",
+  "<span class="key">target</span>": {
+    "<span class="key">@type</span>": "<span class="str">EntryPoint</span>",
+    "<span class="key">urlTemplate</span>": "<span class="str">https://app.acuityscheduling.com/schedule.php?owner=ninagashi</span>"
+  },
+  "<span class="key">result</span>": {
+    "<span class="key">@type</span>": "<span class="str">Reservation</span>",
+    "<span class="key">name</span>": "<span class="str">Book an appointment with Nina Gashi</span>"
+  }
+}</pre>
       </div>
-      <div class="fix-card">
-        <div class="priority med">Nice to have</div>
-        <h4 class="serif">Add booking action to structured data</h4>
-        <p>ChatGPT found your Acuity link by crawling. Adding a ReserveAction
-          to your structured data makes it instant and reliable across all platforms.</p>
+    </div>
+
+    <!-- FIX 4: Reviews -->
+    <div class="fix-card">
+      <div class="priority med">Nice to have &mdash; Reviews</div>
+      <h4 class="serif">Add client reviews so AI has a quality signal</h4>
+      <p style="margin-bottom: 0.5rem;">
+        No ratings or reviews appear on your site. When AI compares you to competitors,
+        it has nothing to rank your quality. Add testimonials to your page and this to
+        your BeautySalon schema.
+      </p>
+      <div class="code-block">
+        <div class="code-header">
+          <span>JSON-LD &mdash; add to your BeautySalon schema</span>
+        </div>
+<pre><span class="comment">// Add this inside your existing BeautySalon JSON-LD block:</span>
+"<span class="key">aggregateRating</span>": {
+  "<span class="key">@type</span>": "<span class="str">AggregateRating</span>",
+  "<span class="key">ratingValue</span>": "<span class="num">5.0</span>",
+  "<span class="key">reviewCount</span>": "<span class="num">47</span>"   <span class="comment">// use your real numbers</span>
+},
+"<span class="key">review</span>": [
+  {
+    "<span class="key">@type</span>": "<span class="str">Review</span>",
+    "<span class="key">author</span>": { "<span class="key">@type</span>": "<span class="str">Person</span>", "<span class="key">name</span>": "<span class="str">Client Name</span>" },
+    "<span class="key">reviewRating</span>": { "<span class="key">@type</span>": "<span class="str">Rating</span>", "<span class="key">ratingValue</span>": "<span class="num">5</span>" },
+    "<span class="key">reviewBody</span>": "<span class="str">Natural, beautiful result. Healed perfectly.</span>"
+  }
+]</pre>
       </div>
     </div>
   </div>
@@ -649,6 +925,8 @@
     <p style="margin-top: 0.75rem; max-width: 520px; margin-left: auto; margin-right: auto;">
       We asked ChatGPT, Gemini, and Perplexity about ninagashi.com
       on October 28, 2026. These are the actual results.
+      <br><br>
+      Full report: <a href="https://agent-a.up.railway.app/vision/ninagashi">agent-a.up.railway.app/vision/ninagashi</a>
       <br>
       Want help with the fixes?
       <a href="mailto:sergeigodev@gmail.com">Get in touch.</a>
