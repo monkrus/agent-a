@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -552,7 +552,7 @@
     <div class="desc">Images shown are Nina's work</div>
   </div>
   <div class="stat-cell">
-    <div class="val warn serif">9</div>
+    <div class="val warn serif">11</div>
     <div class="desc">Services AI missed entirely</div>
   </div>
   <div class="stat-cell">
@@ -579,7 +579,7 @@
     <div class="desc">Useless to AI</div>
   </div>
   <div class="stat-cell">
-    <div class="val bad serif">7</div>
+    <div class="val bad serif">6</div>
     <div class="desc">Missing structured data fields</div>
   </div>
 </div>
@@ -614,8 +614,8 @@
         <br>
         <div><span class="prompt">&gt;</span> <span class="comment">// Looking for service details&hellip;</span></div>
         <br>
-        <div><span class="key">services</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="fail">NOT FOUND &cross;</span></div>
-        <div><span class="key">offers / pricing</span> &nbsp;&nbsp;&nbsp; <span class="fail">NOT FOUND &cross;</span></div>
+        <div><span class="key">services</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="warn">ON /services ONLY &cir;</span> <span class="comment">// not on homepage</span></div>
+        <div><span class="key">offers / pricing</span> &nbsp;&nbsp;&nbsp; <span class="fail">NOT FOUND &cross;</span> <span class="comment">// no prices in schema</span></div>
         <div><span class="key">openingHours</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="fail">NOT FOUND &cross;</span></div>
         <div><span class="key">aggregateRating</span> &nbsp;&nbsp;&nbsp;&nbsp; <span class="fail">NOT FOUND &cross;</span></div>
         <div><span class="key">review</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="fail">NOT FOUND &cross;</span></div>
@@ -623,7 +623,7 @@
         <div><span class="key">potentialAction</span> &nbsp;&nbsp;&nbsp;&nbsp; <span class="fail">NOT FOUND &cross;</span> <span class="comment">// no booking link</span></div>
         <br>
         <div><span class="warn">Result: structured data says this is a beauty salon in Scottsdale.</span></div>
-        <div><span class="warn">Services, pricing, hours, and reviews are on the page text</span></div>
+        <div><span class="warn">Pricing, hours, and reviews are on the page text</span></div>
         <div><span class="warn">but NOT in structured data &mdash; so AI has to work harder to find them.</span></div>
         <div><span class="warn">Competitors with complete structured data get recommended first.</span></div>
       </div>
@@ -910,8 +910,7 @@
             &check; Found Refinement Touch-up at $150 &mdash; correct<br>
             &check; Found Annual Refresh at $650 &mdash; correct<br>
             &check; Found Consultation at $100 (applies toward service) &mdash; correct<br>
-            &check; Address, phone, hours &mdash; all correct<br>
-            &check; Healing time 7&ndash;10 days, longevity 2&ndash;3 years &mdash; correct<br>
+            &check; Address and phone &mdash; correct<br>
             &check; Found Acuity booking link &mdash; correct
           </div>
           <div style="margin-top: 1rem; color: var(--green-muted); font-size: 1rem;">
@@ -938,11 +937,13 @@
             &cross; EVENT Makeup ($220) &mdash; not mentioned<br>
             &cross; Personal Makeup Shopping ($150) &mdash; not mentioned<br>
             &cross; 1:1 Makeup Class ($300) &mdash; not mentioned<br>
+            &cross; LashLine Enhancement ($650) &mdash; not mentioned<br>
+            &cross; Bridal Makeup ($350) &mdash; not mentioned<br>
             &cross; Virtual Consultation (free) &mdash; not mentioned
           </div>
           <div style="margin-top: 1rem; color: var(--yellow-muted); font-size: 1rem;">
-            <strong>9 services invisible to AI.</strong> A client asking about freckle tattoos,
-            bridal trials, or makeup classes would not be directed to you.
+            <strong>11 services invisible to AI.</strong> A client asking about freckle tattoos,
+            bridal makeup, or makeup classes would not be directed to you.
           </div>
         </div>
       </div>
@@ -1004,20 +1005,20 @@
         <p>ChatGPT showed 8 images of other artists' work instead of yours. Your portfolio alt text is too generic for AI to find and display your results.</p>
       </div>
       <div class="invis-card">
-        <h4 class="serif">9 Hidden Services</h4>
-        <p>Shadow Liner, Velvet Ombr&eacute;, Sun Kissed Freckles, Bridal Trial, and 5 more services were not found by ChatGPT. Clients asking about them won't be sent to you.</p>
+        <h4 class="serif">11 Hidden Services</h4>
+        <p>LashLine Enhancement, Bridal Makeup, Shadow Liner, Velvet Ombr&eacute;, Sun Kissed Freckles, Bridal Trial, and 5 more services were not found by ChatGPT. Clients asking about them won't be sent to you.</p>
       </div>
       <div class="invis-card">
         <h4 class="serif">Client Reviews</h4>
         <p>No ratings or reviews anywhere on the site or in structured data. AI has no quality signal to rank you above competitors.</p>
       </div>
       <div class="invis-card">
-        <h4 class="serif">Service Schema</h4>
-        <p>AI found your pricing by reading page text, but there is no Service schema in your structured data. Competitors with schema get prioritized.</p>
+        <h4 class="serif">Pricing Schema</h4>
+        <p>Your /services page has Service schema (names and descriptions), but no Offer schema &mdash; prices are only in the visible text. Competitors with pricing in structured data get prioritized.</p>
       </div>
       <div class="invis-card">
         <h4 class="serif">Nina's Credentials</h4>
-        <p>Your About page mentions a decade of experience, but it is not in structured data. AI can read it &mdash; but can't compare it to competitors automatically.</p>
+        <p>Your bio describes a philosophy of &ldquo;soft, natural enhancements&rdquo; and editorial artistry, but no certifications, training, or years of experience appear on the site or in structured data. AI has nothing to rank your expertise against competitors.</p>
       </div>
       <div class="invis-card">
         <h4 class="serif">Booking Schema</h4>
