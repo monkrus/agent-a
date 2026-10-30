@@ -600,10 +600,10 @@
 
     <p style="color: var(--muted); font-size: 0.95rem; line-height: 1.7; margin-top: 1.5rem;">
       <strong style="color: var(--text);">The pattern:</strong>
-      Google's AI Overview and Copilot can only see your lower-value event services ($100&ndash;$350).
-      Your cosmetic tattoo prices ($650&ndash;$850) &mdash; which are your core business &mdash;
-      are invisible to them because your site renders prices with JavaScript.
-      Copilot can't run JavaScript at all. Google indexes some pages but misses the services page pricing.
+      Copilot couldn't find a single price &mdash; and hallucinated services you don't offer.
+      Google's AI Overview found only your lower-value event and consultation services ($100&ndash;$300)
+      but missed every cosmetic tattoo price ($650&ndash;$850) &mdash; your core business.
+      Both read raw HTML, where your JavaScript-rendered prices don't exist yet.
       ChatGPT, Gemini, and Perplexity browse the fully rendered page, so they found everything.
     </p>
   </div>
@@ -687,9 +687,8 @@
       Your portfolio images use generic alt text like
       &ldquo;Portfolio Item 0&rdquo;, &ldquo;Portfolio Item 1&rdquo; &mdash;
       numbered labels that don't describe the work. AI can't tell what any image shows,
-      so it either pulls images from other artists (ChatGPT), describes your
-      work without showing it (Gemini), or shows your images but can't
-      explain them (Perplexity).
+      so it either pulls images from other artists (ChatGPT) or describes your
+      work in text without showing any photos (Gemini, Perplexity, Google, Copilot).
     </p>
   </div>
 </section>
@@ -715,8 +714,8 @@
 
       <p style="font-size: 1.05rem; line-height: 1.8; color: var(--text); margin-bottom: 1.25rem;">
         <strong>Your highest-value services are invisible on 2 of 5 AI platforms.</strong>
-        Google's AI Overview and Copilot can only find your event services
-        ($100&ndash;$350). Your cosmetic tattoo treatments &mdash;
+        Google's AI Overview found only your event and consultation services
+        ($100&ndash;$300). Copilot couldn't find any prices at all. Your cosmetic tattoo treatments &mdash;
         Lip Blush ($750), Lipstick Effect ($850), Velvet Ombr&eacute; ($850),
         Shadow Liner ($850), LashLine Enhancement ($650), Lip Neutralization ($650)
         &mdash; are completely hidden. These are your core business.
@@ -1097,7 +1096,9 @@ in Scottsdale by Nina Gashi. Book online.</span>"&gt;</pre>
   "<span class="key">@type</span>": "<span class="str">ReserveAction</span>",
   "<span class="key">target</span>": {
     "<span class="key">@type</span>": "<span class="str">EntryPoint</span>",
-    "<span class="key">urlTemplate</span>": "<span class="str">https://app.acuityscheduling.com/schedule.php?owner=ninagashi</span>"
+    "<span class="key">urlTemplate</span>": "<span class="str">https://app.acuityscheduling.com/schedule.php?owner=YOUR_ACUITY_ID</span>"
+    <span class="comment">// ^ Replace YOUR_ACUITY_ID with your numeric Acuity owner ID.</span>
+    <span class="comment">//   Find it in your Acuity dashboard under "Share Your Scheduler" link.</span>
   },
   "<span class="key">result</span>": {
     "<span class="key">@type</span>": "<span class="str">Reservation</span>",
