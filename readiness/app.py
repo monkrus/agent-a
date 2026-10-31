@@ -1398,19 +1398,28 @@ def paid_scan_stream(scan_id):
         n = int(os.environ.get("SCAN_N", "5"))
         ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
 
+        # Refund agency credit if scan aborts before producing results
+        _agency_id = data.get("meta", {}).get("agency_id")
+
+        def _refund_credit():
+            if _agency_id:
+                _add_credits(_agency_id, 1)
+
         yield "data: " + json.dumps({"type": "status",
                                      "message": "Fetching page..."}) + "\n\n"
 
         try:
             page = fetchmod.fetch(target_url)
         except Exception:
+            _refund_credit()
             yield "data: " + json.dumps({"type": "error",
-                                         "message": "Could not fetch the page. Please contact support."}) + "\n\n"
+                                         "message": "Could not fetch the page. Credit refunded. Please contact support."}) + "\n\n"
             return
 
         dead = fetchmod.is_dead_page(page)
         if dead:
-            yield "data: " + json.dumps({"type": "error", "message": dead}) + "\n\n"
+            _refund_credit()
+            yield "data: " + json.dumps({"type": "error", "message": dead + " Credit refunded."}) + "\n\n"
             return
 
         pack, version, checks = _load_checks()
