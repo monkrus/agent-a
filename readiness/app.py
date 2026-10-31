@@ -2734,7 +2734,7 @@ def agency_processing(agency, scan_id):
     target = meta.get("target", "")
     # Ensure paid_verified is set so SSE stream works
     session[f"paid_verified_{scan_id}"] = True
-    return render_template("processing.html", scan_id=scan_id, target=target)
+    return render_template("processing.html", scan_id=scan_id, target=target, is_agency=True)
 
 
 @app.route("/agency/buy", methods=["POST"])

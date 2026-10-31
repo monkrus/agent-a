@@ -116,12 +116,22 @@
         addLine('<br><span style="color:#4ade80;font-weight:bold;">Scan complete &mdash; ' + finalTime + '</span>');
         scoreDiv.style.display = 'block';
         var color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
-        scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
-          + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
-          + '<div style="color:#8b8b96;font-size:0.9rem;margin:1rem 0;">Redirecting to your full report...</div>';
-        setTimeout(function() {
-          window.location.href = '/results/' + d.scan_id;
-        }, 2000);
+        var isAgency = {{ 'true' if is_agency else 'false' }};
+        if (isAgency) {
+          scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
+            + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
+            + '<div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1.25rem;flex-wrap:wrap;">'
+            + '<a href="/results/' + d.scan_id + '" target="_blank" style="display:inline-block;padding:0.6rem 1.5rem;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">View Full Report</a>'
+            + '<a href="/agency/dashboard" style="display:inline-block;padding:0.6rem 1.5rem;background:transparent;color:#a0a0b0;border:1px solid #333;border-radius:8px;text-decoration:none;font-size:0.95rem;">Back to Dashboard</a>'
+            + '</div>';
+        } else {
+          scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
+            + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
+            + '<div style="color:#8b8b96;font-size:0.9rem;margin:1rem 0;">Redirecting to your full report...</div>';
+          setTimeout(function() {
+            window.location.href = '/results/' + d.scan_id;
+          }, 2000);
+        }
       }
       else if (d.type === 'error') {
         es.close();
