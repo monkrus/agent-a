@@ -880,6 +880,41 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
             pg.route("**/*", _playwright_ssrf_guard)
             pg.goto(start_url, timeout=timeout * 1000, wait_until="domcontentloaded")
             pg.wait_for_timeout(3000)
+
+            # Verify we landed on the expected domain (not redirected/blocked)
+            from urllib.parse import urlparse
+            expected_host = urlparse(start_url).netloc.lower()
+            actual_host = urlparse(pg.url).netloc.lower()
+            if actual_host != expected_host and not actual_host.endswith("." + expected_host):
+                browser.close()
+                return {"success": False, "steps": [], "total_steps": 0,
+                        "final_reason": f"Navigation redirected to {actual_host} instead of {expected_host}; site may be blocking automated browsers",
+                        "cart_verified": False}
+
+            # Check for challenge/blank page (very little visible text)
+            body_text = pg.evaluate("() => (document.body?.innerText || '').trim()") or ""
+            word_count = len(body_text.split())
+            challenge_signals = any(s in body_text.lower() for s in [
+                "checking your browser", "please wait", "verify you are human",
+                "just a moment", "enable javascript", "access denied",
+                "attention required", "ray id",
+            ])
+            if word_count < 30 or challenge_signals:
+                browser.close()
+                reason = "Site served a bot challenge or blocked the browser"
+                if challenge_signals:
+                    # Find which signal matched for the message
+                    matched = [s for s in ["checking your browser", "please wait",
+                               "verify you are human", "just a moment",
+                               "enable javascript", "access denied",
+                               "attention required", "ray id"]
+                               if s in body_text.lower()]
+                    reason += f" (detected: '{matched[0]}')" if matched else ""
+                elif word_count < 30:
+                    reason += f" (page had only {word_count} words)"
+                return {"success": False, "steps": [], "total_steps": 0,
+                        "final_reason": reason, "cart_verified": False}
+
             _dismiss_popups(pg)
 
             last_selector = None
