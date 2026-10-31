@@ -799,17 +799,27 @@ def static_contradictory_availability(page):
     text = (page.get("text", "") or "").lower()
     html = page.get("html", "") or ""
     # Strip script bodies so JS string literals don't count as visible text,
-    # then strip variant-level oos text (normal Shopify multi-variant behaviour).
+    # then strip variant-level oos text (normal Shopify multi-variant behaviour),
+    # then strip HTML tags so attribute values (e.g. name="options[unavailable_products]")
+    # don't trigger false positives.
     if html:
         # Strip scripts AND styles — CSS comments can contain oos phrases
         s = _ScriptStripper(strip_styles=True)
         s.feed(html)
-        visible = _strip_variant_oos(s.get_result()).lower()
+        cleaned_html = _strip_variant_oos(s.get_result())
+        # Also strip <template> tags — Shopify themes use these for variant state
+        cleaned_html = re.sub(
+            r"<template[^>]*>.*?</template>",
+            " ", cleaned_html, flags=re.IGNORECASE | re.DOTALL,
+        )
+        # Extract text content only — strip all HTML tags so attribute values
+        # like name="options[unavailable_products]" don't cause false positives
+        visible = re.sub(r"<[^>]+>", " ", cleaned_html).lower()
     else:
         # No HTML available (e.g. tests with text-only) — fall back to text
         visible = text
 
-    # Out-of-stock signals — check the cleaned visible HTML, not raw text
+    # Out-of-stock signals — check the cleaned visible text, not raw HTML
     oos_phrases = ("out of stock", "sold out", "unavailable", "out stock")
     visible_oos = any(phrase in visible for phrase in oos_phrases)
 

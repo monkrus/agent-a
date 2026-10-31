@@ -427,6 +427,34 @@ class TestContradictoryAvailability:
         v, _ = scorers.static_contradictory_availability(page)
         assert v == "UNKNOWN"
 
+    def test_pass_unavailable_in_html_attribute(self):
+        """Regression: 'unavailable' in an HTML attribute (e.g. Shopify search form
+        name='options[unavailable_products]') must not trigger a false positive."""
+        page = _page(
+            jsonld=[{"@type": "Product", "offers": {
+                "availability": "https://schema.org/InStock"}}],
+            html='<html><body><h1>Product</h1>'
+                 '<input type="hidden" name="options[unavailable_products]" value="last">'
+                 '<button>Add to Cart</button></body></html>',
+            text="Product Add to Cart",
+        )
+        v, _ = scorers.static_contradictory_availability(page)
+        assert v == "PASS"
+
+    def test_pass_unavailable_in_template_tag(self):
+        """Regression: 'Unavailable' inside a <template> tag (Shopify theme
+        variant state) must not trigger a false positive."""
+        page = _page(
+            jsonld=[{"@type": "Product", "offers": {
+                "availability": "https://schema.org/InStock"}}],
+            html='<html><body><h1>Product</h1>'
+                 '<template data-variant-state>Unavailable</template>'
+                 '<button>Add to Cart</button></body></html>',
+            text="Product Add to Cart",
+        )
+        v, _ = scorers.static_contradictory_availability(page)
+        assert v == "PASS"
+
 
 # ---- RDY-034: MCP Server Card -----------------------------------------------
 
