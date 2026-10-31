@@ -1127,8 +1127,10 @@ def results(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
+    is_agency = bool(data.get("meta", {}).get("agency_id"))
     paid = (session.get(f"paid_{scan_id}", False)
-            or data.get("meta", {}).get("paid", False))
+            or data.get("meta", {}).get("paid", False)
+            or is_agency)
     stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
     has_stripe = bool(stripe_key)
     dev_mode = os.environ.get("DEV_MODE", "").lower() == "true"
@@ -1138,6 +1140,7 @@ def results(scan_id):
     payment_error = session.pop(f"payment_error_{scan_id}", None)
     has_email = emailer._is_configured()
     access_blocked = any(r.get("gated") for r in data.get("results", []))
+    agency_name = data.get("meta", {}).get("agency_name", "")
     # Generate JSON-LD snippet if RDY-001 failed
     jsonld_snippet = _generate_jsonld_snippet(data) if not paid else None
     # Free-tier fix teaser: one real recipe for the highest-weighted failing check
@@ -1189,7 +1192,8 @@ def results(scan_id):
                            inconclusive_texts=INCONCLUSIVE_TEXTS,
                            fix_first=fix_first,
                            journey_groups=journey_groups,
-                           prev_scan=prev_scan)
+                           prev_scan=prev_scan,
+                           agency_name=agency_name)
 
 
 @app.route("/compare/<scan_id>", methods=["POST"])
@@ -1788,7 +1792,8 @@ def send_report(scan_id):
     if not data:
         abort(404)
     is_paid = (session.get(f"paid_{scan_id}", False)
-               or data.get("meta", {}).get("paid", False))
+               or data.get("meta", {}).get("paid", False)
+               or bool(data.get("meta", {}).get("agency_id")))
     if not is_paid:
         abort(403)
     to_email = _validate_email(request.form.get("email", ""))

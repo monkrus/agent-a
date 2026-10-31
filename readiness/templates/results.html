@@ -741,7 +741,11 @@
     {% endif %}
 
     <footer>
+      {% if agency_name %}
+      <p>Report by {{ agency_name }}</p>
+      {% else %}
       <p>agent&#8209;a &middot; built by <a href="https://github.com/monkrus" style="color:var(--text-muted);">Sergei Stadnik</a></p>
+      {% endif %}
     </footer>
   </div>
 
@@ -801,7 +805,11 @@
     lines.push('Full details + fix recipes: agency accounts at ' + window.location.origin + '/agency');
     {% endif %}
     lines.push('');
+    {% if agency_name %}
+    lines.push('Report by {{ agency_name }}');
+    {% else %}
     lines.push('Scanned by Agent-A — ' + window.location.origin);
+    {% endif %}
     navigator.clipboard.writeText(lines.join('\n')).then(function() {
       var btn = document.getElementById('copy-btn') || document.getElementById('copy-all-btn');
       var original = btn.textContent;
