@@ -172,6 +172,31 @@
       </div>
     </div>
 
+    <!-- DELETE ACCOUNT -->
+    <div class="card" style="border:1px solid rgba(239,68,68,0.3);">
+      <h3 class="section-title" style="color:#f87171;">Delete account</h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.75rem;">Permanently delete this agency account, all scan history, and any remaining credits. This cannot be undone.</p>
+      <form id="delete-account-form" action="{{ url_for('agency_delete') }}" method="post" style="display:inline;">
+        <button type="button" id="delete-btn" style="padding:0.5rem 1.2rem;background:#991b1b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:0.9rem;">Delete account</button>
+      </form>
+      <script>
+      (function() {
+        var btn = document.getElementById('delete-btn');
+        var confirmed = false;
+        btn.addEventListener('click', function() {
+          if (!confirmed) {
+            confirmed = true;
+            btn.textContent = 'Click again to confirm';
+            btn.style.background = '#dc2626';
+            setTimeout(function() { confirmed = false; btn.textContent = 'Delete account'; btn.style.background = '#991b1b'; }, 5000);
+          } else {
+            document.getElementById('delete-account-form').submit();
+          }
+        });
+      })();
+      </script>
+    </div>
+
     <footer>
       <p>agent-a</p>
     </footer>

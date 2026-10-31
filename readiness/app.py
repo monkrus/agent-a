@@ -2647,6 +2647,22 @@ def agency_logout():
     return redirect(url_for("agency_login"))
 
 
+@app.route("/agency/delete", methods=["POST"])
+@agency_required
+def agency_delete(agency):
+    """Permanently delete an agency account and all its scan history."""
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("DELETE FROM agency_scans WHERE agency_id = ?", (agency["id"],))
+        conn.execute("DELETE FROM agency_purchases WHERE agency_id = ?", (agency["id"],))
+        conn.execute("DELETE FROM agencies WHERE id = ?", (agency["id"],))
+        conn.commit()
+    finally:
+        conn.close()
+    session.pop("agency_id", None)
+    return redirect(url_for("agency_login"))
+
+
 @app.route("/agency/dashboard")
 @agency_required
 def agency_dashboard(agency):
