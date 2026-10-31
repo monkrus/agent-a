@@ -510,7 +510,7 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
 
 
 def _dismiss_popups(page):
-    """Try to close common popup/modal overlays."""
+    """Try to close common popup/modal overlays including cookie consent."""
     # First, try to remove known overlay elements via JS (fastest)
     page.evaluate("""() => {
         // Remove common marketing overlays by ID/class
@@ -531,23 +531,75 @@ def _dismiss_popups(page):
     }""")
     page.wait_for_timeout(500)
 
-    # Then try clicking close buttons
+    # Cookie/privacy consent — click accept/agree buttons first (before close buttons)
+    cookie_selectors = [
+        # Common consent management platforms
+        '#onetrust-accept-btn-handler',          # OneTrust
+        '.onetrust-close-btn-handler',
+        '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',  # Cookiebot
+        '#CybotCookiebotDialogBodyButtonAccept',
+        '[data-testid="cookie-policy-dialog-accept-button"]',  # Shopbop/Amazon
+        '#cookie-policy-dialog-accept-button',
+        '#sp-cc-accept',                          # Amazon SP cookie consent
+        '.cc-accept', '.cc-allow', '.cc-dismiss', # Cookie Consent (Osano)
+        '#accept-cookie', '#acceptCookies', '#accept-cookies',
+        '[data-action="accept-cookies"]',
+        '.cookie-accept', '.cookie-consent-accept',
+        '.js-cookie-accept', '.js-accept-cookies',
+        '#gdpr-cookie-accept', '.gdpr-accept',
+        '.consent-accept', '#consent-accept',
+        '.truste_popframe',                       # TrustArc
+        '#truste-consent-button',
+        '#didomi-notice-agree-button',            # Didomi
+        '.didomi-continue-without-agreeing',
+        '#usercentrics-root',                     # Usercentrics
+        'button:has-text("Accept All")',
+        'button:has-text("Accept all")',
+        'button:has-text("Accept Cookies")',
+        'button:has-text("Accept cookies")',
+        'button:has-text("Allow All")',
+        'button:has-text("Allow all")',
+        'button:has-text("Allow Cookies")',
+        'button:has-text("I Accept")',
+        'button:has-text("I agree")',
+        'button:has-text("I Agree")',
+        'button:has-text("Got it")',
+        'button:has-text("OK")',
+        'a:has-text("Accept All")',
+        'a:has-text("Accept Cookies")',
+    ]
+    for sel in cookie_selectors:
+        try:
+            loc = page.locator(sel).first
+            if loc.is_visible(timeout=300):
+                loc.click(timeout=1000)
+                page.wait_for_timeout(500)
+                break  # One consent click is enough
+        except Exception:
+            continue
+
+    # Then try clicking close buttons for other popups
     popup_selectors = [
         '[aria-label="Close"]',
         '[aria-label="close"]',
+        '[aria-label="Close dialog"]',
+        '[aria-label="Dismiss"]',
         'button.close',
         '.modal-close',
         '.popup-close',
         '[data-action="close"]',
+        '[data-dismiss="modal"]',
         'button:has-text("No thanks")',
+        'button:has-text("No Thanks")',
         'button:has-text("Close")',
+        'button:has-text("Dismiss")',
         'button:has-text("✕")',
         'button:has-text("×")',
     ]
     for sel in popup_selectors:
         try:
             loc = page.locator(sel).first
-            if loc.is_visible(timeout=500):
+            if loc.is_visible(timeout=300):
                 loc.click(timeout=1000)
                 page.wait_for_timeout(500)
         except Exception:
@@ -569,11 +621,20 @@ def _check_cart_api(page) -> bool:
 def _force_clear_modals(page):
     """Nuclear option: remove all overlays, modals, and fixed-position blockers."""
     page.evaluate("""() => {
-        // Remove all dialog/modal elements
+        // Remove all dialog/modal elements including cookie consent
         document.querySelectorAll(
             '[role="dialog"], [aria-modal="true"], .modal, .popup, '
             + '.overlay, [class*="modal"], [class*="popup"], [class*="overlay"], '
-            + '[id*="modal"], [id*="popup"], [id*="overlay"]'
+            + '[id*="modal"], [id*="popup"], [id*="overlay"], '
+            + '[class*="cookie"], [id*="cookie"], [class*="consent"], [id*="consent"], '
+            + '#onetrust-banner-sdk, #onetrust-consent-sdk, '
+            + '#CybotCookiebotDialog, .cookiebot, '
+            + '#sp-cc, [id*="sp-cc"], '
+            + '#truste-consent-track, .truste_overlay, '
+            + '#didomi-host, #didomi-popup, '
+            + '#usercentrics-root, '
+            + '[class*="gdpr"], [id*="gdpr"], '
+            + '[class*="privacy-banner"], [id*="privacy-banner"]'
         ).forEach(el => el.remove());
         // Remove fixed/absolute positioned overlays that cover the viewport
         const toRemove = [];
