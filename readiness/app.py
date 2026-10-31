@@ -1398,12 +1398,32 @@ def paid_scan_stream(scan_id):
         n = int(os.environ.get("SCAN_N", "5"))
         ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
 
-        # Refund agency credit if scan aborts before producing results
+        # Refund agency credit if scan aborts before producing results.
+        # Guard against double-refund from SSE reconnects: mark the scan JSON
+        # so subsequent connections to the same scan_id skip the refund.
         _agency_id = data.get("meta", {}).get("agency_id")
+        _refunded = False
 
         def _refund_credit():
-            if _agency_id:
-                _add_credits(_agency_id, 1)
+            nonlocal _refunded
+            if _refunded or not _agency_id:
+                return
+            # Check if already refunded (persisted across reconnects)
+            _cur = _load_scan(scan_id) or {}
+            if _cur.get("meta", {}).get("refunded"):
+                _refunded = True
+                return
+            _add_credits(_agency_id, 1)
+            _refunded = True
+            # Persist refund flag so reconnects don't refund again
+            try:
+                _cur_meta = _cur.get("meta", {})
+                _cur_meta["refunded"] = True
+                _cur["meta"] = _cur_meta
+                (SCANS_DIR / f"{scan_id}.json").write_text(
+                    json.dumps(_cur, indent=2))
+            except Exception:
+                pass
 
         yield "data: " + json.dumps({"type": "status",
                                      "message": "Fetching page..."}) + "\n\n"
