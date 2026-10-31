@@ -699,11 +699,62 @@
       </div>
       {% endif %}
       {% if not team_sent %}
-      <form action="{{ url_for('send_report', scan_id=data.scan_id) }}" method="post" style="display:flex;gap:8px;align-items:center;">
+      <form id="send-report-form" action="{{ url_for('send_report', scan_id=data.scan_id) }}" method="post" style="display:flex;gap:8px;align-items:center;">
         <input type="email" name="email" placeholder="developer@yourcompany.com" required
                style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;">
-        <button type="submit" class="btn-pay" style="white-space:nowrap;">Send Report</button>
+        <button type="submit" class="btn-pay" id="send-report-btn" style="white-space:nowrap;">Send Report</button>
       </form>
+      <div id="send-report-status" style="display:none;padding:0.6rem 0.9rem;border-radius:6px;margin-top:0.5rem;font-size:0.9rem;"></div>
+      <script>
+        (function() {
+          var form = document.getElementById('send-report-form');
+          var btn = document.getElementById('send-report-btn');
+          var status = document.getElementById('send-report-status');
+          form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var email = form.querySelector('input[name="email"]').value;
+            if (!email) return;
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            fetch(form.action, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+              body: 'email=' + encodeURIComponent(email),
+            }).then(function(resp) {
+              if (resp.redirected || resp.ok) {
+                return resp.text().then(function(html) {
+                  // Check if the response page contains success message
+                  if (html.indexOf('Report sent to') !== -1) {
+                    status.style.display = 'block';
+                    status.style.background = 'rgba(34,197,94,0.1)';
+                    status.style.border = '1px solid rgba(34,197,94,0.3)';
+                    status.style.color = '#22c55e';
+                    status.textContent = 'Report sent to ' + email;
+                    form.style.display = 'none';
+                  } else {
+                    status.style.display = 'block';
+                    status.style.background = 'rgba(239,68,68,0.1)';
+                    status.style.border = '1px solid rgba(239,68,68,0.3)';
+                    status.style.color = '#f87171';
+                    status.textContent = 'Failed to send email. Please copy the results manually or check SMTP configuration.';
+                    btn.disabled = false;
+                    btn.textContent = 'Send Report';
+                  }
+                });
+              }
+              throw new Error('Request failed');
+            }).catch(function() {
+              status.style.display = 'block';
+              status.style.background = 'rgba(239,68,68,0.1)';
+              status.style.border = '1px solid rgba(239,68,68,0.3)';
+              status.style.color = '#f87171';
+              status.textContent = 'Failed to send report. Please try again.';
+              btn.disabled = false;
+              btn.textContent = 'Send Report';
+            });
+          });
+        })();
+      </script>
       {% endif %}
     </div>
     {% endif %}

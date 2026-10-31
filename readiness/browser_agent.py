@@ -732,12 +732,45 @@ FLOW_ACTIONS = (
 def _product_name_from_url(url: str) -> str:
     """Extract a human-readable product name from a URL slug."""
     from urllib.parse import urlparse
-    slug = urlparse(url).path.rstrip("/").split("/")[-1]
-    name = slug.replace("-", " ").replace("_", " ")
+    path = urlparse(url).path.rstrip("/")
+    segments = [s for s in path.split("/") if s]
+
+    # Generic path segments that aren't product names
+    generic = {"product", "products", "shop", "item", "items", "p", "dp",
+               "catalog", "collections", "collection", "category", "vp"}
+
+    # Walk segments from the end; pick the first one that looks like
+    # a product slug (contains a letter and isn't purely numeric/ID-like).
+    best = segments[-1] if segments else ""
+    for seg in reversed(segments):
+        cleaned = seg
+        for sfx in (".html", ".htm"):
+            if cleaned.endswith(sfx):
+                cleaned = cleaned[:-len(sfx)]
+        # Skip purely numeric IDs, version markers (v=1), short codes
+        if cleaned.replace("-", "").replace("_", "").isdigit():
+            continue
+        if len(cleaned) <= 2 or "=" in cleaned:
+            continue
+        if cleaned.lower() in generic:
+            continue
+        best = cleaned
+        break
+
+    name = best.replace("-", " ").replace("_", " ")
     for sfx in (".html", ".htm"):
         if name.endswith(sfx):
             name = name[:-len(sfx)]
-    return name.strip()
+    name = name.strip()
+    # If we ended up with a numeric ID, short SKU, or code-like string,
+    # it's not useful for search — return empty so callers fall back to page title
+    stripped = name.replace(" ", "")
+    if not name or stripped.isdigit() or len(name) < 4:
+        return ""
+    # SKU-like: single token, alphanumeric, no spaces (e.g. "pw008si1x5")
+    if " " not in name and stripped.isalnum() and any(c.isdigit() for c in stripped):
+        return ""
+    return name
 
 
 def _homepage_url(url: str) -> str:
@@ -1068,9 +1101,38 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
 
 # ---- Flow 1: Search Discovery ----
 
+def _product_name_from_page(url: str, timeout: int = 10) -> str:
+    """Try to extract the product name from page title via a quick fetch."""
+    try:
+        import requests
+        resp = requests.get(url, timeout=timeout, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; agent-scanner/1.0)"})
+        if resp.ok:
+            import re
+            m = re.search(r"<title[^>]*>([^<]+)</title>", resp.text, re.IGNORECASE)
+            if m:
+                title = m.group(1).strip()
+                # Strip common suffixes: "Product Name | Store" or "Product Name - Store"
+                for sep in [" | ", " – ", " - ", " — ", " · "]:
+                    if sep in title:
+                        title = title.split(sep)[0].strip()
+                        break
+                if len(title) > 3:
+                    return title
+    except Exception:
+        pass
+    return ""
+
+
 def run_search_discovery(url: str, timeout: int = 30) -> dict:
     """Search for the product from the homepage using site search."""
     product_name = _product_name_from_url(url)
+    if not product_name:
+        product_name = _product_name_from_page(url)
+    if not product_name:
+        return {"success": False, "steps": [], "total_steps": 0,
+                "final_reason": "Could not determine product name from URL — cannot search",
+                "cart_verified": False}
     homepage = _homepage_url(url)
 
     goal = f"Find the product '{product_name}' using the site's search function."
@@ -1138,6 +1200,10 @@ def run_checkout_reachable(url: str, timeout: int = 30) -> dict:
 def run_homepage_to_product(url: str, timeout: int = 30) -> dict:
     """Navigate from homepage to the product via site menus."""
     product_name = _product_name_from_url(url)
+    if not product_name:
+        product_name = _product_name_from_page(url)
+    if not product_name:
+        product_name = "a product"  # generic fallback for navigation
     homepage = _homepage_url(url)
     slug = url.rstrip("/").split("/")[-1].lower()
 
