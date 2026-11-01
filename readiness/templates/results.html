@@ -687,18 +687,14 @@
     {% endif %}
 
     <!-- PAID: send to team -->
-    {% if has_email %}
     <div class="card">
       <h2>Send to your developer</h2>
       <p>Forward this report with all the fix recipes to your dev team.</p>
-      {% if send_msg %}
-      <div style="padding:0.6rem 0.9rem; border-radius:6px; margin-bottom:0.75rem; font-size:0.9rem;
-        {% if team_sent %}background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:var(--green);
-        {% else %}background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--red);{% endif %}">
-        {{ send_msg }}
+      {% if team_sent %}
+      <div id="send-report-status" style="padding:0.6rem 0.9rem;border-radius:6px;margin-bottom:0.75rem;font-size:0.9rem;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:var(--green);">
+        Report sent successfully.
       </div>
-      {% endif %}
-      {% if not team_sent %}
+      {% else %}
       <form id="send-report-form" action="{{ url_for('send_report', scan_id=data.scan_id) }}" method="post" style="display:flex;gap:8px;align-items:center;">
         <input type="email" name="email" placeholder="developer@yourcompany.com" required
                style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;">
@@ -716,33 +712,32 @@
             if (!email) return;
             btn.disabled = true;
             btn.textContent = 'Sending...';
+            status.style.display = 'none';
             fetch(form.action, {
               method: 'POST',
-              headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+              },
               body: 'email=' + encodeURIComponent(email),
             }).then(function(resp) {
-              if (resp.redirected || resp.ok) {
-                return resp.text().then(function(html) {
-                  // Check if the response page contains success message
-                  if (html.indexOf('Report sent to') !== -1) {
-                    status.style.display = 'block';
-                    status.style.background = 'rgba(34,197,94,0.1)';
-                    status.style.border = '1px solid rgba(34,197,94,0.3)';
-                    status.style.color = '#22c55e';
-                    status.textContent = 'Report sent to ' + email;
-                    form.style.display = 'none';
-                  } else {
-                    status.style.display = 'block';
-                    status.style.background = 'rgba(239,68,68,0.1)';
-                    status.style.border = '1px solid rgba(239,68,68,0.3)';
-                    status.style.color = '#f87171';
-                    status.textContent = 'Failed to send email. Please copy the results manually or check SMTP configuration.';
-                    btn.disabled = false;
-                    btn.textContent = 'Send Report';
-                  }
-                });
-              }
-              throw new Error('Request failed');
+              return resp.json().then(function(data) {
+                status.style.display = 'block';
+                if (data.ok) {
+                  status.style.background = 'rgba(34,197,94,0.1)';
+                  status.style.border = '1px solid rgba(34,197,94,0.3)';
+                  status.style.color = '#22c55e';
+                  status.textContent = data.message;
+                  form.style.display = 'none';
+                } else {
+                  status.style.background = 'rgba(239,68,68,0.1)';
+                  status.style.border = '1px solid rgba(239,68,68,0.3)';
+                  status.style.color = '#f87171';
+                  status.textContent = data.error;
+                  btn.disabled = false;
+                  btn.textContent = 'Send Report';
+                }
+              });
             }).catch(function() {
               status.style.display = 'block';
               status.style.background = 'rgba(239,68,68,0.1)';

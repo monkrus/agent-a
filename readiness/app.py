@@ -1138,7 +1138,6 @@ def results(scan_id):
     team_sent = session.pop(f"sent_{scan_id}", False)
     send_msg = session.pop(f"send_msg_{scan_id}", None)
     payment_error = session.pop(f"payment_error_{scan_id}", None)
-    has_email = emailer._is_configured()
     access_blocked = any(r.get("gated") for r in data.get("results", []))
     agency_name = data.get("meta", {}).get("agency_name", "")
     # Generate JSON-LD snippet if RDY-001 failed
@@ -1182,7 +1181,7 @@ def results(scan_id):
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            payment_error=payment_error,
                            email_sent_to=email_sent_to, team_sent=team_sent, send_msg=send_msg,
-                           has_email=has_email, access_blocked=access_blocked,
+                           access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
                            compare_error=compare_error, rescan_promo=rescan_promo,
                            scan_count=scan_count, stats={"check_counts": check_counts},
@@ -1822,10 +1821,20 @@ def send_report(scan_id):
                or bool(data.get("meta", {}).get("agency_id")))
     if not is_paid:
         abort(403)
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     to_email = _validate_email(request.form.get("email", ""))
     if not to_email:
+        if is_ajax:
+            return jsonify(ok=False, error="Invalid email address."), 400
         return redirect(url_for("results", scan_id=scan_id))
     if _check_send_limit(scan_id):
+        if is_ajax:
+            return jsonify(ok=False, error="Too many sends. Please try again later."), 429
+        return redirect(url_for("results", scan_id=scan_id))
+    if not emailer._is_configured():
+        if is_ajax:
+            return jsonify(ok=False, error="Email delivery is not configured on this server. Use 'Save as PDF' instead."), 503
+        session[f"send_msg_{scan_id}"] = "Email delivery is not configured. Use 'Save as PDF' instead."
         return redirect(url_for("results", scan_id=scan_id))
     target = data.get("meta", {}).get("target", "")
     ok = emailer.send_report(to_email, data,
@@ -1833,8 +1842,12 @@ def send_report(scan_id):
                              base_url=request.host_url.rstrip("/"))
     if ok:
         session[f"sent_{scan_id}"] = True
+        if is_ajax:
+            return jsonify(ok=True, message=f"Report sent to {to_email}")
         session[f"send_msg_{scan_id}"] = f"Report sent to {to_email}"
     else:
+        if is_ajax:
+            return jsonify(ok=False, error="Failed to send email. Please try again or use 'Save as PDF'.")
         session[f"send_msg_{scan_id}"] = "Failed to send email. Please try again or copy the results instead."
     return redirect(url_for("results", scan_id=scan_id))
 
