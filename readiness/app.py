@@ -1693,9 +1693,6 @@ def paid_scan_stream(scan_id):
         if _orig_meta.get("agency_id"):
             _paid_meta["agency_id"] = _orig_meta["agency_id"]
             _paid_meta["agency_name"] = _orig_meta.get("agency_name", "")
-        if _orig_meta.get("rescan_of"):
-            _paid_meta["rescan_of"] = _orig_meta["rescan_of"]
-            _paid_meta["free_rescan"] = _orig_meta.get("free_rescan", False)
         payload = {
             "scan_id": new_scan_id,
             "meta": _paid_meta,
@@ -1848,9 +1845,6 @@ def rescan(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    # Agency scans must go through the agency rescan flow (credit-based)
-    if data.get("meta", {}).get("agency_id"):
-        return redirect(url_for("agency_rescan", scan_id=scan_id), code=307)
     # Only allow re-scan if the original scan was paid (Stripe customers)
     is_paid = (session.get(f"paid_{scan_id}", False)
                or data.get("meta", {}).get("paid", False))
@@ -2667,21 +2661,9 @@ def agency_delete(agency):
 @agency_required
 def agency_dashboard(agency):
     scans = _get_agency_scans(agency["id"])
-    # Build set of scan_ids that have been rescanned (one pass over .scans/)
-    rescanned_ids = set()
-    for p in SCANS_DIR.glob("*.json"):
-        try:
-            meta = json.loads(p.read_text()).get("meta", {})
-            parent = meta.get("rescan_of")
-            if parent:
-                rescanned_ids.add(parent)
-        except (json.JSONDecodeError, OSError):
-            continue
-    # Load score and rescan status for each scan
     for s in scans:
         data = _load_scan(s["scan_id"])
         s["score"] = data.get("readiness_score") if data else None
-        s["has_free_rescan"] = s["scan_id"] not in rescanned_ids
     error = request.args.get("error")
     return render_template("agency_dashboard.html", agency=agency, scans=scans,
                            credit_packs=_CREDIT_PACKS, error=error)
@@ -2712,49 +2694,6 @@ def agency_scan(agency):
     # Mark as paid so the existing paid_scan_stream works
     session[f"paid_verified_{scan_id}"] = True
     return redirect(url_for("agency_processing", scan_id=scan_id))
-
-
-@app.route("/agency/rescan/<scan_id>", methods=["POST"])
-@agency_required
-def agency_rescan(agency, scan_id):
-    """Rescan the same URL. First rescan per scan is free; subsequent ones cost 1 credit."""
-    data = _load_scan(scan_id)
-    if not data:
-        abort(404)
-    target_url = data.get("meta", {}).get("target", "")
-    if not target_url:
-        abort(400)
-    # Verify scan belongs to this agency
-    if data.get("meta", {}).get("agency_id") != agency["id"]:
-        abort(403)
-    # Check if this scan already used its free rescan
-    # Count existing rescans of this scan_id (by checking metadata in .scans/)
-    rescan_count = 0
-    for p in SCANS_DIR.glob("*.json"):
-        if p.stem == scan_id:
-            continue
-        try:
-            meta = json.loads(p.read_text()).get("meta", {})
-            if meta.get("rescan_of") == scan_id:
-                rescan_count += 1
-        except (json.JSONDecodeError, OSError):
-            continue
-    free_rescan = rescan_count == 0
-    if not free_rescan:
-        return redirect(url_for("agency_dashboard", error="This scan has already been rescanned. Run a new scan instead."))
-    # Create new scan with same URL
-    now = datetime.datetime.now()
-    new_id = hashlib.sha256(f"{target_url}:{now.isoformat()}:rescan".encode()).hexdigest()[:12]
-    from urllib.parse import urlparse
-    domain = urlparse(target_url).hostname or target_url
-    stub = {"scan_id": new_id, "meta": {"target": target_url, "timestamp": now.isoformat(),
-            "domain": domain, "agency_id": agency["id"],
-            "agency_name": agency["name"], "rescan_of": scan_id,
-            "free_rescan": free_rescan}}
-    (SCANS_DIR / f"{new_id}.json").write_text(json.dumps(stub, indent=2))
-    _record_agency_scan(agency["id"], new_id, domain, target_url)
-    session[f"paid_verified_{new_id}"] = True
-    return redirect(url_for("agency_processing", scan_id=new_id))
 
 
 @app.route("/agency/processing/<scan_id>")
