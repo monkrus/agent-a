@@ -2741,8 +2741,7 @@ def agency_rescan(agency, scan_id):
             continue
     free_rescan = rescan_count == 0
     if not free_rescan:
-        if not _deduct_credit(agency["id"]):
-            return redirect(url_for("agency_dashboard", error="No credits remaining. First rescan is free; additional rescans cost 1 credit."))
+        return redirect(url_for("agency_dashboard", error="This scan has already been rescanned. Run a new scan instead."))
     # Create new scan with same URL
     now = datetime.datetime.now()
     new_id = hashlib.sha256(f"{target_url}:{now.isoformat()}:rescan".encode()).hexdigest()[:12]
