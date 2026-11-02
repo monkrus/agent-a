@@ -1837,18 +1837,20 @@ def send_report(scan_id):
         session[f"send_msg_{scan_id}"] = "Email delivery is not configured. Use 'Save as PDF' instead."
         return redirect(url_for("results", scan_id=scan_id))
     target = data.get("meta", {}).get("target", "")
-    ok = emailer.send_report(to_email, data,
-                             subject=f"AI Shopping Report for {target} (shared with you)",
-                             base_url=request.host_url.rstrip("/"))
-    if ok:
+    result = emailer.send_report(to_email, data,
+                                 subject=f"AI Shopping Report for {target} (shared with you)",
+                                 base_url=request.host_url.rstrip("/"))
+    if result is True:
         session[f"sent_{scan_id}"] = True
         if is_ajax:
             return jsonify(ok=True, message=f"Report sent to {to_email}")
         session[f"send_msg_{scan_id}"] = f"Report sent to {to_email}"
     else:
+        err_msg = result if isinstance(result, str) else "Unknown error"
+        _logger.warning("send_report failed for %s: %s", scan_id, err_msg)
         if is_ajax:
-            return jsonify(ok=False, error="Failed to send email. Please try again or use 'Save as PDF'.")
-        session[f"send_msg_{scan_id}"] = "Failed to send email. Please try again or copy the results instead."
+            return jsonify(ok=False, error=f"Failed to send email: {err_msg}")
+        session[f"send_msg_{scan_id}"] = f"Failed to send email: {err_msg}"
     return redirect(url_for("results", scan_id=scan_id))
 
 

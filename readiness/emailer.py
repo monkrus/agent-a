@@ -14,8 +14,11 @@ Env vars:
 """
 from __future__ import annotations
 
+import logging
 import os
 import smtplib
+
+_logger = logging.getLogger(__name__)
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -166,10 +169,13 @@ def _build_html(scan_data: dict, base_url: str = "") -> str:
 
 
 def send_report(to_email: str, scan_data: dict, subject: str | None = None,
-                base_url: str = "") -> bool:
-    """Send the full scan report to the given email. Returns True on success."""
+                base_url: str = "") -> bool | str:
+    """Send the full scan report to the given email.
+
+    Returns True on success, or an error string on failure.
+    """
     if not _is_configured():
-        return False
+        return "SMTP not configured (SMTP_USER / SMTP_PASS missing)."
 
     target = scan_data.get("meta", {}).get("target", "your page")
     score = scan_data.get("readiness_score", 0) or 0
@@ -192,10 +198,11 @@ def send_report(to_email: str, scan_data: dict, subject: str | None = None,
     msg.attach(MIMEText(html_body, "html"))
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
             server.starttls()
             server.login(smtp_user, smtp_pass)
             server.sendmail(from_email, [to_email], msg.as_string())
         return True
-    except Exception:
-        return False
+    except Exception as exc:
+        _logger.exception("SMTP send failed to %s via %s:%s", to_email, smtp_host, smtp_port)
+        return f"SMTP error: {exc}"
