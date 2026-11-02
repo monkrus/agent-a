@@ -1702,6 +1702,8 @@ def run_static(check, page):
 # ---- SHOPPER grading --------------------------------------------------------
 def _norm(s):
     t = re.sub(r"[*_`#>]+", "", str(s))   # strip markdown formatting
+    t = re.sub(r"[\-–—|/]+", " ", t)      # normalize separators to spaces
+    t = re.sub(r"[^\w\s]", "", t)          # strip remaining punctuation
     return re.sub(r"\s+", " ", t).strip().lower()
 
 
