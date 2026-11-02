@@ -145,7 +145,7 @@
 <body>
   <div class="container">
     <header>
-      <a href="{{ url_for('share', scan_id=scan_id) }}" class="back-link">&larr; Back to scorecard</a>
+      <a href="{{ url_for('results', scan_id=scan_id) }}" class="back-link">&larr; Back to full report</a>
       <div class="trace-hero">
         <h1>AI Agent Shopping Test</h1>
         <p>Watch what happened when an AI agent tried to buy from <strong>{{ domain }}</strong></p>
@@ -267,7 +267,7 @@
     {% endif %}
 
     <div class="card no-print" style="text-align:center;">
-      <a href="{{ url_for('share', scan_id=scan_id) }}" class="btn-pay" style="display:inline-block; text-decoration:none;">View Full Scorecard</a>
+      <a href="{{ url_for('results', scan_id=scan_id) }}" class="btn-pay" style="display:inline-block; text-decoration:none;">Back to Full Report</a>
       <div style="margin-top:0.75rem;">
         <button class="btn-share" onclick="copyShareLink()">Copy trace link</button>
         <span id="share-msg" style="font-size:0.9rem; color:var(--green); margin-left:0.5rem; display:none;">Copied!</span>
