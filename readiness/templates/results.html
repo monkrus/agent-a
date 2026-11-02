@@ -686,72 +686,7 @@
     </div>
     {% endif %}
 
-    <!-- PAID: send to team -->
-    <div class="card">
-      <h2>Send to your developer</h2>
-      <p>Forward this report with all the fix recipes to your dev team.</p>
-      {% if team_sent %}
-      <div id="send-report-status" style="padding:0.6rem 0.9rem;border-radius:6px;margin-bottom:0.75rem;font-size:0.9rem;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);color:var(--green);">
-        Report sent successfully.
-      </div>
-      {% else %}
-      <form id="send-report-form" action="{{ url_for('send_report', scan_id=data.scan_id) }}" method="post" style="display:flex;gap:8px;align-items:center;">
-        <input type="email" name="email" placeholder="developer@yourcompany.com" required
-               style="flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;">
-        <button type="submit" class="btn-pay" id="send-report-btn" style="white-space:nowrap;">Send Report</button>
-      </form>
-      <div id="send-report-status" style="display:none;padding:0.6rem 0.9rem;border-radius:6px;margin-top:0.5rem;font-size:0.9rem;"></div>
-      <script>
-        (function() {
-          var form = document.getElementById('send-report-form');
-          var btn = document.getElementById('send-report-btn');
-          var status = document.getElementById('send-report-status');
-          form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            var email = form.querySelector('input[name="email"]').value;
-            if (!email) return;
-            btn.disabled = true;
-            btn.textContent = 'Sending...';
-            status.style.display = 'none';
-            fetch(form.action, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'X-Requested-With': 'XMLHttpRequest'
-              },
-              body: 'email=' + encodeURIComponent(email),
-            }).then(function(resp) {
-              return resp.json().then(function(data) {
-                status.style.display = 'block';
-                if (data.ok) {
-                  status.style.background = 'rgba(34,197,94,0.1)';
-                  status.style.border = '1px solid rgba(34,197,94,0.3)';
-                  status.style.color = '#22c55e';
-                  status.textContent = data.message;
-                  form.style.display = 'none';
-                } else {
-                  status.style.background = 'rgba(239,68,68,0.1)';
-                  status.style.border = '1px solid rgba(239,68,68,0.3)';
-                  status.style.color = '#f87171';
-                  status.textContent = data.error;
-                  btn.disabled = false;
-                  btn.textContent = 'Send Report';
-                }
-              });
-            }).catch(function() {
-              status.style.display = 'block';
-              status.style.background = 'rgba(239,68,68,0.1)';
-              status.style.border = '1px solid rgba(239,68,68,0.3)';
-              status.style.color = '#f87171';
-              status.textContent = 'Failed to send report. Please try again.';
-              btn.disabled = false;
-              btn.textContent = 'Send Report';
-            });
-          });
-        })();
-      </script>
-      {% endif %}
-    </div>
+
 
     <!-- PAID: next steps -->
     <div class="card">
