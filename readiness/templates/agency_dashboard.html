@@ -117,7 +117,7 @@
               {% endif %}
             </td>
             <td style="color:var(--text-muted); font-size:0.85rem;">{{ s.created_at | int | timestamp_to_date }}</td>
-            <td><a href="{{ url_for('share', scan_id=s.scan_id) }}">View</a></td>
+            <td><a href="{{ url_for('results', scan_id=s.scan_id) }}">View</a></td>
             <td>
               {% if s.score is not none %}
               {% endif %}
