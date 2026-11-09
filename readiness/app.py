@@ -1416,10 +1416,16 @@ def paid_scan_stream(scan_id):
             _refunded = True
             # Persist refund flag so reconnects don't refund again
             try:
+                import re as _re2
+                if not _re2.fullmatch(r'[a-f0-9]{12}', scan_id):
+                    raise ValueError("invalid scan_id")
                 _cur_meta = _cur.get("meta", {})
                 _cur_meta["refunded"] = True
                 _cur["meta"] = _cur_meta
-                (SCANS_DIR / f"{scan_id}.json").write_text(
+                _safe_path = SCANS_DIR / f"{scan_id}.json"
+                if not str(_safe_path.resolve()).startswith(str(SCANS_DIR.resolve())):
+                    raise ValueError("path traversal blocked")
+                _safe_path.write_text(
                     json.dumps(_cur, indent=2))
             except Exception:
                 pass
@@ -1849,8 +1855,8 @@ def send_report(scan_id):
         err_msg = result if isinstance(result, str) else "Unknown error"
         _logger.warning("send_report failed for %s: %s", scan_id, err_msg)
         if is_ajax:
-            return jsonify(ok=False, error=f"Failed to send email: {err_msg}")
-        session[f"send_msg_{scan_id}"] = f"Failed to send email: {err_msg}"
+            return jsonify(ok=False, error="Failed to send email. Please try again or use 'Save as PDF' instead.")
+        session[f"send_msg_{scan_id}"] = "Failed to send email. Please try again or use 'Save as PDF' instead."
     return redirect(url_for("results", scan_id=scan_id))
 
 
@@ -2278,10 +2284,15 @@ def sample_report():
 def vision_report(name):
     """Serve static AI-vision reports (e.g. /vision/ninagashi)."""
     safe = "".join(c for c in name if c.isalnum() or c in "-_").lower()
-    report = pathlib.Path(__file__).resolve().parent / f"ai-vision-{safe}.html"
+    if not safe or len(safe) > 64:
+        abort(404)
+    parent_dir = pathlib.Path(__file__).resolve().parent
+    report = parent_dir / f"ai-vision-{safe}.html"
+    if not str(report.resolve()).startswith(str(parent_dir)):
+        abort(404)
     if not report.is_file():
         abort(404)
-    return send_file(report, mimetype="text/html")
+    return send_file(str(report.resolve()), mimetype="text/html")
 
 
 @app.route("/agent-traffic")
