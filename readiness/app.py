@@ -41,7 +41,7 @@ load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
 import functools
 from flask import (Flask, Response, abort, jsonify, redirect, render_template,
-                   request, send_file, session, url_for)
+                   request, send_file, send_from_directory, session, url_for)
 from werkzeug.security import generate_password_hash, check_password_hash
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -1416,16 +1416,16 @@ def paid_scan_stream(scan_id):
             _refunded = True
             # Persist refund flag so reconnects don't refund again
             try:
-                import re as _re2
-                if not _re2.fullmatch(r'[a-f0-9]{12}', scan_id):
-                    raise ValueError("invalid scan_id")
                 _cur_meta = _cur.get("meta", {})
                 _cur_meta["refunded"] = True
                 _cur["meta"] = _cur_meta
-                _safe_path = SCANS_DIR / f"{scan_id}.json"
-                if not str(_safe_path.resolve()).startswith(str(SCANS_DIR.resolve())):
+                # scan_id already validated by _load_scan (regex [a-f0-9]{12})
+                # Use safe_join to satisfy CodeQL path-traversal checks
+                from werkzeug.utils import safe_join as _safe_join
+                _safe_path = _safe_join(str(SCANS_DIR), f"{scan_id}.json")
+                if _safe_path is None:
                     raise ValueError("path traversal blocked")
-                _safe_path.write_text(
+                pathlib.Path(_safe_path).write_text(
                     json.dumps(_cur, indent=2))
             except Exception:
                 pass
@@ -2283,16 +2283,13 @@ def sample_report():
 @app.route("/vision/<name>")
 def vision_report(name):
     """Serve static AI-vision reports (e.g. /vision/ninagashi)."""
+    import re as _re
     safe = "".join(c for c in name if c.isalnum() or c in "-_").lower()
-    if not safe or len(safe) > 64:
+    if not safe or len(safe) > 64 or not _re.fullmatch(r'[a-z0-9][a-z0-9_-]*', safe):
         abort(404)
-    parent_dir = pathlib.Path(__file__).resolve().parent
-    report = parent_dir / f"ai-vision-{safe}.html"
-    if not str(report.resolve()).startswith(str(parent_dir)):
-        abort(404)
-    if not report.is_file():
-        abort(404)
-    return send_file(str(report.resolve()), mimetype="text/html")
+    filename = f"ai-vision-{safe}.html"
+    directory = str(pathlib.Path(__file__).resolve().parent)
+    return send_from_directory(directory, filename, mimetype="text/html")
 
 
 @app.route("/agent-traffic")
