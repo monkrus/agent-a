@@ -150,17 +150,6 @@
       </div>
     </div>
 
-    <!-- API KEY -->
-    <div class="card">
-      <h3 class="section-title">API key</h3>
-      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.5rem;">Use this key for programmatic access (coming soon).</p>
-      <div class="api-key-row">
-        <code class="api-key-value" id="api-key-val">{{ agency.api_key }}</code>
-        <button class="copy-btn" onclick="copyKey()">Copy</button>
-        <span id="copy-msg" style="font-size:0.8rem; color:var(--green); display:none;">Copied!</span>
-      </div>
-    </div>
-
     <!-- DELETE ACCOUNT -->
     <div class="card" style="border:1px solid rgba(239,68,68,0.3);">
       <h3 class="section-title" style="color:#f87171;">Delete account</h3>
@@ -191,14 +180,5 @@
     </footer>
   </div>
 
-  <script>
-  function copyKey() {
-    navigator.clipboard.writeText(document.getElementById('api-key-val').textContent).then(function() {
-      var msg = document.getElementById('copy-msg');
-      msg.style.display = 'inline';
-      setTimeout(function() { msg.style.display = 'none'; }, 2000);
-    });
-  }
-  </script>
 </body>
 </html>

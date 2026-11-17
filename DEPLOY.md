@@ -26,6 +26,7 @@ Alternatives considered:
 | `ANTHROPIC_API_KEY` | Yes | For real Claude extraction |
 | `SHOPPER` | Yes | Set to `anthropic` for production |
 | `STRIPE_SECRET_KEY` | For paid reports | Stripe dashboard |
+| `STRIPE_WEBHOOK_SECRET` | For agency credit packs (credits granted even if buyer closes tab) | Stripe → Developers → Webhooks → add endpoint `https://<host>/stripe/webhook` with events `checkout.session.completed` + `checkout.session.async_payment_succeeded` |
 | `STRIPE_PRICE_ID` | For paid reports | Stripe dashboard |
 | `FLASK_SECRET_KEY` | Yes | `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `DEV_MODE` | No | Set `true` only for demo/testing |

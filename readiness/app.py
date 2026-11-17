@@ -175,6 +175,15 @@ def _init_store():
         stripe_session_id TEXT,
         created_at REAL NOT NULL,
         FOREIGN KEY (agency_id) REFERENCES agencies(id))""")
+    # One Stripe session can be redeemed exactly once, even if the success
+    # redirect and the webhook race. SQLite UNIQUE permits multiple NULLs
+    # (DEV_MODE purchases have no session id).
+    try:
+        conn.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_purchases_stripe_session
+                        ON agency_purchases(stripe_session_id)""")
+    except _sqlite3.IntegrityError:
+        _logger.error("agency_purchases has duplicate stripe_session_id rows; "
+                      "unique index not created — dedupe relies on fulfill check")
     seed = max(int(os.environ.get("SCAN_COUNT_SEED", "0")), _scan_count)
     conn.execute("""INSERT OR IGNORE INTO counters (key, value) VALUES ('total_scans', ?)""", (seed,))
     conn.commit()
@@ -219,7 +228,9 @@ def _check_rate_limit(client_ip: str) -> int | None:
                         ON CONFLICT(ip) DO UPDATE SET last_scan = ?""",
                      (client_ip, now, now))
         # Prune old entries
-        conn.execute("DELETE FROM rate_limits WHERE last_scan < ?", (now - 600,))
+        # Prune old entries (signup markers live 24h — see _signup_credit_allowed)
+        conn.execute("DELETE FROM rate_limits WHERE (last_scan < ? AND ip NOT LIKE 'signup:%') "
+                     "OR last_scan < ?", (now - 600, now - 86400))
         conn.commit()
         return None
     finally:
@@ -451,11 +462,17 @@ def _scan_stats() -> dict:
     return stats
 
 
+def _paid_scan_n() -> int:
+    """Shopper runs per check for paid/agency scans. Marketing copy promises
+    10 AI visits, so this defaults to 10 independently of SCAN_N (free tier)."""
+    return int(os.environ.get("PAID_SCAN_N", "10"))
+
+
 def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
     from concurrent.futures import ThreadPoolExecutor
     import time as _time
     _t0 = _time.time()
-    n = n or int(os.environ.get("SCAN_N", "5"))
+    n = n or (_paid_scan_n() if tier == "paid" else int(os.environ.get("SCAN_N", "5")))
     pack, version, checks = _load_checks()
     checks = checks_for_tier(tier, checks)
     page = pre_fetched_page or fetchmod.fetch(target_url)
@@ -1394,7 +1411,7 @@ def paid_scan_stream(scan_id):
         import time as t
 
         _t0 = t.time()
-        n = int(os.environ.get("SCAN_N", "5"))
+        n = _paid_scan_n()
         ACCESS_GATE_IDS = {"RDY-031", "RDY-003"}
 
         # Refund agency credit if scan aborts before producing results.
@@ -2586,15 +2603,67 @@ def _record_agency_scan(agency_id: int, scan_id: str, domain: str, target_url: s
         conn.close()
 
 
-def _record_purchase(agency_id: int, pack: str, credits_added: int,
-                     amount_cents: int, stripe_session_id: str | None = None):
-    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+def _fulfill_credit_purchase(agency_id: int, pack_key: str,
+                             stripe_session_id: str) -> bool:
+    """Atomically record a paid credit pack and add its credits.
+
+    Called from both the success redirect and the Stripe webhook; whichever
+    arrives first wins. Returns True if credits were added, False if this
+    session was already redeemed or the pack/agency is unknown.
+    """
+    pack = _CREDIT_PACKS.get(pack_key)
+    if not pack or not stripe_session_id:
+        return False
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=10, isolation_level=None)
     try:
+        conn.execute("BEGIN IMMEDIATE")
+        dup = conn.execute("SELECT 1 FROM agency_purchases WHERE stripe_session_id = ?",
+                           (stripe_session_id,)).fetchone()
+        if dup:
+            conn.execute("ROLLBACK")
+            return False
+        cur = conn.execute("UPDATE agencies SET credits = credits + ? WHERE id = ?",
+                           (pack["credits"], agency_id))
+        if cur.rowcount == 0:
+            conn.execute("ROLLBACK")
+            _logger.error("Paid credit pack for missing agency %s (session %s) — "
+                          "refund or restore manually", agency_id, stripe_session_id)
+            return False
         conn.execute("INSERT INTO agency_purchases (agency_id, pack, credits_added, "
                      "amount_cents, stripe_session_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                     (agency_id, pack, credits_added, amount_cents,
+                     (agency_id, pack_key, pack["credits"], pack["price_cents"],
                       stripe_session_id, _time.time()))
+        conn.execute("COMMIT")
+        return True
+    except _sqlite3.IntegrityError:
+        # Unique index caught a concurrent redemption of the same session
+        conn.execute("ROLLBACK")
+        return False
+    finally:
+        conn.close()
+
+
+SIGNUP_CREDITS = int(os.environ.get("SIGNUP_CREDITS", "1"))
+
+
+@app.context_processor
+def _inject_signup_credits():
+    return {"signup_credits": SIGNUP_CREDITS}
+
+
+def _signup_credit_allowed(client_ip: str) -> bool:
+    """One free signup credit per IP per 24h — limits farming via throwaway emails."""
+    now = _time.time()
+    key = f"signup:{client_ip}"
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        row = conn.execute("SELECT last_scan FROM rate_limits WHERE ip = ?", (key,)).fetchone()
+        if row and now - row[0] < 86400:
+            return False
+        conn.execute("""INSERT INTO rate_limits (ip, last_scan) VALUES (?, ?)
+                        ON CONFLICT(ip) DO UPDATE SET last_scan = ?""", (key, now, now))
         conn.commit()
+        return True
     finally:
         conn.close()
 
@@ -2630,11 +2699,14 @@ def agency_register():
     if _get_agency_by_email(email):
         return render_template("agency_register.html", error="An account with that email already exists.")
     api_key = f"aa_{secrets.token_hex(24)}"
+    starting_credits = (SIGNUP_CREDITS if SIGNUP_CREDITS > 0
+                        and _signup_credit_allowed(request.remote_addr or "unknown") else 0)
     conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
     try:
         conn.execute("INSERT INTO agencies (name, email, password_hash, api_key, credits, created_at) "
                      "VALUES (?, ?, ?, ?, ?, ?)",
-                     (name, email, generate_password_hash(password), api_key, 0, _time.time()))
+                     (name, email, generate_password_hash(password), api_key,
+                      starting_credits, _time.time()))
         conn.commit()
         row = conn.execute("SELECT id FROM agencies WHERE email = ?", (email,)).fetchone()
         session["agency_id"] = row[0]
@@ -2755,8 +2827,7 @@ def agency_buy_credits(agency):
     if not stripe_key:
         if os.environ.get("DEV_MODE", "").lower() == "true":
             # Dev mode: add credits directly
-            _add_credits(agency["id"], pack["credits"])
-            _record_purchase(agency["id"], pack_key, pack["credits"], pack["price_cents"])
+            _fulfill_credit_purchase(agency["id"], pack_key, f"dev_{secrets.token_hex(8)}")
             return redirect(url_for("agency_dashboard"))
         abort(503, description="Payment system is not configured.")
     import stripe
@@ -2802,27 +2873,56 @@ def agency_payment_success(agency):
                             meta.get("agency_id"), agency["id"])
             return redirect(url_for("agency_dashboard"))
         pack_key = meta.get("pack", "")
-        pack = _CREDIT_PACKS.get(pack_key)
-        if not pack:
+        if pack_key not in _CREDIT_PACKS:
             _logger.warning("Unknown pack in credit purchase: %s", pack_key)
             return redirect(url_for("agency_dashboard"))
-        # Check for duplicate redemption
-        conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
-        try:
-            dup = conn.execute("SELECT 1 FROM agency_purchases WHERE stripe_session_id = ?",
-                               (stripe_session_id,)).fetchone()
-        finally:
-            conn.close()
-        if dup:
-            _logger.info("Duplicate credit purchase redemption: %s", stripe_session_id)
-            return redirect(url_for("agency_dashboard"))
-        _add_credits(agency["id"], pack["credits"])
-        _record_purchase(agency["id"], pack_key, pack["credits"],
-                         pack["price_cents"], stripe_session_id)
-        _logger.info("Agency %s purchased %s (%d credits)", agency["id"], pack_key, pack["credits"])
+        if _fulfill_credit_purchase(agency["id"], pack_key, stripe_session_id):
+            _logger.info("Agency %s purchased %s via redirect", agency["id"], pack_key)
+        else:
+            _logger.info("Credit purchase already redeemed: %s", stripe_session_id)
     except Exception:
         _logger.exception("Agency credit purchase verification failed")
     return redirect(url_for("agency_dashboard"))
+
+
+@app.route("/stripe/webhook", methods=["POST"])
+def stripe_webhook():
+    """Stripe webhook — grants agency credits even if the buyer never
+    returns to /agency/payment-success (closed tab, network drop).
+
+    Configure in Stripe: endpoint https://<host>/stripe/webhook, events
+    checkout.session.completed + checkout.session.async_payment_succeeded,
+    and set STRIPE_WEBHOOK_SECRET to the endpoint's signing secret.
+    """
+    secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY")
+    if not secret or not stripe_key:
+        abort(503, description="Webhook not configured.")
+    import stripe
+    stripe.api_key = stripe_key
+    try:
+        event = stripe.Webhook.construct_event(
+            request.get_data(), request.headers.get("Stripe-Signature", ""), secret)
+    except (ValueError, stripe.SignatureVerificationError):
+        _logger.warning("Rejected Stripe webhook with invalid payload/signature")
+        abort(400)
+    if event["type"] in ("checkout.session.completed",
+                         "checkout.session.async_payment_succeeded"):
+        cs = event["data"]["object"]
+        # stripe>=13 objects are not dicts; normalise before using .get()
+        cs = cs.to_dict() if hasattr(cs, "to_dict") else dict(cs)
+        meta = cs.get("metadata") or {}
+        if (meta.get("agency_id") and meta.get("pack") in _CREDIT_PACKS
+                and cs.get("payment_status") in ("paid", "no_payment_required")):
+            try:
+                agency_id = int(meta["agency_id"])
+            except (TypeError, ValueError):
+                _logger.error("Webhook: bad agency_id %r in session %s",
+                              meta.get("agency_id"), cs.get("id"))
+                return jsonify({"received": True})
+            if _fulfill_credit_purchase(agency_id, meta["pack"], cs["id"]):
+                _logger.info("Agency %s purchased %s via webhook", agency_id, meta["pack"])
+    return jsonify({"received": True})
 
 
 @app.route("/agency/api-key")

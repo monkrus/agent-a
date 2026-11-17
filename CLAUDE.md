@@ -101,7 +101,10 @@ Every check maps to one category of agent readiness (42 checks total: 32 static 
 - `SHOPPER_MODEL` — model for extraction (default: `claude-sonnet-4-6`)
 - `ANTHROPIC_API_KEY` — required if SHOPPER=anthropic
 - `RENDER` — `playwright` enables headless browser fetch (optional, degrades gracefully)
-- `SCAN_N` — shopper runs per check (default: 5 web, 10 CLI)
+- `SCAN_N` — shopper runs per check (default: 5 web free tier, 10 CLI)
+- `PAID_SCAN_N` — shopper runs per check for paid/agency scans (default: 10 — marketing copy promises 10 visits)
+- `SIGNUP_CREDITS` — free credits on agency signup (default: 1; one grant per IP per 24h)
+- `STRIPE_WEBHOOK_SECRET` — signing secret for `/stripe/webhook`, which grants agency credits independently of the success redirect
 - `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` — for paid report checkout
 - `DEV_MODE` — set to `true` to enable demo unlock without Stripe (never in production)
 - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` — for emailing reports after purchase

@@ -158,7 +158,10 @@ RENDER=playwright SHOPPER=anthropic python readiness/scan.py ...
 | `SHOPPER_MODEL` | `claude-sonnet-4-6` | Model for shopper simulation |
 | `ANTHROPIC_API_KEY` | - | Required if SHOPPER=anthropic |
 | `RENDER` | - | Set to `playwright` for headless browser fetch |
-| `SCAN_N` | 5 (web) / 10 (CLI) | Shopper runs per check |
+| `SCAN_N` | 5 (web) / 10 (CLI) | Shopper runs per check (free tier) |
+| `PAID_SCAN_N` | 10 | Shopper runs per check for paid/agency scans |
+| `SIGNUP_CREDITS` | 1 | Free scan credits for new agency accounts (one grant per IP per 24h) |
+| `STRIPE_WEBHOOK_SECRET` | - | Signing secret for `/stripe/webhook` (grants credits if buyer closes tab) |
 | `BROWSER_ATTEMPTS` | 3 | Browser flow attempts per check (0 to skip) |
 | `BROWSER_AGENT_MODEL` | `claude-haiku-4-5-20251001` | Model for browser agent flows |
 | `STRIPE_SECRET_KEY` | - | For paid report checkout |

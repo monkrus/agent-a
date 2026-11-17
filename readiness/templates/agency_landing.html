@@ -159,7 +159,7 @@
     <!-- PRICING -->
     <div class="card" style="text-align:center;">
       <h2 style="margin-bottom:0.5rem;">Simple per-scan pricing</h2>
-      <p style="color:var(--text-muted); margin-bottom:0.5rem;">Buy credits. Scan client stores. No subscription.</p>
+      <p style="color:var(--text-muted); margin-bottom:0.5rem;">{% if signup_credits %}Your first full scan is free. Then buy credits as you need them. No subscription.{% else %}Buy credits. Scan client stores. No subscription.{% endif %}</p>
       <div class="pack-row">
         <div class="pack">
           <div class="pack-price">$199</div>
