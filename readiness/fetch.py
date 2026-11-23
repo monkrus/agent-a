@@ -407,6 +407,12 @@ def fetch(target: str, timeout: int = 30) -> dict:
         # Use final URL after redirects for origin (e.g. http->https)
         final_url = r.url
         origin = f"{urlparse(final_url).scheme}://{urlparse(final_url).netloc}"
+        # T11: probe as agents BEFORE the ~20-request burst below, so the
+        # scan's own traffic doesn't trip a rate limit that gets blamed on
+        # agent blocking.
+        probe = _probe_as_agent(target, timeout)
+        page["agent_probe_status"] = probe["status"]
+        page["agent_probe_detail"] = probe
         llms_txt = _get_text(urljoin(origin, "/llms.txt"), timeout)
         page["llms_txt"] = llms_txt is not None
         page["llms_txt_content"] = llms_txt
@@ -427,9 +433,6 @@ def fetch(target: str, timeout: int = 30) -> dict:
         page["cart_rate_test"] = _probe_cart_rate(urljoin(origin, "/cart/add.js"), timeout)
         page["admin_exposure"] = _probe_admin_paths(origin, timeout)
         page["fetch_time_ms"] = int(r.elapsed.total_seconds() * 1000)
-        probe = _probe_as_agent(target, timeout)
-        page["agent_probe_status"] = probe["status"]
-        page["agent_probe_detail"] = probe
 
         # Rendered DOM: Playwright fetch for JS-heavy sites
         # Auto-enable if Playwright is installed and page looks JS-heavy,
@@ -576,6 +579,12 @@ _AGENT_UAS = [
     ("OAI-SearchBot", "OAI-SearchBot/1.0"),
 ]
 
+# Control UA for T11: distinguishes agent-specific blocking from a site-wide
+# rate limit triggered by the scan's own request burst.
+_BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+               "(KHTML, like Gecko) Chrome/130.0 Safari/537.36")
+_RATE_LIMIT_BACKOFF_S = 15
+
 
 def _probe_as_agent(url: str, timeout: int) -> dict:
     """Probe the URL with multiple AI crawler UAs, 2-of-3 vote per UA.
@@ -620,6 +629,42 @@ def _probe_as_agent(url: str, timeout: int) -> dict:
         elif status == 200:
             allowed.append(ua_name)
         # Other statuses (None/inconclusive, 5xx, etc.) go in neither list
+
+    # T11: a 429 is only evidence of agent blocking if a normal browser is
+    # NOT rate-limited at the same moment. The scan fires ~20 requests before
+    # this probe, which can trip a site-wide (e.g. Shopify) rate limit that
+    # hits every client. Control-probe with a browser UA; if it is also 429,
+    # back off and re-probe the 429'd agent UAs once. If the limit is still
+    # indiscriminate, report it as such instead of "agents blocked".
+    rate_limited = [n for n in blocked
+                    if result["per_ua"][n]["status"] == 429
+                    and not result["per_ua"][n]["challenge"]]
+    if rate_limited:
+        control = _probe_single_ua(url, _BROWSER_UA, timeout)
+        result["control_status"] = control["status"]
+        if control["status"] == 429:
+            time.sleep(_RATE_LIMIT_BACKOFF_S)
+            ua_strings = dict(_AGENT_UAS)
+            for ua_name in rate_limited:
+                probe = _probe_single_ua(url, ua_strings[ua_name], timeout)
+                result["per_ua"][ua_name] = {
+                    "status": probe["status"],
+                    "readable_words": probe["readable_words"],
+                    "challenge": probe["challenge"],
+                }
+                if probe["status"] == 200 and not probe["challenge"]:
+                    blocked.remove(ua_name)
+                    allowed.append(ua_name)
+            still_429 = [n for n in rate_limited if n in blocked
+                         and result["per_ua"][n]["status"] == 429]
+            if still_429:
+                control2 = _probe_single_ua(url, _BROWSER_UA, timeout)
+                result["control_status"] = control2["status"]
+                if control2["status"] == 429:
+                    # Everyone is rate-limited — not agent-specific.
+                    for n in still_429:
+                        blocked.remove(n)
+                    result["indiscriminate_429"] = still_429
 
     result["blocked_uas"] = blocked
     result["allowed_uas"] = allowed

@@ -890,6 +890,20 @@ def static_rate_limiting(page):
             parts.append(f"allowed: {', '.join(allowed_uas)}")
         ua_summary = f" [{'; '.join(parts)}]"
 
+    # T11: 429 hit a normal browser too (after backoff) — the site was
+    # rate-limiting everyone, likely triggered by the scan itself. That is
+    # not evidence of agent blocking; don't FAIL (which gates the scan).
+    indiscriminate = detail.get("indiscriminate_429") or []
+    if indiscriminate and not blocked_uas:
+        return "UNKNOWN", (
+            f"Site rate-limited all clients during the scan, including a normal "
+            f"browser (429 for {', '.join(indiscriminate)} and browser control) — "
+            f"cannot tell whether AI agents are specifically blocked.{ua_summary}"
+        )
+    if indiscriminate and probe_status == 429:
+        # GPTBot's 429 was indiscriminate, but other agent UAs were blocked
+        return "FAIL", (f"Site blocks some AI agent UAs{ua_note}.{ua_summary}")
+
     if probe_status == 200:
         if challenge:
             return "FAIL", f"Site responds 200 but serves a bot challenge page ({words} words){ua_note}.{ua_summary}"
@@ -1829,6 +1843,10 @@ def grade_shopper(check, page, answers):
                 if na in ("", "unknown"):
                     pass  # not a hit
                 elif na == ng:
+                    hits += 1
+                elif sorted(na.split()) == sorted(ng.split()):
+                    # T13: same words, different order — e.g. JSON-LD
+                    # "BRIEF ADORN BLACK" vs Shopify title "ADORN BLACK BRIEF"
                     hits += 1
                 elif na in ng or ng in na:
                     # Substring match only counts if the shorter covers ≥50%

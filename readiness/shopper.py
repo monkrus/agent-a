@@ -203,14 +203,54 @@ def _jsonld_price(page: dict):
     return None
 
 
+def _offer_availabilities(offers):
+    """Yield availability strings from an offers field (dict, list, or
+    AggregateOffer with nested offers)."""
+    items = offers if isinstance(offers, list) else [offers]
+    for off in items:
+        if not isinstance(off, dict):
+            continue
+        if off.get("availability"):
+            yield str(off["availability"]).lower()
+        nested = off.get("offers")
+        if nested:
+            yield from _offer_availabilities(nested)
+
+
+def _classify_availability(values):
+    """Product-level availability: in stock if ANY offer/variant is in stock.
+
+    A product with some sizes sold out is still purchasable — reading only
+    the first variant's offer misreports it as out of stock (T12, li-vy.com).
+    """
+    values = list(values)
+    if any("instock" in v for v in values):
+        return "in_stock"
+    if any("outofstock" in v or "soldout" in v for v in values):
+        return "out_of_stock"
+    return None
+
+
 def _jsonld_availability(page: dict):
-    _, off = _jsonld_offers(page)
-    if off and off.get("availability"):
-        v = str(off["availability"]).lower()
-        if "instock" in v:
-            return "in_stock"
-        if "outofstock" in v or "soldout" in v:
-            return "out_of_stock"
+    objects = list(_flatten_jsonld(page.get("jsonld", [])))
+    # Direct Product(s) take precedence, matching _jsonld_offers
+    for obj in objects:
+        if "product" in _types_lower(obj):
+            got = _classify_availability(_offer_availabilities(obj.get("offers")))
+            if got:
+                return got
+    for obj in objects:
+        if "productgroup" in _types_lower(obj):
+            values = list(_offer_availabilities(obj.get("offers")))
+            variants = obj.get("hasVariant", [])
+            if not isinstance(variants, list):
+                variants = [variants]
+            for v in variants:
+                if isinstance(v, dict):
+                    values.extend(_offer_availabilities(v.get("offers")))
+            got = _classify_availability(values)
+            if got:
+                return got
     return None
 
 
