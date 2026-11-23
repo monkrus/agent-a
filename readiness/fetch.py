@@ -542,6 +542,12 @@ def _probe_single_ua(url: str, ua: str, timeout: int) -> dict:
     from collections import Counter
     result["status"] = Counter(valid).most_common(1)[0][0]
 
+    if last_response is not None:
+        try:
+            result["retry_after"] = int(last_response.headers.get("Retry-After", ""))
+        except (TypeError, ValueError, AttributeError):
+            result["retry_after"] = None
+
     # Analyze response body for challenge signatures and readable content
     if last_response is not None:
         body = last_response.text or ""
@@ -584,6 +590,7 @@ _AGENT_UAS = [
 _BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                "(KHTML, like Gecko) Chrome/130.0 Safari/537.36")
 _RATE_LIMIT_BACKOFF_S = 15
+_RATE_LIMIT_BACKOFF_MAX_S = 60
 
 
 def _probe_as_agent(url: str, timeout: int) -> dict:
@@ -643,7 +650,9 @@ def _probe_as_agent(url: str, timeout: int) -> dict:
         control = _probe_single_ua(url, _BROWSER_UA, timeout)
         result["control_status"] = control["status"]
         if control["status"] == 429:
-            time.sleep(_RATE_LIMIT_BACKOFF_S)
+            # Honor the site's Retry-After (li-vy.com sends 60), capped
+            backoff = max(_RATE_LIMIT_BACKOFF_S, control.get("retry_after") or 0)
+            time.sleep(min(backoff, _RATE_LIMIT_BACKOFF_MAX_S))
             ua_strings = dict(_AGENT_UAS)
             for ua_name in rate_limited:
                 probe = _probe_single_ua(url, ua_strings[ua_name], timeout)

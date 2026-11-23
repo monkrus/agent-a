@@ -195,3 +195,28 @@ class TestT13NameWordOrder:
     def test_different_product_still_fails(self):
         v = self._grade(["WIRE BRA ADORN BLACK"] * 10)
         assert v["verdict"] == "FAIL", v
+
+
+class TestT11RetryAfter:
+    """li-vy.com sent Retry-After: 60; a fixed 15s backoff retried too early."""
+
+    def _run(self, monkeypatch, retry_after):
+        slept = []
+        monkeypatch.setattr(fetch.time, "sleep", lambda s: slept.append(s))
+
+        def prober(url, ua, timeout):
+            r = _probe_result(429)
+            r["retry_after"] = retry_after if ua == fetch._BROWSER_UA else None
+            return r
+        monkeypatch.setattr(fetch, "_probe_single_ua", prober)
+        fetch._probe_as_agent("https://example.com/products/x", 5)
+        return slept
+
+    def test_honors_retry_after(self, monkeypatch):
+        assert self._run(monkeypatch, 60) == [60]
+
+    def test_caps_long_retry_after(self, monkeypatch):
+        assert self._run(monkeypatch, 3600) == [fetch._RATE_LIMIT_BACKOFF_MAX_S]
+
+    def test_default_without_header(self, monkeypatch):
+        assert self._run(monkeypatch, None) == [fetch._RATE_LIMIT_BACKOFF_S]
