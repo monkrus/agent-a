@@ -381,7 +381,7 @@ def run_add_to_cart(url: str, timeout: int = 30) -> dict:
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
-            ctx = browser.new_context(
+            ctx = browser.new_context(service_workers="block", 
                 viewport={"width": 1280, "height": 800},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                            "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -963,7 +963,7 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
-            ctx = browser.new_context(
+            ctx = browser.new_context(service_workers="block", 
                 viewport={"width": 1280, "height": 800},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                            "AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
@@ -1104,8 +1104,8 @@ def _run_flow(start_url: str, goal: str, system_prompt: str,
 def _product_name_from_page(url: str, timeout: int = 10) -> str:
     """Try to extract the product name from page title via a quick fetch."""
     try:
-        import requests
-        resp = requests.get(url, timeout=timeout, headers={
+        import fetch as _fetchmod  # SSRF-checked: the page may redirect inward
+        resp = _fetchmod._safe_get(url, timeout=timeout, headers={
             "User-Agent": "Mozilla/5.0 (compatible; agent-scanner/1.0)"})
         if resp.ok:
             import re

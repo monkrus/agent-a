@@ -55,6 +55,20 @@ class _UnsafeURLError(ValueError):
     pass
 
 
+MAX_BODY_BYTES = 8 * 1024 * 1024  # never buffer more than this per response
+
+
+def _ip_unsafe(ip) -> bool:
+    """True for any address an outbound fetch must never reach: private,
+    loopback, link-local (incl. cloud metadata 169.254.169.254), reserved,
+    carrier-grade NAT (100.64/10), multicast, unspecified — anything that is
+    not globally routable. IPv4-mapped IPv6 is unwrapped first."""
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    return (not ip.is_global) or ip.is_multicast or ip.is_unspecified
+
+
 def _resolve_is_safe(hostname: str, port: int = 443) -> bool:
     """Check if a hostname resolves to a safe (non-private) IP.
 
@@ -65,10 +79,48 @@ def _resolve_is_safe(hostname: str, port: int = 443) -> bool:
     except socket.gaierror:
         return False
     for family, _type, _proto, _canon, sockaddr in infos:
-        ip = ipaddress.ip_address(sockaddr[0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+        if _ip_unsafe(ipaddress.ip_address(sockaddr[0])):
             return False
     return True
+
+
+# ---- Connect-time guard (closes DNS rebinding + unguarded fetches) ---------
+# _is_safe_url resolves the hostname, then requests/urllib3 resolves it again
+# when connecting — a TTL-0 rebinding domain can answer "public" to the first
+# lookup and "127.0.0.1" to the second. This guard replaces urllib3's
+# create_connection: it resolves once, rejects the connection if ANY address
+# is unsafe, and connects to the vetted IP literal (no second lookup). It
+# covers every requests/urllib3 connection in the process, including redirect
+# hops and helper fetches outside this module.
+def _install_connect_guard():
+    try:
+        import urllib3.util.connection as _uc
+    except ImportError:  # pragma: no cover
+        return
+    if getattr(_uc.create_connection, "_agenta_guard", False):
+        return
+    _orig = _uc.create_connection
+
+    def _guarded_create_connection(address, *args, **kwargs):
+        host, port = address[0], address[1]
+        infos = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+        addrs = []
+        for _fam, _t, _p, _c, sockaddr in infos:
+            ip = ipaddress.ip_address(sockaddr[0].split("%")[0])
+            if _ip_unsafe(ip):
+                raise _UnsafeURLError(
+                    f"blocked connection to non-public address {sockaddr[0]} for {host}")
+            addrs.append(sockaddr[0])
+        last_err = None
+        for ip_literal in dict.fromkeys(addrs):
+            try:
+                return _orig((ip_literal, port), *args, **kwargs)
+            except OSError as e:
+                last_err = e
+        raise last_err or OSError(f"could not connect to {host}")
+
+    _guarded_create_connection._agenta_guard = True
+    _uc.create_connection = _guarded_create_connection
 
 
 def _check_response_ip(response) -> None:
@@ -85,7 +137,7 @@ def _check_response_ip(response) -> None:
         peer = sock.getpeername()
         if peer:
             ip = ipaddress.ip_address(peer[0])
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            if _ip_unsafe(ip):
                 raise _UnsafeURLError(
                     f"DNS rebinding detected: resolved to private IP {peer[0]}")
     except _UnsafeURLError:
@@ -106,16 +158,40 @@ def _safe_request(method, url, headers=None, timeout=30, max_redirects=5, **kwar
     for _ in range(max_redirects):
         if not _is_safe_url(current):
             raise _UnsafeURLError(f"unsafe redirect target: {current}")
+        kwargs.setdefault("stream", True)
         r = _req.request(method, current, headers=headers, timeout=timeout,
                          allow_redirects=False, **kwargs)
         if r.is_redirect or r.is_permanent_redirect:
             loc = r.headers.get("Location", "")
             current = urljoin(current, loc)
+            if isinstance(r, _req.Response):
+                r.close()
             continue
+        if isinstance(r, _req.Response) and kwargs.get("stream") and not r._content_consumed:
+            _read_capped(r, timeout)
         r.url = current
         _check_response_ip(r)
         return r
     raise _UnsafeURLError("too many redirects")
+
+
+def _read_capped(r, timeout):
+    """Buffer a streamed response body with a byte cap and a wall-clock
+    deadline. requests' timeout is per socket read, so a slow-drip server
+    could otherwise hold a worker thread for a very long time, and a huge
+    body could exhaust memory. Over-cap bodies are truncated."""
+    import time as _t
+    deadline = _t.monotonic() + max(5, timeout)
+    buf = bytearray()
+    try:
+        for chunk in r.iter_content(chunk_size=65536):
+            buf.extend(chunk)
+            if len(buf) >= MAX_BODY_BYTES or _t.monotonic() > deadline:
+                break
+    finally:
+        r.close()
+    r._content = bytes(buf[:MAX_BODY_BYTES])
+    r._content_consumed = True
 
 
 def _safe_get(url, headers=None, timeout=30, max_redirects=5):
@@ -283,10 +359,36 @@ def _playwright_ssrf_guard(route):
     route.continue_()
 
 
+import threading as _threading
+
+# Chromium is heavy (CPU/RAM). Cap concurrent renders per worker process so
+# attacker-chosen JS-heavy or 429-returning pages can't pile up browsers.
+_RENDER_SLOTS = _threading.BoundedSemaphore(2)
+
+
 def _fetch_rendered(url: str, timeout: int = 30) -> dict | None:
     """Fetch URL with Playwright headless browser. Returns parsed page or None."""
     if not _is_safe_url(url):
         return None
+    if not _RENDER_SLOTS.acquire(timeout=15):
+        return None  # renderer busy — fall back to the raw HTML
+    try:
+        return _fetch_rendered_inner(url, timeout)
+    finally:
+        _RENDER_SLOTS.release()
+
+
+def _block_websockets(ctx) -> None:
+    """Scanner browsers never need WebSockets; route guards don't see them."""
+    route_ws = getattr(ctx, "route_web_socket", None)
+    if route_ws:
+        try:
+            route_ws("**/*", lambda ws: ws.close())
+        except Exception:
+            pass
+
+
+def _fetch_rendered_inner(url: str, timeout: int = 30) -> dict | None:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -296,7 +398,9 @@ def _fetch_rendered(url: str, timeout: int = 30) -> dict | None:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
             ctx = browser.new_context(
-                user_agent="agent-a-readiness-scanner/0.1 (+contact)")
+                user_agent="agent-a-readiness-scanner/0.1 (+contact)",
+                service_workers="block")
+            _block_websockets(ctx)
             pg = ctx.new_page()
             # SSRF guard: intercept all requests and abort if target is private
             pg.route("**/*", _playwright_ssrf_guard)
@@ -985,3 +1089,6 @@ if __name__ == "__main__":
     page = fetch(sys.argv[1])
     print(json.dumps({k: (v if k not in ("html", "text") else f"<{len(v)} chars>")
                       for k, v in page.items()}, indent=2)[:2000])
+
+
+_install_connect_guard()

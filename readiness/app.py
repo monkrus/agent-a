@@ -40,6 +40,7 @@ from dotenv import load_dotenv
 load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
 import functools
+from html import escape as _html_escape
 from flask import (Flask, Response, abort, jsonify, redirect, render_template,
                    render_template_string, request, send_file, send_from_directory, session, url_for)
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -69,7 +70,11 @@ def _timestamp_to_date_filter(ts):
 # ---- Reverse proxy (Railway, Render, etc.) -----------------------------------
 # Tell Flask it's behind HTTPS so session cookies, redirects, and url_for work.
 from werkzeug.middleware.proxy_fix import ProxyFix
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+# x_host=0: links in emails / Stripe redirects are built from the Host the
+# platform routed on, never from a client-supplied X-Forwarded-Host.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=0)
+# Largest legitimate body is /api/agent-traffic (10MB of logs).
+app.config["MAX_CONTENT_LENGTH"] = 11 * 1024 * 1024
 
 # ---- Secret key check -------------------------------------------------------
 _flask_env = os.environ.get("FLASK_ENV", "production")
@@ -158,6 +163,13 @@ def _init_store():
     # without being linkable across days or back to an IP.
     conn.execute("""CREATE TABLE IF NOT EXISTS daily_visitors (
         day TEXT NOT NULL, vid TEXT NOT NULL, PRIMARY KEY (day, vid))""")
+    # Cost-leak guards: atomic per-payment run counter and one-shot refunds.
+    conn.execute("""CREATE TABLE IF NOT EXISTS paid_runs (
+        scan_id TEXT PRIMARY KEY, runs INTEGER NOT NULL DEFAULT 0)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS refunds (
+        scan_id TEXT PRIMARY KEY, agency_id INTEGER, ts REAL NOT NULL)""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS login_failures (
+        key TEXT NOT NULL, ts REAL NOT NULL)""")
     # Agency tables
     conn.execute("""CREATE TABLE IF NOT EXISTS agencies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -697,6 +709,14 @@ def _index_with_error(error, status=200):
     return render_template("index.html", error=error, stats=stats), status
 
 
+import threading as _threading
+# Free scans hold a worker thread while fetching an attacker-chosen site.
+# Cap them per process so slow sites can't occupy every thread (2 workers x
+# 4 threads in production) and starve page loads / paid scans.
+_FREE_SCAN_SLOTS = _threading.BoundedSemaphore(int(os.environ.get("FREE_SCAN_CONCURRENCY", "2")))
+_BUSY_MSG = "We're running a lot of scans right now. Please try again in a minute."
+
+
 @app.route("/scan", methods=["POST"])
 def scan():
     # Rate limit: one scan per IP per SCAN_RATE_LIMIT seconds
@@ -712,6 +732,15 @@ def scan():
             return redirect(url_for("index"))
         return _index_with_error(err)
 
+    if not _FREE_SCAN_SLOTS.acquire(blocking=False):
+        return _index_with_error(_BUSY_MSG, 503)
+    try:
+        return _scan_locked(url)
+    finally:
+        _FREE_SCAN_SLOTS.release()
+
+
+def _scan_locked(url):
     # Fetch page and check for 404 / soft-404 before running full scan
     try:
         pre_page = fetchmod.fetch(url)
@@ -799,6 +828,15 @@ def scan_stream():
                         content_type="text/event-stream")
 
     def generate():
+        if not _FREE_SCAN_SLOTS.acquire(blocking=False):
+            yield "data: " + json.dumps({"type": "error", "message": _BUSY_MSG}) + "\n\n"
+            return
+        try:
+            yield from _generate_free()
+        finally:
+            _FREE_SCAN_SLOTS.release()
+
+    def _generate_free():
         from concurrent.futures import ThreadPoolExecutor
         import time as t
 
@@ -1369,9 +1407,9 @@ def payment_success(scan_id):
                 _logger.warning("Payment NOT verified for scan %s: status=%s, meta_scan_id=%s",
                                 scan_id, cs.payment_status, meta.get("scan_id"))
                 payment_error = "payment_not_verified"
-        except Exception as exc:
+        except Exception:
             _logger.exception("Stripe verification failed for scan %s", scan_id)
-            payment_error = f"verification_error:{exc}"
+            payment_error = "verification_error"
     elif stripe_key and not stripe_session_id:
         payment_error = "missing_session"
     elif os.environ.get("DEV_MODE", "").lower() == "true":
@@ -1420,6 +1458,51 @@ def _update_scan_meta(scan_id: str, **fields) -> None:
     pathlib.Path(safe_path).write_text(json.dumps(cur, indent=2))
 
 
+def _claim_paid_run(scan_id: str, legacy_runs: int = 0) -> tuple[bool, int]:
+    """Atomically take one run slot for a paid scan. Safe across threads and
+    gunicorn workers: a single conditional UPDATE decides. Returns
+    (claimed, runs_after)."""
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=10)
+    try:
+        conn.execute("INSERT OR IGNORE INTO paid_runs (scan_id, runs) VALUES (?, ?)",
+                     (scan_id, max(0, legacy_runs)))
+        cur = conn.execute("UPDATE paid_runs SET runs = runs + 1 "
+                           "WHERE scan_id = ? AND runs < ?", (scan_id, MAX_PAID_RUNS))
+        conn.commit()
+        runs = conn.execute("SELECT runs FROM paid_runs WHERE scan_id = ?",
+                            (scan_id,)).fetchone()[0]
+        return cur.rowcount == 1, runs
+    finally:
+        conn.close()
+
+
+def _is_refunded(scan_id: str) -> bool:
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=10)
+    try:
+        return conn.execute("SELECT 1 FROM refunds WHERE scan_id = ?",
+                            (scan_id,)).fetchone() is not None
+    finally:
+        conn.close()
+
+
+def _refund_once(scan_id: str, agency_id: int) -> bool:
+    """Credit one refund per scan, atomically (INSERT OR IGNORE decides who
+    wins a race; credit and marker commit together). Returns True if this
+    call granted the refund."""
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=10)
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        cur = conn.execute("INSERT OR IGNORE INTO refunds (scan_id, agency_id, ts) "
+                           "VALUES (?, ?, ?)", (scan_id, agency_id, _time.time()))
+        if cur.rowcount == 1:
+            conn.execute("UPDATE agencies SET credits = credits + 1 WHERE id = ?",
+                         (agency_id,))
+        conn.commit()
+        return cur.rowcount == 1
+    finally:
+        conn.close()
+
+
 @app.route("/paid-scan-stream/<scan_id>")
 def paid_scan_stream(scan_id):
     """SSE endpoint: streams paid-tier check results as they complete."""
@@ -1458,13 +1541,11 @@ def paid_scan_stream(scan_id):
             nonlocal _refunded
             if _refunded or not _agency_id:
                 return
-            # Check if already refunded (persisted across reconnects)
-            _cur = _load_scan(scan_id) or {}
-            if _cur.get("meta", {}).get("refunded"):
-                _refunded = True
-                return
-            _add_credits(_agency_id, 1)
+            # Atomic one-shot refund: concurrent streams can't each refund.
             _refunded = True
+            if not _refund_once(scan_id, _agency_id):
+                return
+            _cur = _load_scan(scan_id) or {}
             # Persist refund flag so reconnects don't refund again
             try:
                 _cur_meta = _cur.get("meta", {})
@@ -1496,13 +1577,17 @@ def paid_scan_stream(scan_id):
             yield "data: " + json.dumps({"type": "error",
                 "message": "This scan's credit was refunded. Please start a new scan."}) + "\n\n"
             return
-        _runs = int(_stub_meta.get("paid_runs", 0) or 0)
-        if _runs >= MAX_PAID_RUNS:
+        if _is_refunded(scan_id):
+            yield "data: " + json.dumps({"type": "error",
+                "message": "This scan's credit was refunded. Please start a new scan."}) + "\n\n"
+            return
+        _claimed, _runs = _claim_paid_run(scan_id, int(_stub_meta.get("paid_runs", 0) or 0))
+        if not _claimed:
             yield "data: " + json.dumps({"type": "error",
                 "message": (f"This paid scan was already attempted {MAX_PAID_RUNS} times "
                             "without finishing. Please contact support.")}) + "\n\n"
             return
-        _update_scan_meta(scan_id, paid_runs=_runs + 1)
+        _update_scan_meta(scan_id, paid_runs=_runs)
 
         yield "data: " + json.dumps({"type": "status",
                                      "message": "Fetching page..."}) + "\n\n"
@@ -1746,9 +1831,9 @@ def paid_scan_stream(scan_id):
         readiness_score = round(100 * num / den, 1) if den else None
 
         now = datetime.datetime.now()
-        new_scan_id = hashlib.sha256(
-            f"{target_url}:{now.isoformat()}:paid".encode()
-        ).hexdigest()[:12]
+        # Random, not derived from URL+time: paid reports are private except
+        # by link, so the link id must be unguessable (48 random bits).
+        new_scan_id = secrets.token_hex(6)
 
         from scan import confidence_band
         margin = confidence_band(results, n)
@@ -1771,6 +1856,10 @@ def paid_scan_stream(scan_id):
                 "browser_model": os.environ.get("BROWSER_AGENT_MODEL", "claude-haiku-4-5-20251001"),
                 "check_version": version,
         }
+        if _orig_meta.get("paid"):
+            # This run re-scanned an already-paid result: record it so the
+            # result can't itself be rescanned (prevents endless chains).
+            _paid_meta["rescan_of"] = scan_id
         if _orig_meta.get("agency_id"):
             _paid_meta["agency_id"] = _orig_meta["agency_id"]
             _paid_meta["agency_name"] = _orig_meta.get("agency_name", "")
@@ -1904,10 +1993,14 @@ def send_report(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    is_paid = (session.get(f"paid_{scan_id}", False)
-               or data.get("meta", {}).get("paid", False)
-               or bool(data.get("meta", {}).get("agency_id")))
-    if not is_paid:
+    # Reports are viewable by link, so "paid" alone doesn't identify the
+    # requester. Only the payer's browser or the owning agency may email it.
+    meta = data.get("meta", {})
+    origin = meta.get("free_scan_id")
+    is_owner = ((bool(origin) and session.get(f"paid_verified_{origin}", False))
+                or (bool(meta.get("agency_id"))
+                    and session.get("agency_id") == meta.get("agency_id")))
+    if not meta.get("paid") or not is_owner:
         abort(403)
     is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     to_email = _validate_email(request.form.get("email", ""))
@@ -1971,6 +2064,17 @@ def _referrer_host() -> str:
 
 
 @app.after_request
+def _security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if request.is_secure:
+        response.headers.setdefault("Strict-Transport-Security",
+                                    "max-age=31536000; includeSubDomains")
+    return response
+
+
+@app.after_request
 def _record_page_view(response):
     try:
         ua = request.headers.get("User-Agent", "")
@@ -1985,10 +2089,18 @@ def _record_page_view(response):
         ).hexdigest()[:16]
         conn = _sqlite3.connect(str(_STORE_PATH), timeout=2)
         try:
+            ref = _referrer_host()
+            # Bound table growth from junk Referer/User-Agent values.
+            if ref and conn.execute("SELECT COUNT(*) FROM page_views WHERE day = ?",
+                                    (day,)).fetchone()[0] >= 2000:
+                ref = "(other)"
+            if conn.execute("SELECT COUNT(*) FROM daily_visitors WHERE day = ?",
+                            (day,)).fetchone()[0] >= 20000:
+                vid = "(overflow)"
             conn.execute(
                 "INSERT INTO page_views (day, path, referrer, views) VALUES (?, ?, ?, 1) "
                 "ON CONFLICT(day, path, referrer) DO UPDATE SET views = views + 1",
-                (day, path, _referrer_host()))
+                (day, path, ref))
             conn.execute("INSERT OR IGNORE INTO daily_visitors (day, vid) VALUES (?, ?)",
                          (day, vid))
             conn.commit()
@@ -2066,8 +2178,19 @@ def admin_stats():
     the route's existence is not revealed."""
     import hmac
     expected = os.environ.get("ADMIN_TOKEN", "")
-    supplied = request.args.get("token", "")
-    if not expected or not hmac.compare_digest(supplied.encode(), expected.encode()):
+    if not expected:
+        abort(404)
+    supplied = request.args.get("token")
+    if supplied is not None:
+        if not hmac.compare_digest(supplied.encode(), expected.encode()):
+            abort(404)
+        # Remember for this browser and drop the token from the URL, so it
+        # stops appearing in history and access logs after the first hit.
+        session["admin_token_hash"] = hashlib.sha256(expected.encode()).hexdigest()
+        return redirect(url_for("admin_stats"))
+    have = session.get("admin_token_hash", "")
+    if not hmac.compare_digest(have.encode(),
+                               hashlib.sha256(expected.encode()).hexdigest().encode()):
         abort(404)
     resp = app.make_response(render_template_string(_ADMIN_STATS_TEMPLATE,
                                                     s=_analytics_summary()))
@@ -2090,6 +2213,9 @@ def rescan(scan_id):
     origin = meta.get("free_scan_id")
     is_owner = bool(origin) and session.get(f"paid_verified_{origin}", False)
     if not meta.get("paid") or meta.get("agency_id") or not is_owner:
+        abort(403)
+    # A rescan's result can't be rescanned again (one payment, one rescan).
+    if meta.get("rescan_of"):
         abort(403)
     # One rescan per scan: a second request shows the existing rescan.
     if meta.get("final_scan_id") and _load_scan(meta["final_scan_id"]):
@@ -2347,35 +2473,58 @@ def share_og_image(scan_id):
         abort(404, description="Pillow not installed for OG image generation.")
 
 
+def _is_public_scan(data: dict) -> bool:
+    """Only free scans may be discovered by domain or listed publicly. Paid
+    and agency reports stay reachable solely via the link their owner shares."""
+    meta = data.get("meta", {})
+    return not (meta.get("paid") or meta.get("agency_id") or meta.get("tier") == "paid")
+
+
+_domain_index_cache = {"ts": 0.0, "index": {}}
+_DOMAIN_INDEX_TTL = 60
+
+
+def _domain_index() -> dict:
+    """domain -> [(timestamp, scan_id)] for public scans, rebuilt at most
+    once a minute instead of reading every scan file on each request."""
+    now = _time.time()
+    if now - _domain_index_cache["ts"] < _DOMAIN_INDEX_TTL:
+        return _domain_index_cache["index"]
+    index: dict = {}
+    try:
+        for f in SCANS_DIR.iterdir():
+            if f.suffix != ".json":
+                continue
+            try:
+                data = json.loads(f.read_text())
+            except (json.JSONDecodeError, PermissionError, OSError, UnicodeDecodeError):
+                continue
+            if not isinstance(data, dict) or not _is_public_scan(data):
+                continue
+            d = _domain_from_url(data.get("meta", {}).get("target", "")).lower()
+            if d:
+                index.setdefault(d, []).append(
+                    (data.get("meta", {}).get("timestamp", ""), f.stem))
+    except (PermissionError, OSError):
+        pass
+    _domain_index_cache.update(ts=now, index=index)
+    return index
+
+
 def _find_scan_by_domain(domain, exclude_scan_id=None):
-    """Find the most recent scan matching a domain (e.g. 'meritbeauty.com')."""
+    """Find the most recent PUBLIC (free) scan for a domain."""
     if not domain:
         return None
     domain = domain.lower().strip()
     if domain.startswith("www."):
         domain = domain[4:]
-    best = None
-    best_ts = ""
-    try:
-        for f in SCANS_DIR.iterdir():
-            if f.suffix != ".json":
-                continue
-            if exclude_scan_id and f.stem == exclude_scan_id:
-                continue
-            try:
-                data = json.loads(f.read_text())
-                target = data.get("meta", {}).get("target", "")
-                scan_domain = _domain_from_url(target)
-                if scan_domain.lower() == domain:
-                    ts = data.get("meta", {}).get("timestamp", "")
-                    if ts > best_ts:
-                        best_ts = ts
-                        best = data
-            except (json.JSONDecodeError, PermissionError, OSError):
-                continue
-    except (PermissionError, OSError):
-        pass
-    return best
+    for _ts, sid in sorted(_domain_index().get(domain, []), reverse=True):
+        if exclude_scan_id and sid == exclude_scan_id:
+            continue
+        data = _load_scan(sid)
+        if data and _is_public_scan(data):
+            return data
+    return None
 
 
 @app.route("/report/<domain>")
@@ -2410,12 +2559,19 @@ def api_compare():
     })
 
 
+_leaderboard_cache = {"ts": 0.0, "scans": []}
+
+
 @app.route("/leaderboard")
 @app.route("/leaderboard/<vertical>")
 def leaderboard_page(vertical=None):
     import leaderboard as lb
 
-    scans = lb.load_all_scans()
+    now = _time.time()
+    if now - _leaderboard_cache["ts"] > 120:
+        _leaderboard_cache.update(ts=now, scans=[s for s in lb.load_all_scans()
+                                                 if _is_public_scan(s)])
+    scans = _leaderboard_cache["scans"]
     if not scans:
         return render_template("leaderboard.html", entries=[], verticals=[],
                                vertical=None, avg_score=0, avg_readable=0,
@@ -2572,7 +2728,7 @@ def share_badge(scan_id):
 
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="20" role="img"
   aria-label="{label}: {score_text}">
-  <title>{label}: {score_text} — {domain}</title>
+  <title>{label}: {score_text} — {_html_escape(domain)}</title>
   <linearGradient id="s" x2="0" y2="100%">
     <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
     <stop offset="1" stop-opacity=".1"/>
@@ -2715,10 +2871,12 @@ def _seed_worker():
 
 @app.route("/api/seed-leaderboard", methods=["POST"])
 def api_seed_leaderboard():
-    """Kick off background batch scan to populate leaderboard. Requires FLASK_SECRET_KEY as auth."""
+    """Kick off background batch scan to populate leaderboard. Requires ADMIN_TOKEN as Bearer auth
+    (never the session signing key: leaking that would allow forging agency sessions)."""
     import hmac
     auth = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
-    if not auth or not hmac.compare_digest(auth, _flask_secret.strip()):
+    expected = os.environ.get("ADMIN_TOKEN", "").strip()
+    if not expected or not auth or not hmac.compare_digest(auth.encode(), expected.encode()):
         abort(403)
 
     import threading
@@ -2875,6 +3033,56 @@ def _signup_credit_allowed(client_ip: str) -> bool:
         conn.close()
 
 
+def _csrf_token() -> str:
+    tok = session.get("csrf_token")
+    if not tok:
+        tok = session["csrf_token"] = secrets.token_urlsafe(32)
+    return tok
+
+
+@app.context_processor
+def _inject_csrf():
+    return {"csrf_token": _csrf_token}
+
+
+def _csrf_ok() -> bool:
+    import hmac
+    sent = request.form.get("csrf_token", "")
+    have = session.get("csrf_token", "")
+    return bool(have) and hmac.compare_digest(sent.encode(), have.encode())
+
+
+LOGIN_WINDOW = 15 * 60
+LOGIN_MAX_PER_IP = 20
+LOGIN_MAX_PER_EMAIL = 8
+
+
+def _login_blocked(ip: str, email: str) -> bool:
+    since = _time.time() - LOGIN_WINDOW
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("DELETE FROM login_failures WHERE ts < ?", (since,))
+        conn.commit()
+        n_ip = conn.execute("SELECT COUNT(*) FROM login_failures WHERE key = ?",
+                            (f"ip:{ip}",)).fetchone()[0]
+        n_em = conn.execute("SELECT COUNT(*) FROM login_failures WHERE key = ?",
+                            (f"email:{email}",)).fetchone()[0]
+        return n_ip >= LOGIN_MAX_PER_IP or n_em >= LOGIN_MAX_PER_EMAIL
+    finally:
+        conn.close()
+
+
+def _record_login_failure(ip: str, email: str) -> None:
+    now = _time.time()
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.executemany("INSERT INTO login_failures (key, ts) VALUES (?, ?)",
+                         [(f"ip:{ip}", now), (f"email:{email}", now)])
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def agency_required(f):
     """Decorator: redirect to login if no agency session."""
     @functools.wraps(f)
@@ -2896,6 +3104,12 @@ def agency_register():
         return redirect(url_for("agency_dashboard"))
     if request.method == "GET":
         return render_template("agency_register.html")
+    if not _csrf_ok():
+        return render_template("agency_register.html",
+                               error="Your session expired. Please try again."), 400
+    if _check_send_limit(f"register:{request.remote_addr or 'unknown'}", max_sends=5):
+        return render_template("agency_register.html",
+                               error="Too many sign-up attempts. Please try again later."), 429
     name = request.form.get("name", "").strip()
     email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "")
@@ -2928,16 +3142,25 @@ def agency_login():
         return redirect(url_for("agency_dashboard"))
     if request.method == "GET":
         return render_template("agency_login.html")
+    if not _csrf_ok():
+        return render_template("agency_login.html",
+                               error="Your session expired. Please try again."), 400
     email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "")
+    ip = request.remote_addr or "unknown"
+    if _login_blocked(ip, email):
+        return render_template("agency_login.html",
+                               error="Too many failed attempts. Please wait 15 minutes."), 429
     agency = _get_agency_by_email(email)
     if not agency or not check_password_hash(agency["password_hash"], password):
+        _record_login_failure(ip, email)
         return render_template("agency_login.html", error="Invalid email or password.")
     session["agency_id"] = agency["id"]
+    session["csrf_token"] = secrets.token_urlsafe(32)  # rotate on login
     return redirect(url_for("agency_dashboard"))
 
 
-@app.route("/agency/logout")
+@app.route("/agency/logout", methods=["POST"])
 def agency_logout():
     session.pop("agency_id", None)
     return redirect(url_for("agency_login"))
@@ -2983,7 +3206,7 @@ def agency_scan(agency):
         return redirect(url_for("agency_dashboard", error="No credits remaining. Purchase a credit pack to continue."))
     # Generate scan_id
     now = datetime.datetime.now()
-    scan_id = hashlib.sha256(f"{url}:{now.isoformat()}".encode()).hexdigest()[:12]
+    scan_id = secrets.token_hex(6)  # unguessable: agency reports are private except by link
     from urllib.parse import urlparse
     domain = urlparse(url).hostname or url
     # Save minimal scan stub so processing page can show the target

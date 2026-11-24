@@ -48,6 +48,7 @@
       <div class="error-msg">{{ error }}</div>
       {% endif %}
       <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group">
           <label for="name">Agency name</label>
           <input type="text" id="name" name="name" placeholder="Acme Digital Agency" required autofocus>

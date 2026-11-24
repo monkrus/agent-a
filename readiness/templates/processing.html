@@ -32,6 +32,7 @@
   </div>
 
   <script>
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
     var scanStart = Date.now();
     var timerEl = document.getElementById('timer');
     var timerInterval = setInterval(function() {
@@ -60,26 +61,26 @@
 
       if (d.type === 'browser_unavailable') {
         addLine('<div style="background:#1e1b4b;border:1px solid #6366f1;border-radius:8px;padding:0.75rem 1rem;margin:0.5rem 0;font-size:0.9rem;color:#c7d2fe;">'
-          + '<strong style="color:#a5b4fc;">Note:</strong> ' + d.message + '</div>');
+          + '<strong style="color:#a5b4fc;">Note:</strong> ' + esc(d.message) + '</div>');
       }
       else if (d.type === 'status') {
         var div = document.createElement('div');
         div.id = 'status-msg';
-        div.innerHTML = '<span style="color:#8b8b96;">' + d.message + '</span>';
+        div.innerHTML = '<span style="color:#8b8b96;">' + esc(d.message) + '</span>';
         log.appendChild(div);
       }
       else if (d.type === 'layer') {
         var statusMsg = document.getElementById('status-msg');
         if (statusMsg) statusMsg.remove();
-        addLine('<br><strong style="color:#e0e0e8;">' + d.label + '</strong>');
+        addLine('<br><strong style="color:#e0e0e8;">' + esc(d.label) + '</strong>');
       }
       else if (d.type === 'check') {
         var icon = d.verdict === 'PASS' ? '<span style="color:#4ade80;">&#10003;</span>'
                  : d.verdict === 'FAIL' ? '<span style="color:#f87171;">&#10007;</span>'
                  : '<span style="color:#facc15;">?</span>';
-        var detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.9rem;">&mdash; ' + d.detail.substring(0, 120) + '</span>' : '';
-        var html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + detail;
-        var existing = document.getElementById('running-' + d.id);
+        var detail = d.verdict === 'FAIL' && d.detail ? ' <span style="color:#8b8b96;font-size:0.9rem;">&mdash; ' + esc(d.detail.substring(0, 120)) + '</span>' : '';
+        var html = '&nbsp;&nbsp;' + icon + ' <span style="color:#a0a0b0;">' + esc(d.id) + '</span>&nbsp; ' + esc(d.title) + detail;
+        var existing = document.getElementById('running-' + esc(d.id));
         if (existing) {
           existing.innerHTML = html;
           existing.removeAttribute('id');
@@ -88,21 +89,21 @@
         }
       }
       else if (d.type === 'check_running') {
-        var rid = 'running-' + d.id;
+        var rid = 'running-' + esc(d.id);
         var div = document.createElement('div');
         div.id = rid;
-        div.innerHTML = '&nbsp;&nbsp;<span style="color:#60a5fa;">&#8635;</span> <span style="color:#a0a0b0;">' + d.id + '</span>&nbsp; ' + d.title + ' <span style="color:#60a5fa;">running...</span>';
+        div.innerHTML = '&nbsp;&nbsp;<span style="color:#60a5fa;">&#8635;</span> <span style="color:#a0a0b0;">' + esc(d.id) + '</span>&nbsp; ' + esc(d.title) + ' <span style="color:#60a5fa;">running...</span>';
         log.appendChild(div);
         div.scrollIntoView({behavior: 'smooth', block: 'end'});
       }
       else if (d.type === 'gate_blocked') {
         addLine('<br><div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:1.25rem;margin:0.5rem 0;">'
           + '<div style="font-size:1.1rem;font-weight:700;color:#f87171;">Access blocked</div>'
-          + '<p style="color:#c8c8d0;font-size:0.9rem;">' + d.message + '</p>'
+          + '<p style="color:#c8c8d0;font-size:0.9rem;">' + esc(d.message) + '</p>'
           + '</div>');
       }
       else if (d.type === 'gate_passed') {
-        addLine('&nbsp;&nbsp;<span style="color:#4ade80;">&#10003; ' + d.message + '</span>');
+        addLine('&nbsp;&nbsp;<span style="color:#4ade80;">&#10003; ' + esc(d.message) + '</span>');
       }
       else if (d.type === 'done') {
         scanDone = true;
@@ -118,25 +119,25 @@
         var color = d.score >= 80 ? '#4ade80' : d.score >= 50 ? '#facc15' : '#f87171';
         var isAgency = {{ 'true' if is_agency else 'false' }};
         if (isAgency) {
-          scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
-            + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
+          scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + esc(d.score) + '/100</div>'
+            + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + esc(d.headline) + '</div>'
             + '<div style="display:flex;gap:0.75rem;justify-content:center;margin-top:1.25rem;flex-wrap:wrap;">'
-            + '<a href="/results/' + d.scan_id + '" target="_blank" style="display:inline-block;padding:0.6rem 1.5rem;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">View Full Report</a>'
+            + '<a href="/results/' + esc(d.scan_id) + '" target="_blank" style="display:inline-block;padding:0.6rem 1.5rem;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:0.95rem;">View Full Report</a>'
             + '<a href="/agency/dashboard" style="display:inline-block;padding:0.6rem 1.5rem;background:transparent;color:#a0a0b0;border:1px solid #333;border-radius:8px;text-decoration:none;font-size:0.95rem;">Back to Dashboard</a>'
             + '</div>';
         } else {
-          scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + d.score + '/100</div>'
-            + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + d.headline + '</div>'
+          scoreDiv.innerHTML = '<div style="font-size:2.5rem;font-weight:bold;color:' + color + ';">' + esc(d.score) + '/100</div>'
+            + '<div style="color:#c8c8d0;margin:0.5rem 0;">' + esc(d.headline) + '</div>'
             + '<div style="color:#8b8b96;font-size:0.9rem;margin:1rem 0;">Redirecting to your full report...</div>';
           setTimeout(function() {
-            window.location.href = '/results/' + d.scan_id;
+            window.location.href = '/results/' + esc(d.scan_id);
           }, 2000);
         }
       }
       else if (d.type === 'error') {
         es.close();
         clearInterval(timerInterval);
-        addLine('<span style="color:#f87171;">Error: ' + d.message + '</span>');
+        addLine('<span style="color:#f87171;">Error: ' + esc(d.message) + '</span>');
       }
     }
 

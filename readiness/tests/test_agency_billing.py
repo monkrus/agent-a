@@ -43,8 +43,11 @@ def _purchases(store):
 
 
 def _register(client, email, ip="1.2.3.4"):
+    with client.session_transaction() as s:
+        s["csrf_token"] = "test-csrf"
     return client.post("/agency/register",
-                       data={"name": "Acme", "email": email, "password": "password123"},
+                       data={"name": "Acme", "email": email, "password": "password123",
+                             "csrf_token": "test-csrf"},
                        environ_base={"REMOTE_ADDR": ip})
 
 

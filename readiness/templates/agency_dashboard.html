@@ -69,7 +69,7 @@
       </div>
       <div class="nav-agency">
         <span style="font-size:0.85rem; color:var(--text-muted);">{{ agency.name }}</span>
-        <a href="{{ url_for('agency_logout') }}">Sign out</a>
+        <form method="post" action="{{ url_for('agency_logout') }}" style="display:inline;margin:0;"><button type="submit" style="background:none;border:none;color:inherit;cursor:pointer;font:inherit;padding:0;text-decoration:underline;">Sign out</button></form>
       </div>
     </div>
   </nav>

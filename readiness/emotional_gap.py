@@ -84,18 +84,18 @@ def _detect_category(page: dict) -> tuple[str, int]:
 
 def _fetch_image_bytes(url: str, timeout: int = 15) -> bytes | None:
     """Download image bytes. Returns None on failure."""
+    # Image URLs come from the scanned page (attacker-controlled), so they go
+    # through the SSRF-checked fetcher: per-hop URL checks + connect-time IP
+    # guard. Cap at 5MB.
     try:
-        import requests
-        r = requests.get(url, timeout=timeout, stream=True,
-                         headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
+        import fetch as _fetchmod
+        r = _fetchmod._safe_get(url, timeout=timeout,
+                                headers={"User-Agent": "agent-a-readiness-scanner/0.1"})
         if r.status_code != 200:
             return None
-        # Cap at 5MB
-        content = b""
-        for chunk in r.iter_content(chunk_size=8192):
-            content += chunk
-            if len(content) > 5 * 1024 * 1024:
-                return None
+        content = r.content
+        if len(content) > 5 * 1024 * 1024:
+            return None
         return content
     except Exception:
         return None

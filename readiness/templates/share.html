@@ -306,7 +306,7 @@
           document.getElementById('comp-readable').style.color = scoreColor(d.readable);
           document.getElementById('comp-shoppable').textContent = d.shoppable;
           document.getElementById('comp-shoppable').style.color = scoreColor(d.shoppable);
-          document.getElementById('comp-link').innerHTML = '<a href="/r/' + d.scan_id + '" style="color:var(--accent); font-size:0.85rem;">View their full report &rarr;</a>';
+          document.getElementById('comp-link').innerHTML = '<a href="/r/' + encodeURIComponent(d.scan_id) + '" style="color:var(--accent); font-size:0.85rem;">View their full report &rarr;</a>';
           document.getElementById('comp-result').style.display = 'block';
         } else {
           document.getElementById('comp-not-found').style.display = 'block';

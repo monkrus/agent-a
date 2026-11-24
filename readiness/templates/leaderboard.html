@@ -152,6 +152,7 @@
   </div>
 
   <script>
+    function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   var DATA = [
     {% for e in entries %}
     {
@@ -241,8 +242,8 @@
       var scoreClass = e.score >= 80 ? 'score-good' : e.score >= 50 ? 'score-ok' : 'score-bad';
       var barClass = e.score >= 80 ? 'lb-bar-good' : e.score >= 50 ? 'lb-bar-ok' : 'lb-bar-bad';
       var domainCell = e.link
-        ? '<a href="' + e.link + '">' + e.domain + '</a>'
-        : e.domain;
+        ? '<a href="' + esc(e.link) + '">' + esc(e.domain) + '</a>'
+        : esc(e.domain);
 
       html += '<tr>'
         + '<td class="lb-rank">' + rank + '</td>'

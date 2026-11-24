@@ -52,19 +52,24 @@ def _build_html(scan_data: dict, base_url: str = "") -> str:
     color = _score_color(score)
     report_url = f"{base_url}/results/{scan_id}" if base_url and scan_id else ""
 
+    import html as _html
+    esc = lambda x: _html.escape(str(x if x is not None else ""))  # noqa: E731
+    # Titles/details can carry text from the scanned page: escape everything.
+    target = esc(target)
+    headline = esc(headline)
     checks_html = ""
     for r in results:
-        v = r.get("verdict", "")
-        vc = _verdict_color(v)
-        title = r.get("title", "")
-        detail = r.get("detail", "")
-        sev = r.get("severity_if_fail", "")
+        v = esc(r.get("verdict", ""))
+        vc = _verdict_color(r.get("verdict", ""))
+        title = esc(r.get("title", ""))
+        detail = esc(r.get("detail", ""))
+        sev = esc(r.get("severity_if_fail", ""))
         fix_recipe = r.get("fix_recipe", "")
 
         check_html = f"""
         <tr>
           <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">
-            <span style="font-weight:600;color:#374151;">{r.get('id', '')}</span>
+            <span style="font-weight:600;color:#374151;">{esc(r.get('id', ''))}</span>
             <span style="color:#6b7280;margin-left:4px;">{title}</span>
           </td>
           <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center;">

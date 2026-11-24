@@ -109,7 +109,9 @@ def test_admin_stats_shows_funnel(store, monkeypatch):
     monkeypatch.setenv("ADMIN_TOKEN", "right-token")
     c = appmod.app.test_client()
     c.get("/agency", headers={**BROWSER, "Referer": "https://news.ycombinator.com/item"})
-    r = c.get("/admin/stats?token=right-token")
+    first = c.get("/admin/stats?token=right-token")
+    assert first.status_code == 302 and "token" not in first.headers["Location"]
+    r = c.get(first.headers["Location"])
     html = r.get_data(as_text=True)
     assert r.status_code == 200
     assert r.headers["Cache-Control"] == "no-store"
