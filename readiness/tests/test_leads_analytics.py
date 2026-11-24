@@ -44,27 +44,17 @@ def _rows(store, sql):
 
 # ---- lead capture ----------------------------------------------------------
 
-def test_lead_saved_when_smtp_not_configured(store):
-    with patch.object(appmod.emailer, "_is_configured", return_value=False):
-        r = appmod.app.test_client().post(f"/lead/{SCAN_ID}", data={"email": "Owner@Store.com"})
+def test_lead_saved(store):
+    r = appmod.app.test_client().post(f"/lead/{SCAN_ID}", data={"email": "Owner@Store.com"})
     assert r.status_code == 302
     assert _rows(store, "SELECT email, scan_id, domain, score FROM leads") == [
         ("owner@store.com", SCAN_ID, "example-store.com", 61.5)]
 
 
-def test_lead_email_strips_paid_fix_recipes(store):
-    with patch.object(appmod.emailer, "_is_configured", return_value=True), \
-         patch.object(appmod.emailer, "send_report", return_value=True) as send:
+def test_lead_never_sends_email(store):
+    with patch.object(appmod.emailer, "_is_configured", return_value=True),          patch.object(appmod.emailer, "send_report") as send:
         appmod.app.test_client().post(f"/lead/{SCAN_ID}", data={"email": "a@b.com"})
-    sent_data = send.call_args[0][1]
-    assert sent_data["results"] and all("fix_recipe" not in r for r in sent_data["results"])
-    assert "SECRET PAID RECIPE" not in json.dumps(sent_data)
-
-
-def test_lead_kept_when_send_fails(store):
-    with patch.object(appmod.emailer, "_is_configured", return_value=True), \
-         patch.object(appmod.emailer, "send_report", return_value="SMTP error: boom"):
-        appmod.app.test_client().post(f"/lead/{SCAN_ID}", data={"email": "a@b.com"})
+    send.assert_not_called()
     assert len(_rows(store, "SELECT 1 FROM leads")) == 1
 
 
@@ -177,3 +167,12 @@ def test_admin_stats_shows_funnel_and_leads(store, monkeypatch):
     assert r.headers["Cache-Control"] == "no-store"
     for expected in ("owner@store.com", "example-store.com", "news.ycombinator.com", "/agency"):
         assert expected in html
+
+
+def test_result_message_shown_after_submit(store):
+    c = appmod.app.test_client()
+    with patch.object(appmod.emailer, "_is_configured", return_value=False):
+        r = c.post(f"/lead/{SCAN_ID}", data={"email": "a@b.com"}, follow_redirects=True)
+    html = r.get_data(as_text=True)
+    assert 'id="lead-msg"' in html
+    assert "email your report to a@b.com" in html

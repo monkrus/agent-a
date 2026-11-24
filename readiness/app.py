@@ -1914,8 +1914,9 @@ def _save_lead(email: str, scan_id: str, domain: str, score) -> None:
 
 @app.route("/lead/<scan_id>", methods=["POST"])
 def capture_lead(scan_id):
-    """Free scan: 'email me this report'. Stores the lead, then emails the
-    report if SMTP is configured. The lead is kept even when the send fails."""
+    """Free scan: 'email me this report'. Stores the lead only — no automatic
+    email (Railway blocks outbound SMTP; there is no verified sending domain).
+    Leads are followed up by hand from /admin/stats."""
     data = _load_scan(scan_id)
     if not data:
         abort(404)
@@ -1925,26 +1926,14 @@ def capture_lead(scan_id):
         session[f"lead_msg_{scan_id}"] = "That email address doesn't look right. Please check it."
         return back
     client_ip = request.remote_addr or "unknown"
-    # Unauthenticated endpoint that sends mail: limit per scan and per IP.
+    # Unauthenticated write endpoint: limit per scan and per IP.
     if _check_send_limit(scan_id) or _check_send_limit(f"lead-ip:{client_ip}", max_sends=5):
         session[f"lead_msg_{scan_id}"] = "Too many requests. Please try again later."
         return back
     target = data.get("meta", {}).get("target", "")
     _save_lead(to_email, scan_id, _domain_from_url(target), data.get("readiness_score"))
-    sent = False
-    if emailer._is_configured():
-        # Fix recipes are paid content: strip them from the free email.
-        free_data = dict(data)
-        free_data["results"] = [{k: v for k, v in r.items() if k != "fix_recipe"}
-                                for r in data.get("results", [])]
-        result = emailer.send_report(to_email, free_data,
-                                     base_url=request.host_url.rstrip("/"))
-        sent = result is True
-        if not sent:
-            _logger.warning("lead email failed for %s: %s", scan_id, result)
     session[f"lead_msg_{scan_id}"] = (
-        f"Report sent to {to_email}." if sent
-        else f"Saved. We'll send the report to {to_email} shortly.")
+        f"Thanks! We'll email your report to {to_email} shortly.")
     return back
 
 
