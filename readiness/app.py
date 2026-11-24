@@ -41,7 +41,7 @@ load_dotenv(pathlib.Path(__file__).resolve().parent.parent / ".env")
 
 import functools
 from flask import (Flask, Response, abort, jsonify, redirect, render_template,
-                   request, send_file, send_from_directory, session, url_for)
+                   render_template_string, request, send_file, send_from_directory, session, url_for)
 from werkzeug.security import generate_password_hash, check_password_hash
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -149,6 +149,24 @@ def _init_store():
         key TEXT PRIMARY KEY, value INTEGER DEFAULT 0)""")
     conn.execute("""CREATE TABLE IF NOT EXISTS send_limits (
         scan_id TEXT, ts REAL)""")
+    # First-party analytics: aggregate counts only — no IPs, no cookies.
+    conn.execute("""CREATE TABLE IF NOT EXISTS page_views (
+        day TEXT NOT NULL, path TEXT NOT NULL, referrer TEXT NOT NULL,
+        views INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (day, path, referrer))""")
+    # vid is a salted daily hash of IP+UA: counts unique visitors per day
+    # without being linkable across days or back to an IP.
+    conn.execute("""CREATE TABLE IF NOT EXISTS daily_visitors (
+        day TEXT NOT NULL, vid TEXT NOT NULL, PRIMARY KEY (day, vid))""")
+    # Free-scan leads: people who asked for their report by email.
+    conn.execute("""CREATE TABLE IF NOT EXISTS leads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL,
+        scan_id TEXT NOT NULL,
+        domain TEXT NOT NULL,
+        score REAL,
+        created_at REAL NOT NULL,
+        UNIQUE (email, scan_id))""")
     # Agency tables
     conn.execute("""CREATE TABLE IF NOT EXISTS agencies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1154,6 +1172,7 @@ def results(scan_id):
     email_sent_to = session.get(f"email_{scan_id}")
     team_sent = session.pop(f"sent_{scan_id}", False)
     send_msg = session.pop(f"send_msg_{scan_id}", None)
+    lead_msg = session.pop(f"lead_msg_{scan_id}", None)
     payment_error = session.pop(f"payment_error_{scan_id}", None)
     access_blocked = any(r.get("gated") for r in data.get("results", []))
     agency_name = data.get("meta", {}).get("agency_name", "")
@@ -1198,6 +1217,7 @@ def results(scan_id):
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            payment_error=payment_error,
                            email_sent_to=email_sent_to, team_sent=team_sent, send_msg=send_msg,
+                           lead_msg=lead_msg,
                            access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
                            compare_error=compare_error, rescan_promo=rescan_promo,
@@ -1875,6 +1895,201 @@ def send_report(scan_id):
             return jsonify(ok=False, error="Failed to send email. Please try again or use 'Save as PDF' instead.")
         session[f"send_msg_{scan_id}"] = "Failed to send email. Please try again or use 'Save as PDF' instead."
     return redirect(url_for("results", scan_id=scan_id))
+
+
+# ---------------------------------------------------------------------------
+# Free-scan lead capture
+# ---------------------------------------------------------------------------
+
+def _save_lead(email: str, scan_id: str, domain: str, score) -> None:
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        conn.execute("INSERT OR IGNORE INTO leads (email, scan_id, domain, score, created_at) "
+                     "VALUES (?, ?, ?, ?, ?)",
+                     (email.lower(), scan_id, domain, score, _time.time()))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@app.route("/lead/<scan_id>", methods=["POST"])
+def capture_lead(scan_id):
+    """Free scan: 'email me this report'. Stores the lead, then emails the
+    report if SMTP is configured. The lead is kept even when the send fails."""
+    data = _load_scan(scan_id)
+    if not data:
+        abort(404)
+    back = redirect(url_for("results", scan_id=scan_id) + "#email-report")
+    to_email = _validate_email(request.form.get("email", ""))
+    if not to_email:
+        session[f"lead_msg_{scan_id}"] = "That email address doesn't look right. Please check it."
+        return back
+    client_ip = request.remote_addr or "unknown"
+    # Unauthenticated endpoint that sends mail: limit per scan and per IP.
+    if _check_send_limit(scan_id) or _check_send_limit(f"lead-ip:{client_ip}", max_sends=5):
+        session[f"lead_msg_{scan_id}"] = "Too many requests. Please try again later."
+        return back
+    target = data.get("meta", {}).get("target", "")
+    _save_lead(to_email, scan_id, _domain_from_url(target), data.get("readiness_score"))
+    sent = False
+    if emailer._is_configured():
+        # Fix recipes are paid content: strip them from the free email.
+        free_data = dict(data)
+        free_data["results"] = [{k: v for k, v in r.items() if k != "fix_recipe"}
+                                for r in data.get("results", [])]
+        result = emailer.send_report(to_email, free_data,
+                                     base_url=request.host_url.rstrip("/"))
+        sent = result is True
+        if not sent:
+            _logger.warning("lead email failed for %s: %s", scan_id, result)
+    session[f"lead_msg_{scan_id}"] = (
+        f"Report sent to {to_email}." if sent
+        else f"Saved. We'll send the report to {to_email} shortly.")
+    return back
+
+
+# ---------------------------------------------------------------------------
+# First-party analytics (aggregate page views, no cookies, no stored IPs)
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+_TRACKED_ENDPOINTS = {
+    "index", "agency_landing", "results", "share", "share_trace",
+    "leaderboard_page", "sample_report", "agent_traffic_page", "vision_report",
+    "agency_register", "agency_login", "agency_dashboard",
+}
+_BOT_UA = _re.compile(
+    r"bot|crawl|spider|slurp|curl|wget|python|monitor|uptime|headless|werkzeug"
+    r"|preview|facebookexternalhit|lighthouse|scrapy|httpclient|go-http", _re.I)
+
+
+def _referrer_host() -> str:
+    """External referrer hostname, or '' for direct / same-site navigation."""
+    from urllib.parse import urlparse
+    try:
+        host = (urlparse(request.referrer or "").hostname or "").lower()
+    except ValueError:
+        return ""
+    if not host or host == (request.host or "").split(":")[0].lower():
+        return ""
+    return host[:100]
+
+
+@app.after_request
+def _record_page_view(response):
+    try:
+        ua = request.headers.get("User-Agent", "")
+        if (request.method != "GET" or response.status_code != 200
+                or request.endpoint not in _TRACKED_ENDPOINTS
+                or not ua or _BOT_UA.search(ua)):
+            return response
+        day = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+        path = request.url_rule.rule if request.url_rule else request.path
+        vid = hashlib.sha256(
+            f"{day}|{app.secret_key}|{request.remote_addr}|{ua}".encode()
+        ).hexdigest()[:16]
+        conn = _sqlite3.connect(str(_STORE_PATH), timeout=2)
+        try:
+            conn.execute(
+                "INSERT INTO page_views (day, path, referrer, views) VALUES (?, ?, ?, 1) "
+                "ON CONFLICT(day, path, referrer) DO UPDATE SET views = views + 1",
+                (day, path, _referrer_host()))
+            conn.execute("INSERT OR IGNORE INTO daily_visitors (day, vid) VALUES (?, ?)",
+                         (day, vid))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:  # analytics must never break a page
+        _logger.debug("page view not recorded", exc_info=True)
+    return response
+
+
+def _analytics_summary(days: int = 30) -> dict:
+    since = (datetime.datetime.now(datetime.timezone.utc)
+             - datetime.timedelta(days=days - 1)).strftime("%Y-%m-%d")
+    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
+    try:
+        q = lambda sql, *a: conn.execute(sql, a).fetchall()  # noqa: E731
+        views_by_day = dict(q("SELECT day, SUM(views) FROM page_views WHERE day >= ? "
+                              "GROUP BY day", since))
+        visitors_by_day = dict(q("SELECT day, COUNT(*) FROM daily_visitors WHERE day >= ? "
+                                 "GROUP BY day", since))
+        return {
+            "days": days,
+            "since": since,
+            "daily": [(d, visitors_by_day.get(d, 0), views_by_day.get(d, 0))
+                      for d in sorted(set(views_by_day) | set(visitors_by_day), reverse=True)],
+            "visitor_days": sum(visitors_by_day.values()),
+            "views": sum(views_by_day.values()),
+            "pages": q("SELECT path, SUM(views) v FROM page_views WHERE day >= ? "
+                       "GROUP BY path ORDER BY v DESC LIMIT 20", since),
+            "referrers": q("SELECT referrer, SUM(views) v FROM page_views "
+                           "WHERE day >= ? AND referrer != '' "
+                           "GROUP BY referrer ORDER BY v DESC LIMIT 20", since),
+            "total_scans": (q("SELECT value FROM counters WHERE key = 'total_scans'")
+                            or [(0,)])[0][0],
+            "lead_count": q("SELECT COUNT(*) FROM leads")[0][0],
+            "agency_count": q("SELECT COUNT(*) FROM agencies")[0][0],
+            "purchase_count": q("SELECT COUNT(*) FROM agency_purchases")[0][0],
+            "leads": q("SELECT email, domain, score, scan_id, created_at FROM leads "
+                       "ORDER BY created_at DESC LIMIT 100"),
+        }
+    finally:
+        conn.close()
+
+
+_ADMIN_STATS_TEMPLATE = """<!doctype html><meta charset="utf-8">
+<meta name="robots" content="noindex"><title>Agent-A stats</title>
+<style>body{font:14px system-ui;margin:2rem;max-width:900px;color:#111}
+table{border-collapse:collapse;margin:.5rem 0 1.5rem}td,th{border:1px solid #ddd;padding:4px 10px;text-align:left}
+th{background:#f5f5f5}.n{text-align:right}</style>
+<h1>Agent-A stats</h1>
+<p>Last {{ s.days }} days (since {{ s.since }}, UTC). Bots excluded. A visitor is counted once per day.</p>
+<h2>Funnel</h2>
+<table>
+<tr><th>Step</th><th>Count</th><th>Period</th></tr>
+<tr><td>Visitors (daily uniques, summed)</td><td class="n">{{ s.visitor_days }}</td><td>last {{ s.days }} days</td></tr>
+<tr><td>Page views</td><td class="n">{{ s.views }}</td><td>last {{ s.days }} days</td></tr>
+<tr><td>Scans run (includes any counter seed)</td><td class="n">{{ s.total_scans }}</td><td>all time</td></tr>
+<tr><td>Leads (asked for report by email)</td><td class="n">{{ s.lead_count }}</td><td>all time</td></tr>
+<tr><td>Agency accounts</td><td class="n">{{ s.agency_count }}</td><td>all time</td></tr>
+<tr><td>Credit purchases</td><td class="n">{{ s.purchase_count }}</td><td>all time</td></tr>
+</table>
+<h2>By day</h2>
+<table><tr><th>Day</th><th>Visitors</th><th>Views</th></tr>
+{% for d, vis, v in s.daily %}<tr><td>{{ d }}</td><td class="n">{{ vis }}</td><td class="n">{{ v }}</td></tr>
+{% else %}<tr><td colspan="3">No visits recorded yet.</td></tr>{% endfor %}</table>
+<h2>Top pages</h2>
+<table><tr><th>Page</th><th>Views</th></tr>
+{% for p, v in s.pages %}<tr><td>{{ p }}</td><td class="n">{{ v }}</td></tr>{% endfor %}</table>
+<h2>Where visitors come from</h2>
+<table><tr><th>Referrer</th><th>Views</th></tr>
+{% for r, v in s.referrers %}<tr><td>{{ r }}</td><td class="n">{{ v }}</td></tr>
+{% else %}<tr><td colspan="2">No external referrers yet.</td></tr>{% endfor %}</table>
+<h2>Leads (latest 100)</h2>
+<table><tr><th>Email</th><th>Store</th><th>Score</th><th>Report</th><th>When</th></tr>
+{% for email, domain, score, scan_id, ts in s.leads %}<tr><td>{{ email }}</td><td>{{ domain }}</td>
+<td class="n">{{ score if score is not none else '' }}</td>
+<td><a href="{{ url_for('results', scan_id=scan_id) }}">open</a></td><td>{{ ts | timestamp_to_date }}</td></tr>
+{% else %}<tr><td colspan="5">No leads yet.</td></tr>{% endfor %}</table>
+"""
+
+
+@app.route("/admin/stats")
+def admin_stats():
+    """Private stats page. Requires ADMIN_TOKEN; 404s when unset or wrong so
+    the route's existence is not revealed."""
+    import hmac
+    expected = os.environ.get("ADMIN_TOKEN", "")
+    supplied = request.args.get("token", "")
+    if not expected or not hmac.compare_digest(supplied.encode(), expected.encode()):
+        abort(404)
+    resp = app.make_response(render_template_string(_ADMIN_STATS_TEMPLATE,
+                                                    s=_analytics_summary()))
+    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    return resp
 
 
 @app.route("/rescan/<scan_id>", methods=["POST"])

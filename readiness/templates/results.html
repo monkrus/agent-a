@@ -655,6 +655,20 @@
     </div>
     {% endif %}
 
+    <!-- LEAD CAPTURE: email me this report -->
+    <div class="card no-print" id="email-report" style="scroll-margin-top:70px;">
+      <h2>Email me this report</h2>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin:0.25rem 0 0.75rem;">Get the score and every finding in your inbox, with a link back to this page so you can re-scan after fixing.</p>
+      {% if lead_msg %}
+      <p style="font-size:0.9rem; font-weight:600; margin:0 0 0.75rem; color:var(--text);">{{ lead_msg }}</p>
+      {% endif %}
+      <form action="{{ url_for('capture_lead', scan_id=data.scan_id) }}" method="post" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <input type="email" name="email" required placeholder="you@yourstore.com" autocomplete="email" aria-label="Email address" style="flex:1; min-width:220px; padding:0.6rem 0.8rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.95rem;">
+        <button type="submit" class="btn-pay" style="white-space:nowrap;">Send report</button>
+      </form>
+      <p style="font-size:0.75rem; color:var(--text-muted); margin:0.6rem 0 0;">We'll send this report and may follow up once about your results. No newsletter.</p>
+    </div>
+
     <!-- PAYWALL -->
     <div class="card paywall-card" id="paywall">
       <h2>Full AI Shopping Audit</h2>

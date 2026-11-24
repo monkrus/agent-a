@@ -115,6 +115,7 @@ Every check maps to one category of agent readiness (42 checks total: 32 static 
 - `BROWSER_AGENT_MODEL` — model for browser-agent flows (default: `claude-haiku-4-5-20251001`)
 - `SCAN_COUNT_SEED` / `SCANS_PERSISTENT` — scan-counter seed and persistent-volume flag for the web app
 - `FIXES_MODULE` — import path of the private fix-recipe module (see `fixes.py`)
+- `ADMIN_TOKEN` — enables the private stats page `/admin/stats?token=...` (visitors, referrers, free-scan leads); the route 404s when unset
 
 ## Known gaps and gotchas
 

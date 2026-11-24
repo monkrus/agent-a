@@ -30,6 +30,7 @@ Alternatives considered:
 | `STRIPE_PRICE_ID` | For paid reports | Stripe dashboard |
 | `FLASK_SECRET_KEY` | Yes | `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `DEV_MODE` | No | Set `true` only for demo/testing |
+| `ADMIN_TOKEN` | For the stats page | `python -c "import secrets; print(secrets.token_urlsafe(24))"` — then open `/admin/stats?token=<value>` |
 | `PORT` | Auto | Railway sets this automatically |
 
 ## Files already prepared
