@@ -56,7 +56,7 @@
       {% endif %}
       <div class="meta-row">
         <span>{{ data.meta.target }}</span>
-        <span>{% if data.meta.tier == 'paid' %}{{ data.results|length }} checks &middot; {{ data.meta.n }} AI agent visits{% else %}{{ data.results|length }} structural checks completed{% endif %}{% if data.meta.duration_seconds %} &middot; {{ data.meta.duration_seconds }}s{% endif %}</span>
+        <span>{% if data.meta.tier == 'paid' %}{{ data.results|length }} checks &middot; {{ data.meta.n }} AI shopper visits per extraction check{% else %}{{ data.results|length }} structural checks completed{% endif %}{% if data.meta.duration_seconds %} &middot; {{ data.meta.duration_seconds }}s{% endif %}</span>
       </div>
     </div>
 

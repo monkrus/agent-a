@@ -1401,6 +1401,25 @@ def processing(scan_id):
     return render_template("processing.html", scan_id=scan_id, target=target)
 
 
+# One payment (Stripe or agency credit) buys one paid scan. Reconnects and
+# reloads may retry a run that did not finish, up to this many attempts;
+# once a run completes, further connections replay its result for free.
+MAX_PAID_RUNS = 3
+
+
+def _update_scan_meta(scan_id: str, **fields) -> None:
+    """Merge fields into a stored scan's meta (scan_id must be validated)."""
+    from werkzeug.utils import safe_join as _safe_join
+    cur = _load_scan(scan_id)
+    if not cur:
+        return
+    cur.setdefault("meta", {}).update(fields)
+    safe_path = _safe_join(str(SCANS_DIR), f"{scan_id}.json")
+    if safe_path is None:
+        raise ValueError("path traversal blocked")
+    pathlib.Path(safe_path).write_text(json.dumps(cur, indent=2))
+
+
 @app.route("/paid-scan-stream/<scan_id>")
 def paid_scan_stream(scan_id):
     """SSE endpoint: streams paid-tier check results as they complete."""
@@ -1461,6 +1480,29 @@ def paid_scan_stream(scan_id):
                     json.dumps(_cur, indent=2))
             except Exception:
                 pass
+
+        # ---- one paid scan per payment (cost-leak guard) ----
+        _stub_meta = (_load_scan(scan_id) or {}).get("meta", {})
+        _final_id = _stub_meta.get("final_scan_id")
+        _final = _load_scan(_final_id) if _final_id else None
+        if _final:
+            yield "data: " + json.dumps({
+                "type": "done", "score": _final.get("readiness_score"),
+                "headline": _final.get("headline", ""), "scan_id": _final_id,
+                "duration": _final.get("meta", {}).get("duration_seconds"),
+            }) + "\n\n"
+            return
+        if _stub_meta.get("refunded"):
+            yield "data: " + json.dumps({"type": "error",
+                "message": "This scan's credit was refunded. Please start a new scan."}) + "\n\n"
+            return
+        _runs = int(_stub_meta.get("paid_runs", 0) or 0)
+        if _runs >= MAX_PAID_RUNS:
+            yield "data: " + json.dumps({"type": "error",
+                "message": (f"This paid scan was already attempted {MAX_PAID_RUNS} times "
+                            "without finishing. Please contact support.")}) + "\n\n"
+            return
+        _update_scan_meta(scan_id, paid_runs=_runs + 1)
 
         yield "data: " + json.dumps({"type": "status",
                                      "message": "Fetching page..."}) + "\n\n"
@@ -1749,6 +1791,12 @@ def paid_scan_stream(scan_id):
         (SCANS_DIR / f"{new_scan_id}.json").write_text(
             json.dumps(payload, indent=2))
         _increment_scan_count()
+        # Mark the paid stub as fulfilled: reconnects/reloads now replay this
+        # result instead of running (and paying for) another full scan.
+        try:
+            _update_scan_meta(scan_id, final_scan_id=new_scan_id)
+        except Exception:
+            _logger.exception("Failed to mark %s fulfilled", scan_id)
 
         # NOTE: cannot write to Flask session inside an SSE generator — the
         # response headers (including the session cookie) are already sent.
@@ -2034,11 +2082,18 @@ def rescan(scan_id):
     data = _load_scan(scan_id)
     if not data:
         abort(404)
-    # Only allow re-scan if the original scan was paid (Stripe customers)
-    is_paid = (session.get(f"paid_{scan_id}", False)
-               or data.get("meta", {}).get("paid", False))
-    if not is_paid:
+    meta = data.get("meta", {})
+    # Paid scans are publicly viewable by link, so meta.paid alone proves
+    # nothing about who is asking. Require this browser to be the one that
+    # paid for the scan's origin (its session holds paid_verified_<origin>).
+    # Agency scans rescan through credits, never here.
+    origin = meta.get("free_scan_id")
+    is_owner = bool(origin) and session.get(f"paid_verified_{origin}", False)
+    if not meta.get("paid") or meta.get("agency_id") or not is_owner:
         abort(403)
+    # One rescan per scan: a second request shows the existing rescan.
+    if meta.get("final_scan_id") and _load_scan(meta["final_scan_id"]):
+        return redirect(url_for("results", scan_id=meta["final_scan_id"]))
     # Rate limit re-scans same as regular scans
     client_ip = request.remote_addr or "unknown"
     wait = _check_rate_limit(client_ip)
