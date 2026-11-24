@@ -1,9 +1,8 @@
-"""Free-scan lead capture, first-party page-view analytics, admin stats page."""
+"""First-party page-view analytics and the admin stats page."""
 import json
 import pathlib
 import sqlite3
 import sys
-from unittest.mock import patch
 
 import pytest
 
@@ -42,54 +41,6 @@ def _rows(store, sql):
         conn.close()
 
 
-# ---- lead capture ----------------------------------------------------------
-
-def test_lead_saved(store):
-    r = appmod.app.test_client().post(f"/lead/{SCAN_ID}", data={"email": "Owner@Store.com"})
-    assert r.status_code == 302
-    assert _rows(store, "SELECT email, scan_id, domain, score FROM leads") == [
-        ("owner@store.com", SCAN_ID, "example-store.com", 61.5)]
-
-
-def test_lead_never_sends_email(store):
-    with patch.object(appmod.emailer, "_is_configured", return_value=True),          patch.object(appmod.emailer, "send_report") as send:
-        appmod.app.test_client().post(f"/lead/{SCAN_ID}", data={"email": "a@b.com"})
-    send.assert_not_called()
-    assert len(_rows(store, "SELECT 1 FROM leads")) == 1
-
-
-def test_invalid_email_not_saved(store):
-    r = appmod.app.test_client().post(f"/lead/{SCAN_ID}", data={"email": "not-an-email"})
-    assert r.status_code == 302
-    assert _rows(store, "SELECT 1 FROM leads") == []
-
-
-def test_same_email_same_scan_stored_once(store):
-    c = appmod.app.test_client()
-    with patch.object(appmod.emailer, "_is_configured", return_value=False):
-        c.post(f"/lead/{SCAN_ID}", data={"email": "a@b.com"})
-        c.post(f"/lead/{SCAN_ID}", data={"email": "A@B.com"})
-    assert len(_rows(store, "SELECT 1 FROM leads")) == 1
-
-
-def test_lead_rate_limited_per_scan(store):
-    c = appmod.app.test_client()
-    with patch.object(appmod.emailer, "_is_configured", return_value=False):
-        for i in range(6):
-            c.post(f"/lead/{SCAN_ID}", data={"email": f"u{i}@b.com"})
-    assert len(_rows(store, "SELECT 1 FROM leads")) == 3  # _check_send_limit default
-
-
-def test_lead_unknown_scan_404(store):
-    assert appmod.app.test_client().post("/lead/nope", data={"email": "a@b.com"}).status_code == 404
-
-
-def test_free_results_page_shows_email_form(store):
-    html = appmod.app.test_client().get(f"/results/{SCAN_ID}").get_data(as_text=True)
-    assert f'action="/lead/{SCAN_ID}"' in html
-    assert "Email me this report" in html
-
-
 # ---- analytics -------------------------------------------------------------
 
 def test_page_view_and_unique_visitor_recorded(store):
@@ -124,7 +75,6 @@ def test_untracked_and_failed_requests_not_counted(store):
     c = appmod.app.test_client()
     c.get("/results/does-not-exist", headers=BROWSER)      # 404
     c.get(f"/r/{SCAN_ID}/badge.svg", headers=BROWSER)      # asset endpoint
-    c.post(f"/lead/{SCAN_ID}", data={"email": "x"}, headers=BROWSER)  # POST
     assert _rows(store, "SELECT 1 FROM page_views") == []
 
 
@@ -155,24 +105,13 @@ def test_admin_stats_404_with_wrong_token(store, monkeypatch):
     assert appmod.app.test_client().get("/admin/stats?token=wrong").status_code == 404
 
 
-def test_admin_stats_shows_funnel_and_leads(store, monkeypatch):
+def test_admin_stats_shows_funnel(store, monkeypatch):
     monkeypatch.setenv("ADMIN_TOKEN", "right-token")
     c = appmod.app.test_client()
     c.get("/agency", headers={**BROWSER, "Referer": "https://news.ycombinator.com/item"})
-    with patch.object(appmod.emailer, "_is_configured", return_value=False):
-        c.post(f"/lead/{SCAN_ID}", data={"email": "owner@store.com"})
     r = c.get("/admin/stats?token=right-token")
     html = r.get_data(as_text=True)
     assert r.status_code == 200
     assert r.headers["Cache-Control"] == "no-store"
-    for expected in ("owner@store.com", "example-store.com", "news.ycombinator.com", "/agency"):
+    for expected in ("news.ycombinator.com", "/agency"):
         assert expected in html
-
-
-def test_result_message_shown_after_submit(store):
-    c = appmod.app.test_client()
-    with patch.object(appmod.emailer, "_is_configured", return_value=False):
-        r = c.post(f"/lead/{SCAN_ID}", data={"email": "a@b.com"}, follow_redirects=True)
-    html = r.get_data(as_text=True)
-    assert 'id="lead-msg"' in html
-    assert "email your report to a@b.com" in html
