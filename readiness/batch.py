@@ -36,7 +36,7 @@ import fetch as fetchmod
 import scorers
 import fixes as fixesmod
 import intel as intelmod
-from shopper import ask_batch
+from shopper import ask_batch_detailed
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 CHECKS_PATH = pathlib.Path(__file__).resolve().parent / "checks" / "shopify-v1.yaml"
@@ -103,11 +103,13 @@ def _run_scan(target_url, n):
     if shopper_checks:
         tasks = {c["id"]: c["task"] for c in shopper_checks}
         with ThreadPoolExecutor(max_workers=n) as pool:
-            batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
-        answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+            batch_results = list(pool.map(lambda _: ask_batch_detailed(page, tasks), range(n)))
+        runs_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+        answers_by_check = {cid: [r["answer"] for r in runs] for cid, runs in runs_by_check.items()}
         for c in shopper_checks:
             answers = answers_by_check[c["id"]]
             g = scorers.grade_shopper(c, page, answers)
+            g["evidence"] = scorers.summarize_evidence(page, runs_by_check[c["id"]])
             results.append({**_base(c), **g, "sample_answers": answers[:3]})
 
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))

@@ -63,8 +63,8 @@
     <!-- AGENT INTELLIGENCE — plain language -->
     {% if data.intel %}
     <div class="card intel-card">
-      <h2>Who's visiting your store right now</h2>
-      <p class="intel-subtitle">We detected these AI systems actively interacting with your website.</p>
+      <h2>Which AI agents your store lets in</h2>
+      <p class="intel-subtitle">Based on your robots.txt rules: which AI systems your site allows or blocks. This shows access rules, not actual visits.</p>
 
       {% if data.intel.platform %}
       <div class="intel-row">
@@ -654,26 +654,6 @@
       {% endif %}
     </div>
     {% endif %}
-
-    <!-- LEAD CAPTURE: email me this report -->
-    <div class="card no-print" id="email-report" style="scroll-margin-top:70px;">
-      <h2>Email me this report</h2>
-      <p style="font-size:0.9rem; color:var(--text-muted); margin:0.25rem 0 0.75rem;">Get the score and every finding in your inbox, with a link back to this page so you can re-scan after fixing.</p>
-      {% if lead_msg %}
-      <p id="lead-msg" role="status" style="font-size:0.95rem; font-weight:600; margin:0 0 0.75rem; padding:0.7rem 0.9rem; border-radius:6px; border:1px solid rgba(74,222,128,0.5); background:rgba(74,222,128,0.08); color:var(--text);">{{ lead_msg }}</p>
-      {% endif %}
-      <form id="lead-form" action="{{ url_for('capture_lead', scan_id=data.scan_id) }}" method="post" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <input type="email" name="email" required placeholder="you@yourstore.com" autocomplete="email" aria-label="Email address" style="flex:1; min-width:220px; padding:0.6rem 0.8rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.95rem;">
-        <button type="submit" id="lead-btn" class="btn-pay" style="white-space:nowrap;">Send report</button>
-      </form>
-      <script>
-        document.getElementById('lead-form').addEventListener('submit', function() {
-          var b = document.getElementById('lead-btn');
-          b.disabled = true; b.textContent = 'Sending…'; b.style.opacity = '0.7';
-        });
-      </script>
-      <p style="font-size:0.75rem; color:var(--text-muted); margin:0.6rem 0 0;">We'll send this report and may follow up once about your results. No newsletter.</p>
-    </div>
 
     <!-- PAYWALL -->
     <div class="card paywall-card" id="paywall">

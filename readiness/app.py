@@ -52,7 +52,7 @@ import intel as intelmod   # noqa: E402
 import scorers             # noqa: E402
 import yaml                # noqa: E402
 import emailer             # noqa: E402
-from shopper import ask_batch  # noqa: E402
+from shopper import ask_batch_detailed  # noqa: E402
 
 app = Flask(__name__)
 
@@ -158,15 +158,6 @@ def _init_store():
     # without being linkable across days or back to an IP.
     conn.execute("""CREATE TABLE IF NOT EXISTS daily_visitors (
         day TEXT NOT NULL, vid TEXT NOT NULL, PRIMARY KEY (day, vid))""")
-    # Free-scan leads: people who asked for their report by email.
-    conn.execute("""CREATE TABLE IF NOT EXISTS leads (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT NOT NULL,
-        scan_id TEXT NOT NULL,
-        domain TEXT NOT NULL,
-        score REAL,
-        created_at REAL NOT NULL,
-        UNIQUE (email, scan_id))""")
     # Agency tables
     conn.execute("""CREATE TABLE IF NOT EXISTS agencies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -494,6 +485,7 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
     pack, version, checks = _load_checks()
     checks = checks_for_tier(tier, checks)
     page = pre_fetched_page or fetchmod.fetch(target_url)
+    page["_tier"] = tier  # paid-only AI features (RDY-046 vision) key off this
 
     def _base(c):
         return {k: c.get(k) for k in
@@ -535,11 +527,13 @@ def _run_scan(target_url, n=None, pre_fetched_page=None, tier="free"):
             tasks = {c["id"]: c["task"] for c in shopper_checks}
             with ThreadPoolExecutor(max_workers=n) as pool:
                 batch_results = list(pool.map(
-                    lambda _: ask_batch(page, tasks, shopper=shopper_mode), range(n)))
-            answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+                    lambda _: ask_batch_detailed(page, tasks, shopper=shopper_mode), range(n)))
+            runs_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+            answers_by_check = {cid: [r["answer"] for r in runs] for cid, runs in runs_by_check.items()}
             for c in shopper_checks:
                 answers = answers_by_check[c["id"]]
                 g = scorers.grade_shopper(c, page, answers)
+                g["evidence"] = scorers.summarize_evidence(page, runs_by_check[c["id"]])
                 results.append({**_base(c), **g, "sample_answers": answers[:3]})
 
     results.sort(key=lambda r: SEV_RANK.get(r.get("severity_if_fail"), 4))
@@ -816,6 +810,7 @@ def scan_stream():
 
         try:
             page = fetchmod.fetch(url)
+            page["_tier"] = "free"
         except fetchmod._UnsafeURLError:
             yield "data: " + json.dumps({"type": "error", "message": "That URL points to a private or internal address and cannot be scanned."}) + "\n\n"
             return
@@ -947,12 +942,14 @@ def scan_stream():
 
                 tasks = {c["id"]: c["task"] for c in shopper_checks}
                 with ThreadPoolExecutor(max_workers=n) as pool:
-                    batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
-                answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+                    batch_results = list(pool.map(lambda _: ask_batch_detailed(page, tasks), range(n)))
+                runs_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+                answers_by_check = {cid: [r["answer"] for r in runs] for cid, runs in runs_by_check.items()}
 
                 for c in shopper_checks:
                     answers = answers_by_check[c["id"]]
                     g = scorers.grade_shopper(c, page, answers)
+                    g["evidence"] = scorers.summarize_evidence(page, runs_by_check[c["id"]])
                     result = {**_base(c), **g, "sample_answers": answers[:3]}
                     results.append(result)
                     completed += 1
@@ -1172,7 +1169,6 @@ def results(scan_id):
     email_sent_to = session.get(f"email_{scan_id}")
     team_sent = session.pop(f"sent_{scan_id}", False)
     send_msg = session.pop(f"send_msg_{scan_id}", None)
-    lead_msg = session.pop(f"lead_msg_{scan_id}", None)
     payment_error = session.pop(f"payment_error_{scan_id}", None)
     access_blocked = any(r.get("gated") for r in data.get("results", []))
     agency_name = data.get("meta", {}).get("agency_name", "")
@@ -1217,7 +1213,6 @@ def results(scan_id):
                            has_stripe=has_stripe, dev_mode=dev_mode,
                            payment_error=payment_error,
                            email_sent_to=email_sent_to, team_sent=team_sent, send_msg=send_msg,
-                           lead_msg=lead_msg,
                            access_blocked=access_blocked,
                            jsonld_snippet=jsonld_snippet, comparison=comparison,
                            compare_error=compare_error, rescan_promo=rescan_promo,
@@ -1472,6 +1467,7 @@ def paid_scan_stream(scan_id):
 
         try:
             page = fetchmod.fetch(target_url)
+            page["_tier"] = "paid"
         except Exception:
             _refund_credit()
             yield "data: " + json.dumps({"type": "error",
@@ -1603,13 +1599,14 @@ def paid_scan_stream(scan_id):
                 tasks = {c["id"]: c["task"] for c in shopper_checks}
                 with ThreadPoolExecutor(max_workers=n) as pool:
                     batch_results = list(pool.map(
-                        lambda _: ask_batch(page, tasks, shopper=shopper_mode),
+                        lambda _: ask_batch_detailed(page, tasks, shopper=shopper_mode),
                         range(n)))
-                answers_by_check = {cid: [br[cid] for br in batch_results]
-                                    for cid in tasks}
+                runs_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+                answers_by_check = {cid: [r["answer"] for r in runs] for cid, runs in runs_by_check.items()}
                 for c in shopper_checks:
                     answers = answers_by_check[c["id"]]
                     g = scorers.grade_shopper(c, page, answers)
+                    g["evidence"] = scorers.summarize_evidence(page, runs_by_check[c["id"]])
                     result = {**_base(c), **g, "sample_answers": answers[:3]}
                     results.append(result)
                     completed += 1
@@ -1898,46 +1895,6 @@ def send_report(scan_id):
 
 
 # ---------------------------------------------------------------------------
-# Free-scan lead capture
-# ---------------------------------------------------------------------------
-
-def _save_lead(email: str, scan_id: str, domain: str, score) -> None:
-    conn = _sqlite3.connect(str(_STORE_PATH), timeout=5)
-    try:
-        conn.execute("INSERT OR IGNORE INTO leads (email, scan_id, domain, score, created_at) "
-                     "VALUES (?, ?, ?, ?, ?)",
-                     (email.lower(), scan_id, domain, score, _time.time()))
-        conn.commit()
-    finally:
-        conn.close()
-
-
-@app.route("/lead/<scan_id>", methods=["POST"])
-def capture_lead(scan_id):
-    """Free scan: 'email me this report'. Stores the lead only — no automatic
-    email (Railway blocks outbound SMTP; there is no verified sending domain).
-    Leads are followed up by hand from /admin/stats."""
-    data = _load_scan(scan_id)
-    if not data:
-        abort(404)
-    back = redirect(url_for("results", scan_id=scan_id) + "#email-report")
-    to_email = _validate_email(request.form.get("email", ""))
-    if not to_email:
-        session[f"lead_msg_{scan_id}"] = "That email address doesn't look right. Please check it."
-        return back
-    client_ip = request.remote_addr or "unknown"
-    # Unauthenticated write endpoint: limit per scan and per IP.
-    if _check_send_limit(scan_id) or _check_send_limit(f"lead-ip:{client_ip}", max_sends=5):
-        session[f"lead_msg_{scan_id}"] = "Too many requests. Please try again later."
-        return back
-    target = data.get("meta", {}).get("target", "")
-    _save_lead(to_email, scan_id, _domain_from_url(target), data.get("readiness_score"))
-    session[f"lead_msg_{scan_id}"] = (
-        f"Thanks! We'll email your report to {to_email} shortly.")
-    return back
-
-
-# ---------------------------------------------------------------------------
 # First-party analytics (aggregate page views, no cookies, no stored IPs)
 # ---------------------------------------------------------------------------
 
@@ -2018,11 +1975,8 @@ def _analytics_summary(days: int = 30) -> dict:
                            "GROUP BY referrer ORDER BY v DESC LIMIT 20", since),
             "total_scans": (q("SELECT value FROM counters WHERE key = 'total_scans'")
                             or [(0,)])[0][0],
-            "lead_count": q("SELECT COUNT(*) FROM leads")[0][0],
             "agency_count": q("SELECT COUNT(*) FROM agencies")[0][0],
             "purchase_count": q("SELECT COUNT(*) FROM agency_purchases")[0][0],
-            "leads": q("SELECT email, domain, score, scan_id, created_at FROM leads "
-                       "ORDER BY created_at DESC LIMIT 100"),
         }
     finally:
         conn.close()
@@ -2041,7 +1995,6 @@ th{background:#f5f5f5}.n{text-align:right}</style>
 <tr><td>Visitors (daily uniques, summed)</td><td class="n">{{ s.visitor_days }}</td><td>last {{ s.days }} days</td></tr>
 <tr><td>Page views</td><td class="n">{{ s.views }}</td><td>last {{ s.days }} days</td></tr>
 <tr><td>Scans run (includes any counter seed)</td><td class="n">{{ s.total_scans }}</td><td>all time</td></tr>
-<tr><td>Leads (asked for report by email)</td><td class="n">{{ s.lead_count }}</td><td>all time</td></tr>
 <tr><td>Agency accounts</td><td class="n">{{ s.agency_count }}</td><td>all time</td></tr>
 <tr><td>Credit purchases</td><td class="n">{{ s.purchase_count }}</td><td>all time</td></tr>
 </table>
@@ -2056,12 +2009,6 @@ th{background:#f5f5f5}.n{text-align:right}</style>
 <table><tr><th>Referrer</th><th>Views</th></tr>
 {% for r, v in s.referrers %}<tr><td>{{ r }}</td><td class="n">{{ v }}</td></tr>
 {% else %}<tr><td colspan="2">No external referrers yet.</td></tr>{% endfor %}</table>
-<h2>Leads (latest 100)</h2>
-<table><tr><th>Email</th><th>Store</th><th>Score</th><th>Report</th><th>When</th></tr>
-{% for email, domain, score, scan_id, ts in s.leads %}<tr><td>{{ email }}</td><td>{{ domain }}</td>
-<td class="n">{{ score if score is not none else '' }}</td>
-<td><a href="{{ url_for('results', scan_id=scan_id) }}">open</a></td><td>{{ ts | timestamp_to_date }}</td></tr>
-{% else %}<tr><td colspan="5">No leads yet.</td></tr>{% endfor %}</table>
 """
 
 
@@ -2670,6 +2617,7 @@ def _seed_worker():
         scan_id = hashlib.md5(f"{url}:{time.time()}".encode()).hexdigest()[:12]
         try:
             page = fetchmod.fetch(url, timeout=20)
+            page["_tier"] = "free"
             results = []
             for c in checks:
                 base = {k: c.get(k) for k in ("id", "type", "category", "title", "weight", "severity_if_fail", "fix")}

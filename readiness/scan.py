@@ -33,7 +33,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import fetch as fetchmod          # noqa: E402
 import scorers                    # noqa: E402
 import impact as impactmod        # noqa: E402
-from shopper import ask_batch  # noqa: E402
+from shopper import ask_batch_detailed  # noqa: E402
 
 SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3, None: 4}
 
@@ -93,12 +93,14 @@ def scan(checks, page, n):
             # N batched calls in parallel (capped at 10 workers to avoid rate limits)
             workers = min(n, 10)
             with ThreadPoolExecutor(max_workers=workers) as pool:
-                batch_results = list(pool.map(lambda _: ask_batch(page, tasks), range(n)))
+                batch_results = list(pool.map(lambda _: ask_batch_detailed(page, tasks), range(n)))
             # Transpose: {check_id: [answer_run1, answer_run2, ...]}
-            answers_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+            runs_by_check = {cid: [br[cid] for br in batch_results] for cid in tasks}
+            answers_by_check = {cid: [r["answer"] for r in runs] for cid, runs in runs_by_check.items()}
             for c in shopper_checks:
                 answers = answers_by_check[c["id"]]
                 g = scorers.grade_shopper(c, page, answers)
+                g["evidence"] = scorers.summarize_evidence(page, runs_by_check[c["id"]])
                 results.append({**_base(c), **g, "sample_answers": answers})
 
     return results

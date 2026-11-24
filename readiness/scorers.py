@@ -1144,15 +1144,25 @@ def _keyword_copy_richness(page):
 def static_copy_richness(page):
     """RDY-046: Product description completeness for AI agents.
 
-    When SHOPPER=anthropic and images are available, runs vision-based
-    emotional gap analysis comparing what photos convey vs what text says.
-    Falls back to keyword-based check when SHOPPER=mock or no images.
+    Runs vision-based emotional gap analysis (paid AI calls) comparing what
+    photos convey vs what text says, when allowed and images are available;
+    otherwise the free keyword-based check.
+
+    Vision is allowed by scan tier when the web app sets page["_tier"]:
+    "paid" -> always, "free" -> never (free scans must not spend API money).
+    Without a tier (CLI / batch), it follows SHOPPER=anthropic as before.
     """
     import os
-    shopper_mode = os.environ.get("SHOPPER", "mock").lower()
+    tier = page.get("_tier")
+    if tier == "paid":
+        use_vision = True
+    elif tier == "free":
+        use_vision = False
+    else:
+        use_vision = os.environ.get("SHOPPER", "mock").lower() == "anthropic"
     images = page.get("images", [])
 
-    if shopper_mode != "anthropic" or not images:
+    if not use_vision or not images:
         return _keyword_copy_richness(page)
 
     # Vision-based emotional gap analysis
@@ -1886,6 +1896,69 @@ def grade_shopper(check, page, answers):
     return {"verdict": _rate_verdict(frac, check), "pass_fraction": frac, "n": n,
             "pass_rate": f"{modal_n}/{n}", "modal_answer": modal,
             "detail": detail}
+
+
+# ---- Shopper provenance (T1) -------------------------------------------------
+# The agent reports which page text it used. We never trust that blindly: each
+# quote is checked against what the agent was actually shown. Unverified quotes
+# are kept but labelled, so a report never presents an invented quote as fact.
+
+def _squash(s: str) -> str:
+    """Normalise for quote matching: unescape, lowercase, drop all whitespace
+    and surrounding quote/ellipsis characters."""
+    import html as _html
+    s = _html.unescape(str(s or "")).replace(" ", " ").lower()
+    s = s.strip().strip("\"'“”‘’").strip()
+    s = re.sub(r"^(\.\.\.|…)|(\.\.\.|…)$", "", s)
+    return re.sub(r"\s+", "", s)
+
+
+def _provenance_sources(page: dict) -> dict[str, str]:
+    """The text the shopper was shown, split by where it lives on the page."""
+    import json as _json
+    try:
+        jsonld = _json.dumps(page.get("jsonld", []), ensure_ascii=False, default=str)
+    except (TypeError, ValueError):
+        jsonld = ""
+    return {
+        "page_text": _squash(page.get("text", "") or ""),
+        "structured_data": _squash(jsonld),
+        "title": _squash(page.get("title", "") or ""),
+    }
+
+
+def summarize_evidence(page: dict, runs: list[dict], max_groups: int = 3) -> dict:
+    """Group the shopper's quoted evidence across runs.
+
+    runs: [{"answer": str, "evidence": str}, ...] — one per shopper run.
+    Returns {"groups": [...], "no_quote": int, "runs": int} where each group is
+    {"quote", "count", "answers", "verified", "sources"}. `verified` means the
+    quote was found verbatim (whitespace/case-insensitive) in what the agent
+    was shown; `sources` says where (page_text / structured_data / title).
+    """
+    sources = _provenance_sources(page)
+    groups: dict[str, dict] = {}
+    no_quote = 0
+    for run in runs:
+        ans = str(run.get("answer", ""))
+        if _is_error(ans):
+            continue
+        quote = str(run.get("evidence") or "").strip()
+        key = _squash(quote)
+        if len(key) < 2:
+            no_quote += 1
+            continue
+        g = groups.get(key)
+        if g is None:
+            found = [name for name, text in sources.items() if key in text]
+            g = groups[key] = {"quote": quote[:200], "count": 0, "answers": [],
+                               "verified": bool(found), "sources": found}
+        g["count"] += 1
+        if ans not in g["answers"]:
+            g["answers"].append(ans)
+    ordered = sorted(groups.values(), key=lambda g: (-g["count"], not g["verified"]))
+    return {"groups": ordered[:max_groups], "no_quote": no_quote,
+            "runs": sum(1 for r in runs if not _is_error(str(r.get("answer", ""))))}
 
 
 # severity-keyed thresholds, same philosophy as audit methodology.md

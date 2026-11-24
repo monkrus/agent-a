@@ -102,11 +102,11 @@ class TestFreeScanNoShopper:
                                    "blocked_uas": [], "allowed_uas": ["GPTBot"]},
         }
 
-        # Patch ask_batch to explode if called
+        # Patch the shopper to explode if called
         def _boom(*args, **kwargs):
             raise AssertionError("Shopper was called during a free scan!")
 
-        with patch.object(app, "ask_batch", side_effect=_boom):
+        with patch.object(app, "ask_batch_detailed", side_effect=_boom):
             # Should complete without error — shopper is never reached
             scan_id = app._run_scan(
                 "https://example.com/products/test",

@@ -42,6 +42,32 @@
             <span class="sample-list">{% for a in r.sample_answers %}<code>{{ a }}</code>{% if not loop.last %} {% endif %}{% endfor %}</span>
           </div>
           {% endif %}
+          {% if r.evidence is defined and r.evidence and r.evidence.groups %}
+          {% set source_labels = {'page_text': 'visible page text', 'structured_data': 'structured data (JSON-LD)', 'title': 'page title'} %}
+          <div class="check-row">
+            <span class="check-label">What the agent read on your page</span>
+            <span class="evidence-list">
+              {% for g in r.evidence.groups %}
+              <span class="evidence-item" style="display:block; margin-bottom:0.5rem;">
+                <q style="font-family:var(--mono, monospace); background:rgba(255,255,255,0.05); padding:0.1rem 0.35rem; border-radius:4px;">{{ g.quote }}</q>
+                <span style="display:block; font-size:0.85rem; color:var(--text-muted); margin-top:0.2rem;">
+                  Used in {{ g.count }} of {{ r.evidence.runs }} visits &rarr; agent answered
+                  {% for a in g.answers %}<code>{{ a }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+                  &middot;
+                  {% if g.verified %}
+                  found in {% for s in g.sources %}{{ source_labels.get(s, s) }}{% if not loop.last %} and {% endif %}{% endfor %}
+                  {% else %}
+                  <strong style="color:#facc15;">not found on the page</strong> (the agent's quote could not be matched, so treat it as unverified)
+                  {% endif %}
+                </span>
+              </span>
+              {% endfor %}
+              {% if r.evidence.no_quote %}
+              <span style="display:block; font-size:0.85rem; color:var(--text-muted);">In {{ r.evidence.no_quote }} of {{ r.evidence.runs }} visits the agent quoted nothing (usually because it answered "unknown").</span>
+              {% endif %}
+            </span>
+          </div>
+          {% endif %}
 
           {% if r.fix_recipe is defined and r.fix_recipe %}
           <div class="fix-block">

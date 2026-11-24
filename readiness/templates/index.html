@@ -339,7 +339,7 @@
         {% if stats.failing_pct %}
         <div class="stat-item">
           <span class="stat-number" style="color:#f87171;">{{ stats.failing_pct }}%</span>
-          <span class="stat-label">Failing a critical check</span>
+          <span class="stat-label">Failing a critical or high-priority check</span>
         </div>
         {% endif %}
         <div class="stat-item">
@@ -391,7 +391,7 @@
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:1rem;">
         <a href="{{ url_for('agent_traffic_page') }}" style="display:block; text-decoration:none; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; transition:border-color 0.2s;">
           <div style="font-weight:600; color:var(--text); margin-bottom:0.3rem;">AI Agents Shopping Guide</div>
-          <div style="font-size:0.85rem; color:var(--text-muted);">Learn which AI agents are shopping on your store right now and what happens when they can't buy.</div>
+          <div style="font-size:0.85rem; color:var(--text-muted);">Learn which AI agents can shop on your store and what happens when they can't buy.</div>
         </a>
         <a href="{{ url_for('leaderboard_page') }}" style="display:block; text-decoration:none; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:1rem; transition:border-color 0.2s;">
           <div style="font-weight:600; color:var(--text); margin-bottom:0.3rem;">AI Shopping Leaderboard</div>
